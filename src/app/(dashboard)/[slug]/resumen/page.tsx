@@ -2,12 +2,14 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { LayoutDashboard } from "lucide-react"
+import { GraficoFichadas } from "@/components/resumen/grafico-fichadas"
+import type { DatoGrafico } from "@/types"
 
-interface ResumenPageProps {
+export default async function ResumenPage({
+  params,
+}: {
   params: Promise<{ slug: string }>
-}
-
-export default async function ResumenPage({ params }: ResumenPageProps) {
+}) {
   const session = await auth()
   if (!session?.user) redirect("/login")
 
@@ -17,7 +19,6 @@ export default async function ResumenPage({ params }: ResumenPageProps) {
     where: { slug },
     select: { id: true, nombre: true },
   })
-
   if (!empresa) redirect("/login")
 
   const hoy = new Date()
@@ -41,39 +42,64 @@ export default async function ResumenPage({ params }: ResumenPageProps) {
 
   const ingresos = fichadasHoy.filter((f) => f.tipo === "ENTRADA").length
   const salidas = fichadasHoy.filter((f) => f.tipo === "SALIDA").length
-  const presentesIds = new Set(
+  const presentes = new Set(
     fichadasHoy.filter((f) => f.tipo === "ENTRADA").map((f) => f.colaborador_id)
-  )
-  const presentes = presentesIds.size
+  ).size
+
+  // Build hourly chart data (7am to 8pm)
+  const horasRange = Array.from({ length: 14 }, (_, i) => i + 7) // 7 to 20
+  const conteoHoras: Record<number, { ingresos: number; salidas: number }> = {}
+  for (const h of horasRange) conteoHoras[h] = { ingresos: 0, salidas: 0 }
+
+  for (const f of fichadasHoy) {
+    const hora = new Date(f.timestamp).getHours()
+    if (hora >= 7 && hora <= 20) {
+      if (f.tipo === "ENTRADA") conteoHoras[hora].ingresos++
+      else conteoHoras[hora].salidas++
+    }
+  }
+
+  const datosGrafico: DatoGrafico[] = horasRange.map((h) => ({
+    hora: String(h).padStart(2, "0"),
+    ingresos: conteoHoras[h].ingresos,
+    salidas: conteoHoras[h].salidas,
+  }))
+
+  const fechaFormateada = hoy.toLocaleDateString("es-AR", {
+    weekday: "long",
+    year: "numeric",
+    month: "long",
+    day: "numeric",
+  })
 
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
         <LayoutDashboard size={20} className="text-[#E8593C]" />
         <h1 className="text-xl font-semibold text-gray-900">Resumen del día</h1>
-        <span className="text-sm text-gray-500 ml-2">
-          {hoy.toLocaleDateString("es-AR", {
-            weekday: "long",
-            year: "numeric",
-            month: "long",
-            day: "numeric",
-          })}
-        </span>
+        <span className="text-sm text-gray-500 ml-2 capitalize">{fechaFormateada}</span>
       </div>
 
+      {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-        <KpiCard
-          label="Colaboradores"
-          value={totalColaboradores}
-          variant="neutral"
-        />
+        <KpiCard label="Colaboradores" value={totalColaboradores} variant="neutral" />
         <KpiCard label="Presentes" value={presentes} variant="coral" />
         <KpiCard label="Ingresos" value={ingresos} variant="coral" />
         <KpiCard label="Salidas" value={salidas} variant="dark" />
       </div>
 
+      {/* Gráfico */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-sm font-medium text-gray-600 mb-4">
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">
+          Comportamiento de fichadas
+        </h2>
+        <p className="text-xs text-gray-400 mb-4">Entradas y salidas por hora del día</p>
+        <GraficoFichadas datos={datosGrafico} />
+      </div>
+
+      {/* Últimas fichadas */}
+      <div className="bg-white rounded-xl border border-gray-200 p-6">
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">
           Últimas fichadas de hoy
         </h2>
         {fichadasHoy.length === 0 ? (
@@ -130,13 +156,7 @@ function KpiCard({
     coral: "bg-[#E8593C] text-white",
     dark: "bg-[#D04828] text-white",
   }
-
-  const textStyles = {
-    neutral: "text-gray-900",
-    coral: "text-white",
-    dark: "text-white",
-  }
-
+  const textStyles = { neutral: "text-gray-900", coral: "text-white", dark: "text-white" }
   const labelStyles = {
     neutral: "text-gray-500",
     coral: "text-orange-100",
