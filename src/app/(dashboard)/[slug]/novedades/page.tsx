@@ -2,13 +2,22 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { NovedadesCliente } from "@/components/novedades/novedades-cliente"
+import type { TipoNovedad, Colaborador } from "@/generated/prisma/client"
+
+export interface InasistenciaDetectada {
+  colaborador: Colaborador
+  fecha: string
+  novedadId: string | null
+  novedadTipo: TipoNovedad | null
+  aprobada: boolean
+}
 
 export default async function NovedadesPage({
   params,
   searchParams,
 }: {
   params: Promise<{ slug: string }>
-  searchParams: Promise<{ fecha?: string; desde?: string; hasta?: string; tab?: string }>
+  searchParams: Promise<{ tab?: string; mes?: string; anio?: string }>
 }) {
   const session = await auth()
   if (!session?.user) redirect("/login")
@@ -18,56 +27,105 @@ export default async function NovedadesPage({
   const tab = sp.tab ?? "inasistencias"
 
   const hoy = new Date()
-  hoy.setHours(0, 0, 0, 0)
-
-  const fechaStr = sp.fecha ?? hoy.toISOString().split("T")[0]
-
-  const desdeStr = sp.desde ?? fechaStr
-  const hastaStr = sp.hasta ?? fechaStr
-  const desde = new Date(desdeStr + "T00:00:00")
-  const hasta = new Date(hastaStr + "T23:59:59")
+  const mesActual = sp.mes ? parseInt(sp.mes) : hoy.getMonth() + 1
+  const anioActual = sp.anio ? parseInt(sp.anio) : hoy.getFullYear()
 
   const empresaId = session.user.empresaId
 
-  const [colaboradores, novedades, fichadasDelDia] = await Promise.all([
+  // Last 14 calendar days (covers ~10 weekdays)
+  const hace14Dias = new Date()
+  hace14Dias.setDate(hace14Dias.getDate() - 14)
+  hace14Dias.setHours(0, 0, 0, 0)
+
+  // Calendar month range for Reporte tab
+  const desdeCalendario = new Date(anioActual, mesActual - 1, 1)
+  const hastaCalendario = new Date(anioActual, mesActual, 0, 23, 59, 59)
+
+  const [colaboradores, fichadasRecientes, novedadesRecientes, novedadesMes] = await Promise.all([
     prisma.colaborador.findMany({
       where: { empresa_id: empresaId, deleted_at: null, estado: "ACTIVO" },
       orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
-    }),
-    prisma.novedad.findMany({
-      where: {
-        empresa_id: empresaId,
-        fecha: { gte: desde, lte: hasta },
-      },
-      include: { colaborador: true },
-      orderBy: { fecha: "desc" },
     }),
     prisma.fichada.findMany({
       where: {
         empresa_id: empresaId,
         tipo: "ENTRADA",
-        timestamp: {
-          gte: new Date(fechaStr + "T00:00:00"),
-          lte: new Date(fechaStr + "T23:59:59"),
-        },
+        timestamp: { gte: hace14Dias },
       },
-      select: { colaborador_id: true },
+      select: { colaborador_id: true, timestamp: true },
+    }),
+    prisma.novedad.findMany({
+      where: { empresa_id: empresaId, fecha: { gte: hace14Dias } },
+    }),
+    prisma.novedad.findMany({
+      where: {
+        empresa_id: empresaId,
+        fecha: { gte: desdeCalendario, lte: hastaCalendario },
+      },
+      include: { colaborador: true },
+      orderBy: { fecha: "asc" },
     }),
   ])
 
-  const idsConFichada = new Set(fichadasDelDia.map((f) => f.colaborador_id))
-  const inasistentes = colaboradores.filter((c) => !idsConFichada.has(c.id))
+  // Build presence set: "colaborador_id|YYYY-MM-DD"
+  const presencias = new Set<string>()
+  for (const f of fichadasRecientes) {
+    const fecha = f.timestamp.toISOString().split("T")[0]
+    presencias.add(`${f.colaborador_id}|${fecha}`)
+  }
+
+  // Build novedad map: "colaborador_id|YYYY-MM-DD"
+  const novedadesMap = new Map<string, { id: string; tipo: TipoNovedad; aprobada: boolean }>()
+  for (const n of novedadesRecientes) {
+    const fecha = new Date(n.fecha).toISOString().split("T")[0]
+    novedadesMap.set(`${n.colaborador_id}|${fecha}`, {
+      id: n.id,
+      tipo: n.tipo,
+      aprobada: n.aprobada,
+    })
+  }
+
+  // Compute inasistencias for last 14 weekdays
+  const inasistencias: InasistenciaDetectada[] = []
+  for (let i = 1; i <= 14; i++) {
+    const dia = new Date()
+    dia.setDate(dia.getDate() - i)
+    dia.setHours(0, 0, 0, 0)
+    const dow = dia.getDay()
+    if (dow === 0 || dow === 6) continue // skip weekends
+
+    const fechaStr = dia.toISOString().split("T")[0]
+
+    for (const colab of colaboradores) {
+      const key = `${colab.id}|${fechaStr}`
+      if (!presencias.has(key)) {
+        const novedad = novedadesMap.get(key)
+        inasistencias.push({
+          colaborador: colab,
+          fecha: fechaStr,
+          novedadId: novedad?.id ?? null,
+          novedadTipo: novedad?.tipo ?? null,
+          aprobada: novedad?.aprobada ?? false,
+        })
+      }
+    }
+  }
+
+  // Sort: date desc, then name asc
+  inasistencias.sort((a, b) => {
+    if (a.fecha !== b.fecha) return b.fecha.localeCompare(a.fecha)
+    return a.colaborador.apellido.localeCompare(b.colaborador.apellido)
+  })
 
   return (
     <NovedadesCliente
       slug={slug}
       colaboradores={colaboradores}
-      novedades={novedades}
-      inasistentes={inasistentes}
+      novedadesMes={novedadesMes}
+      inasistencias={inasistencias}
       tabInicial={tab}
-      fechaInicial={fechaStr}
-      desdeInicial={desdeStr}
-      hastaInicial={hastaStr}
+      mesInicial={mesActual}
+      anioInicial={anioActual}
     />
   )
 }
