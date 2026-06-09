@@ -3,11 +3,11 @@ import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { ColaboradoresCliente } from "@/components/colaboradores/colaboradores-cliente"
 
-interface ColaboradoresPageProps {
+export default async function ColaboradoresPage({
+  params,
+}: {
   params: Promise<{ slug: string }>
-}
-
-export default async function ColaboradoresPage({ params }: ColaboradoresPageProps) {
+}) {
   const session = await auth()
   if (!session?.user) redirect("/login")
 
@@ -19,22 +19,23 @@ export default async function ColaboradoresPage({ params }: ColaboradoresPagePro
   })
   if (!empresa) redirect("/login")
 
-  const colaboradores = await prisma.colaborador.findMany({
-    where: { empresa_id: empresa.id, deleted_at: null },
-    include: {
-      jornadas: {
-        where: { fecha_hasta: null },
-        include: { jornada: { include: { punto_fichaje: true } } },
-        take: 1,
+  const [colaboradores, jornadas] = await Promise.all([
+    prisma.colaborador.findMany({
+      where: { empresa_id: empresa.id, deleted_at: null },
+      include: {
+        jornadas: {
+          where: { fecha_hasta: null },
+          include: { jornada: { include: { punto_fichaje: true } } },
+          take: 1,
+        },
       },
-    },
-    orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
-  })
-
-  const jornadas = await prisma.jornada.findMany({
-    where: { empresa_id: empresa.id, activo: true },
-    include: { punto_fichaje: true },
-  })
+      orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
+    }),
+    prisma.jornada.findMany({
+      where: { empresa_id: empresa.id, activo: true },
+      include: { punto_fichaje: true },
+    }),
+  ])
 
   return (
     <ColaboradoresCliente

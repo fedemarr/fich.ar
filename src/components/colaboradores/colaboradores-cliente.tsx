@@ -2,52 +2,151 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Search, Plus, Pencil, Trash2 } from "lucide-react"
-import { Input } from "@/components/ui/input"
+import { Users, Pencil, UserCog, Download } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { ColaboradorDialog } from "@/components/colaboradores/colaborador-dialog"
 import { EliminarDialog } from "@/components/colaboradores/eliminar-dialog"
-import type { Colaborador, ColaboradorJornada, Jornada, PuntoFichaje, EstadoColaborador } from "@/generated/prisma/client"
+import { toast } from "sonner"
+import type { Colaborador, ColaboradorJornada, Jornada, PuntoFichaje } from "@/generated/prisma/client"
 
 type ColaboradorConJornada = Colaborador & {
   jornadas: (ColaboradorJornada & {
     jornada: Jornada & { punto_fichaje: PuntoFichaje }
   })[]
 }
-
 type JornadaConPunto = Jornada & { punto_fichaje: PuntoFichaje }
 
-interface ColaboradoresClienteProps {
+interface Props {
   colaboradores: ColaboradorConJornada[]
   jornadas: JornadaConPunto[]
   empresaId: string
 }
 
-const ESTADO_BADGE: Record<EstadoColaborador, { label: string; class: string }> = {
-  ACTIVO: { label: "Activo", class: "bg-green-50 text-green-700 border-green-200" },
-  INACTIVO: { label: "Inactivo", class: "bg-gray-100 text-gray-500 border-gray-200" },
-  DESACTIVADO: { label: "Desactivado", class: "bg-red-50 text-red-600 border-red-200" },
+function AvatarColaborador({ nombre, apellido }: { nombre: string; apellido: string }) {
+  return (
+    <div className="w-9 h-9 rounded-full bg-[#FEF3F0] border border-[#F5C4BA] flex items-center justify-center shrink-0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-[#E8593C]">
+        <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.8" />
+        <path d="M5 20c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
+        <circle cx="19" cy="5" r="3" fill="currentColor" opacity="0.25" />
+        <path d="M17.5 5h3M19 3.5v3" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round"/>
+      </svg>
+    </div>
+  )
 }
 
-export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: ColaboradoresClienteProps) {
+function exportarCSV(colaboradores: ColaboradorConJornada[]) {
+  const headers = ["Apellido", "Nombre", "Celular", "Identificación", "Legajo", "Sector", "Estado"]
+  const rows = colaboradores.map((c) => [
+    c.apellido, c.nombre, c.celular,
+    c.identificacion ?? "", c.legajo ?? "", c.sector ?? "", c.estado,
+  ])
+  const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n")
+  const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" })
+  const url = URL.createObjectURL(blob)
+  const a = document.createElement("a")
+  a.href = url; a.download = "colaboradores.csv"; a.click()
+  URL.revokeObjectURL(url)
+  toast.success("Nómina exportada")
+}
+
+function TablaColaboradores({
+  colaboradores,
+  onEditar,
+  onEliminar,
+}: {
+  colaboradores: ColaboradorConJornada[]
+  onEditar: (c: ColaboradorConJornada) => void
+  onEliminar: (c: ColaboradorConJornada) => void
+}) {
+  if (colaboradores.length === 0) {
+    return (
+      <div className="py-14 text-center text-sm text-gray-400">
+        Sin colaboradores en esta categoría
+      </div>
+    )
+  }
+
+  return (
+    <table className="w-full text-sm">
+      <thead>
+        <tr className="border-b border-gray-200">
+          <th className="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Colaborador</th>
+          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Celular</th>
+          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Identificación</th>
+          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Empresa</th>
+          <th className="px-4 py-3 w-20" />
+        </tr>
+      </thead>
+      <tbody className="divide-y divide-gray-100">
+        {colaboradores.map((c) => {
+          const jornadaActual = c.jornadas[0]?.jornada
+          const puntoNombre = jornadaActual?.punto_fichaje.nombre ?? null
+          const empresa = puntoNombre ?? c.sector ?? null
+
+          return (
+            <tr key={c.id} className="hover:bg-gray-50/60 transition-colors">
+              <td className="px-5 py-3.5">
+                <div className="flex items-center gap-3">
+                  <AvatarColaborador nombre={c.nombre} apellido={c.apellido} />
+                  <span className="font-medium text-gray-800">
+                    {c.apellido} {c.nombre}
+                  </span>
+                </div>
+              </td>
+              <td className="px-4 py-3.5 text-gray-600">{c.celular}</td>
+              <td className="px-4 py-3.5 text-gray-400 text-sm">
+                {c.identificacion ?? "No especificado"}
+              </td>
+              <td className="px-4 py-3.5 text-gray-400 text-sm">
+                {empresa ?? "No especificado"}
+              </td>
+              <td className="px-4 py-3.5">
+                <div className="flex items-center gap-2.5 justify-end">
+                  <button
+                    onClick={() => onEditar(c)}
+                    className="text-gray-300 hover:text-[#E8593C] transition-colors"
+                    title="Editar"
+                  >
+                    <Pencil size={15} />
+                  </button>
+                  <button
+                    onClick={() => onEliminar(c)}
+                    className="text-gray-300 hover:text-gray-500 transition-colors"
+                    title="Gestionar"
+                  >
+                    <UserCog size={16} />
+                  </button>
+                </div>
+              </td>
+            </tr>
+          )
+        })}
+      </tbody>
+    </table>
+  )
+}
+
+export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Props) {
   const router = useRouter()
+  const [tab, setTab] = useState<"nomina" | "alta" | "desactivados">("nomina")
   const [busqueda, setBusqueda] = useState("")
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   const [editando, setEditando] = useState<ColaboradorConJornada | null>(null)
   const [eliminando, setEliminando] = useState<ColaboradorConJornada | null>(null)
 
-  const filtrados = useMemo(() => {
-    if (!busqueda.trim()) return colaboradores
-    const q = busqueda.toLowerCase()
-    return colaboradores.filter((c) =>
-      `${c.nombre} ${c.apellido} ${c.celular} ${c.legajo ?? ""}`.toLowerCase().includes(q)
-    )
-  }, [colaboradores, busqueda])
+  const activos = useMemo(() => colaboradores.filter((c) => c.estado === "ACTIVO"), [colaboradores])
+  const desactivados = useMemo(
+    () => colaboradores.filter((c) => c.estado !== "ACTIVO"),
+    [colaboradores]
+  )
 
-  function abrirNuevo() {
-    setEditando(null)
-    setDialogoAbierto(true)
+  const filtrar = (lista: ColaboradorConJornada[]) => {
+    if (!busqueda.trim()) return lista
+    const q = busqueda.toLowerCase()
+    return lista.filter((c) =>
+      `${c.nombre} ${c.apellido} ${c.celular} ${c.identificacion ?? ""} ${c.legajo ?? ""}`.toLowerCase().includes(q)
+    )
   }
 
   function abrirEditar(c: ColaboradorConJornada) {
@@ -55,124 +154,117 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Col
     setDialogoAbierto(true)
   }
 
+  function handleAltaClick() {
+    setEditando(null)
+    setDialogoAbierto(true)
+  }
+
   return (
     <div className="space-y-4">
+      {/* Header */}
       <div className="flex items-center gap-2">
         <Users size={20} className="text-[#E8593C]" />
-        <h1 className="text-xl font-semibold text-gray-900">Colaboradores</h1>
-        <span className="text-sm text-gray-400 ml-1">
-          {colaboradores.length} en total
-        </span>
-      </div>
-
-      <div className="flex items-center gap-2">
-        <div className="relative flex-1 max-w-sm">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Buscar por nombre, celular, legajo..."
-            className="pl-8 h-9 text-sm"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
+        <div>
+          <h1 className="text-xl font-semibold text-gray-900">Colaboradores</h1>
+          <p className="text-xs text-gray-400">Gestión de todos los colaboradores</p>
         </div>
-        <Button
-          className="ml-auto h-9 gap-1.5 bg-[#E8593C] hover:bg-[#D04828] text-white"
-          onClick={abrirNuevo}
+      </div>
+
+      {/* Tabs */}
+      <div className="flex border-b border-gray-200">
+        <button
+          onClick={() => setTab("nomina")}
+          className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            tab === "nomina"
+              ? "border-gray-900 text-gray-900"
+              : "border-transparent text-gray-400 hover:text-gray-600"
+          }`}
         >
-          <Plus size={15} />
-          Nuevo colaborador
-        </Button>
+          Nómina
+        </button>
+        <button
+          onClick={() => { setTab("alta"); handleAltaClick() }}
+          className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            tab === "alta"
+              ? "border-gray-900 text-gray-900"
+              : "border-transparent text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          Alta
+        </button>
+        <button
+          onClick={() => setTab("desactivados")}
+          className={`px-5 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
+            tab === "desactivados"
+              ? "border-gray-900 text-gray-900"
+              : "border-transparent text-gray-400 hover:text-gray-600"
+          }`}
+        >
+          Desactivados
+        </button>
       </div>
 
+      {/* Contenido */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="border-b border-gray-100 bg-gray-50">
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Colaborador</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Celular</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Legajo</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Jornada</th>
-              <th className="text-left px-4 py-3 font-medium text-gray-600">Estado</th>
-              <th className="px-4 py-3" />
-            </tr>
-          </thead>
-          <tbody>
-            {filtrados.length === 0 ? (
-              <tr>
-                <td colSpan={6} className="text-center text-gray-400 py-12">
-                  {busqueda ? "Sin resultados para esa búsqueda" : "No hay colaboradores cargados"}
-                </td>
-              </tr>
-            ) : (
-              filtrados.map((c) => {
-                const jornadaActual = c.jornadas[0]?.jornada
-                const badge = ESTADO_BADGE[c.estado]
-                return (
-                  <tr
-                    key={c.id}
-                    className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors"
-                  >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2.5">
-                        <div className="w-8 h-8 rounded-full bg-[#FEF3F0] flex items-center justify-center text-xs font-semibold text-[#E8593C] shrink-0">
-                          {c.nombre[0]}{c.apellido[0]}
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-800">{c.apellido} {c.nombre}</p>
-                          {c.email && <p className="text-xs text-gray-400">{c.email}</p>}
-                        </div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-600">{c.celular}</td>
-                    <td className="px-4 py-3 text-gray-500">{c.legajo ?? "—"}</td>
-                    <td className="px-4 py-3 text-gray-600 text-xs">
-                      {jornadaActual ? (
-                        <div>
-                          <p>{jornadaActual.nombre}</p>
-                          <p className="text-gray-400">{jornadaActual.punto_fichaje.nombre}</p>
-                        </div>
-                      ) : "—"}
-                    </td>
-                    <td className="px-4 py-3">
-                      <Badge variant="outline" className={`text-xs ${badge.class}`}>
-                        {badge.label}
-                      </Badge>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-1 justify-end">
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-gray-400 hover:text-[#E8593C]"
-                          onClick={() => abrirEditar(c)}
-                        >
-                          <Pencil size={13} />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          className="h-7 w-7 p-0 text-gray-400 hover:text-red-500"
-                          onClick={() => setEliminando(c)}
-                        >
-                          <Trash2 size={13} />
-                        </Button>
-                      </div>
-                    </td>
-                  </tr>
-                )
-              })
-            )}
-          </tbody>
-        </table>
+        {/* Sub-header de la tabla */}
+        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
+          <div className="flex items-center gap-2">
+            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
+              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
+            </svg>
+            <h2 className="text-sm font-semibold text-gray-700">
+              {tab === "desactivados" ? "Colaboradores Desactivados" : "Nómina Colaboradores"}
+            </h2>
+          </div>
+          <div className="flex items-center gap-3">
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs text-[#E8593C] border-[#E8593C] hover:bg-[#FEF3F0]"
+              onClick={() => exportarCSV(tab === "desactivados" ? desactivados : activos)}
+            >
+              <Download size={13} />
+              Exportar datos
+            </Button>
+            <div className="relative">
+              <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+                <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
+              </svg>
+              <input
+                type="text"
+                placeholder="Search"
+                value={busqueda}
+                onChange={(e) => setBusqueda(e.target.value)}
+                className="h-8 pl-7 pr-3 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E8593C]/20 w-44"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Tabla */}
+        {tab === "desactivados" ? (
+          <TablaColaboradores
+            colaboradores={filtrar(desactivados)}
+            onEditar={abrirEditar}
+            onEliminar={(c) => setEliminando(c)}
+          />
+        ) : (
+          <TablaColaboradores
+            colaboradores={filtrar(activos)}
+            onEditar={abrirEditar}
+            onEliminar={(c) => setEliminando(c)}
+          />
+        )}
       </div>
 
+      {/* Dialogs */}
       <ColaboradorDialog
         open={dialogoAbierto}
-        onClose={() => setDialogoAbierto(false)}
+        onClose={() => { setDialogoAbierto(false); setTab("nomina") }}
         colaborador={editando}
         jornadas={jornadas}
         empresaId={empresaId}
-        onSuccess={() => { router.refresh(); setDialogoAbierto(false) }}
+        onSuccess={() => { router.refresh(); setDialogoAbierto(false); setTab("nomina") }}
       />
 
       <EliminarDialog
