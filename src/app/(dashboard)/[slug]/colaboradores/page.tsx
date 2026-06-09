@@ -1,15 +1,46 @@
-import { Users } from "lucide-react"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { redirect } from "next/navigation"
+import { ColaboradoresCliente } from "@/components/colaboradores/colaboradores-cliente"
 
-export default function ColaboradoresPage() {
+interface ColaboradoresPageProps {
+  params: Promise<{ slug: string }>
+}
+
+export default async function ColaboradoresPage({ params }: ColaboradoresPageProps) {
+  const session = await auth()
+  if (!session?.user) redirect("/login")
+
+  const { slug } = await params
+
+  const empresa = await prisma.empresa.findUnique({
+    where: { slug },
+    select: { id: true },
+  })
+  if (!empresa) redirect("/login")
+
+  const colaboradores = await prisma.colaborador.findMany({
+    where: { empresa_id: empresa.id, deleted_at: null },
+    include: {
+      jornadas: {
+        where: { fecha_hasta: null },
+        include: { jornada: { include: { punto_fichaje: true } } },
+        take: 1,
+      },
+    },
+    orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
+  })
+
+  const jornadas = await prisma.jornada.findMany({
+    where: { empresa_id: empresa.id, activo: true },
+    include: { punto_fichaje: true },
+  })
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Users size={20} className="text-[#E8593C]" />
-        <h1 className="text-xl font-semibold text-gray-900">Colaboradores</h1>
-      </div>
-      <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
-        Próximamente — Fase 2
-      </div>
-    </div>
+    <ColaboradoresCliente
+      colaboradores={colaboradores}
+      jornadas={jornadas}
+      empresaId={empresa.id}
+    />
   )
 }
