@@ -1,15 +1,70 @@
-import { ClipboardList } from "lucide-react"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { redirect } from "next/navigation"
+import { ListadoCliente } from "@/components/listado/listado-cliente"
 
-export default function ListadoPage() {
+interface ListadoPageProps {
+  params: Promise<{ slug: string }>
+  searchParams: Promise<{ fecha?: string; hasta?: string }>
+}
+
+export default async function ListadoPage({ params, searchParams }: ListadoPageProps) {
+  const session = await auth()
+  if (!session?.user) redirect("/login")
+
+  const { slug } = await params
+  const { fecha, hasta } = await searchParams
+
+  const empresa = await prisma.empresa.findUnique({
+    where: { slug },
+    select: { id: true, nombre: true },
+  })
+  if (!empresa) redirect("/login")
+
+  const fechaDesde = fecha ? new Date(fecha) : new Date()
+  fechaDesde.setHours(0, 0, 0, 0)
+
+  const fechaHasta = hasta ? new Date(hasta) : new Date(fechaDesde)
+  fechaHasta.setHours(23, 59, 59, 999)
+
+  const [colaboradores, fichadas] = await Promise.all([
+    prisma.colaborador.findMany({
+      where: { empresa_id: empresa.id, estado: "ACTIVO", deleted_at: null },
+      include: {
+        jornadas: {
+          where: {
+            fecha_hasta: null,
+          },
+          include: {
+            jornada: {
+              include: { punto_fichaje: true },
+            },
+          },
+          take: 1,
+        },
+      },
+      orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
+    }),
+    prisma.fichada.findMany({
+      where: {
+        empresa_id: empresa.id,
+        timestamp: { gte: fechaDesde, lte: fechaHasta },
+      },
+      include: {
+        colaborador: true,
+        punto_fichaje: true,
+      },
+      orderBy: { timestamp: "asc" },
+    }),
+  ])
+
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <ClipboardList size={20} className="text-[#E8593C]" />
-        <h1 className="text-xl font-semibold text-gray-900">Listado del día</h1>
-      </div>
-      <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
-        Próximamente — Fase 2
-      </div>
-    </div>
+    <ListadoCliente
+      colaboradores={colaboradores}
+      fichadas={fichadas}
+      empresaId={empresa.id}
+      fechaInicial={fechaDesde.toISOString().split("T")[0]}
+      hastaInicial={hasta ?? null}
+    />
   )
 }
