@@ -1,0 +1,309 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum RolUsuario {
+  SUPER_ADMIN
+  ADMIN
+  MANAGER
+}
+
+enum EstadoColaborador {
+  ACTIVO
+  INACTIVO
+  DESACTIVADO
+}
+
+enum TipoNovedad {
+  P
+  PT
+  AU
+  VAC
+  EN
+  FR
+  FE
+  HDO
+  C
+  DES
+  VIR
+}
+
+enum TipoFichada {
+  ENTRADA
+  SALIDA
+}
+
+enum MetodoFichada {
+  QR_WHATSAPP
+  MANUAL
+}
+
+enum AnalisisFichada {
+  LLEGADA_EN_TIEMPO
+  LLEGADA_TARDE
+  SALIDA_ANTICIPADA
+  SALIDA_EN_TIEMPO
+  SIN_SALIDA
+  FUERA_DE_RANGO
+}
+
+enum EstadoNotificacion {
+  NO_LEIDA
+  LEIDA
+}
+
+enum TipoNotificacion {
+  FALLA_FICHADA
+  INASISTENCIA
+  SISTEMA
+  COMUNICACION_NUEVA
+}
+
+model Empresa {
+  id         String    @id @default(uuid())
+  nombre     String
+  slug       String    @unique
+  logo_url   String?
+  activa     Boolean   @default(true)
+  created_at DateTime  @default(now())
+  updated_at DateTime  @updatedAt
+  deleted_at DateTime?
+
+  usuarios       Usuario[]
+  colaboradores  Colaborador[]
+  puntos_fichaje PuntoFichaje[]
+  jornadas       Jornada[]
+  fichadas       Fichada[]
+  novedades      Novedad[]
+  comunicaciones Comunicacion[]
+  notificaciones Notificacion[]
+
+  @@map("empresas")
+}
+
+model Usuario {
+  id         String     @id @default(uuid())
+  empresa_id String
+  nombre     String
+  email      String     @unique
+  password   String
+  rol        RolUsuario @default(ADMIN)
+  activo     Boolean    @default(true)
+  created_at DateTime   @default(now())
+  updated_at DateTime   @updatedAt
+  deleted_at DateTime?
+
+  empresa           Empresa   @relation(fields: [empresa_id], references: [id])
+  fichadas_manuales Fichada[] @relation("FichadaManualUsuario")
+
+  @@index([empresa_id])
+  @@map("usuarios")
+}
+
+model Colaborador {
+  id             String            @id @default(uuid())
+  empresa_id     String
+  nombre         String
+  apellido       String
+  celular        String
+  identificacion String?
+  legajo         String?
+  email          String?
+  avatar_url     String?
+  sector         String?
+  estado         EstadoColaborador @default(ACTIVO)
+  fecha_ingreso  DateTime?
+  created_at     DateTime          @default(now())
+  updated_at     DateTime          @updatedAt
+  deleted_at     DateTime?
+
+  empresa        Empresa              @relation(fields: [empresa_id], references: [id])
+  fichadas       Fichada[]
+  novedades      Novedad[]
+  notificaciones Notificacion[]
+  jornadas       ColaboradorJornada[]
+
+  @@index([empresa_id])
+  @@index([celular])
+  @@map("colaboradores")
+}
+
+model PuntoFichaje {
+  id           String   @id @default(uuid())
+  empresa_id   String
+  nombre       String
+  latitud      Float
+  longitud     Float
+  radio_metros Int      @default(200)
+  qr_token     String   @unique @default(uuid())
+  activo       Boolean  @default(true)
+  created_at   DateTime @default(now())
+  updated_at   DateTime @updatedAt
+
+  empresa  Empresa    @relation(fields: [empresa_id], references: [id])
+  fichadas Fichada[]
+  jornadas Jornada[]
+
+  @@index([empresa_id])
+  @@index([qr_token])
+  @@map("puntos_fichaje")
+}
+
+model Jornada {
+  id               String  @id @default(uuid())
+  empresa_id       String
+  punto_fichaje_id String
+  nombre           String
+  hora_inicio      String
+  hora_fin         String
+  tolerancia_min   Int     @default(15)
+
+  lunes_presencial     Boolean @default(false)
+  martes_presencial    Boolean @default(false)
+  miercoles_presencial Boolean @default(false)
+  jueves_presencial    Boolean @default(false)
+  viernes_presencial   Boolean @default(false)
+  sabado_presencial    Boolean @default(false)
+  domingo_presencial   Boolean @default(false)
+
+  lunes_virtual     Boolean @default(false)
+  martes_virtual    Boolean @default(false)
+  miercoles_virtual Boolean @default(false)
+  jueves_virtual    Boolean @default(false)
+  viernes_virtual   Boolean @default(false)
+  sabado_virtual    Boolean @default(false)
+  domingo_virtual   Boolean @default(false)
+
+  activo     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  empresa       Empresa              @relation(fields: [empresa_id], references: [id])
+  punto_fichaje PuntoFichaje         @relation(fields: [punto_fichaje_id], references: [id])
+  colaboradores ColaboradorJornada[]
+
+  @@index([empresa_id])
+  @@index([punto_fichaje_id])
+  @@map("jornadas")
+}
+
+model ColaboradorJornada {
+  id             String    @id @default(uuid())
+  colaborador_id String
+  jornada_id     String
+  fecha_desde    DateTime  @default(now())
+  fecha_hasta    DateTime?
+
+  colaborador Colaborador @relation(fields: [colaborador_id], references: [id])
+  jornada     Jornada     @relation(fields: [jornada_id], references: [id])
+
+  @@index([colaborador_id])
+  @@index([jornada_id])
+  @@map("colaborador_jornadas")
+}
+
+model Fichada {
+  id                String           @id @default(uuid())
+  empresa_id        String
+  colaborador_id    String
+  punto_fichaje_id  String?
+  tipo              TipoFichada
+  metodo            MetodoFichada    @default(QR_WHATSAPP)
+  timestamp         DateTime         @default(now())
+  latitud_real      Float?
+  longitud_real     Float?
+  distancia_metros  Int?
+  analisis          AnalisisFichada?
+  es_valida         Boolean          @default(true)
+  nota_manual       String?
+  usuario_manual_id String?
+
+  usuario_manual Usuario?      @relation("FichadaManualUsuario", fields: [usuario_manual_id], references: [id])
+  empresa        Empresa       @relation(fields: [empresa_id], references: [id])
+  colaborador    Colaborador   @relation(fields: [colaborador_id], references: [id])
+  punto_fichaje  PuntoFichaje? @relation(fields: [punto_fichaje_id], references: [id])
+
+  created_at DateTime @default(now())
+
+  @@index([empresa_id])
+  @@index([colaborador_id])
+  @@index([empresa_id, timestamp])
+  @@index([colaborador_id, timestamp])
+  @@map("fichadas")
+}
+
+model Novedad {
+  id             String      @id @default(uuid())
+  empresa_id     String
+  colaborador_id String
+  fecha          DateTime    @db.Date
+  tipo           TipoNovedad
+  observacion    String?
+  aprobada       Boolean     @default(false)
+  created_at     DateTime    @default(now())
+  updated_at     DateTime    @updatedAt
+
+  empresa     Empresa     @relation(fields: [empresa_id], references: [id])
+  colaborador Colaborador @relation(fields: [colaborador_id], references: [id])
+
+  @@unique([colaborador_id, fecha])
+  @@index([empresa_id])
+  @@index([empresa_id, fecha])
+  @@map("novedades")
+}
+
+model Comunicacion {
+  id           String    @id @default(uuid())
+  empresa_id   String
+  texto        String
+  fecha_inicio DateTime  @default(now())
+  fecha_fin    DateTime
+  activa       Boolean   @default(true)
+  created_at   DateTime  @default(now())
+  updated_at   DateTime  @updatedAt
+  deleted_at   DateTime?
+
+  empresa Empresa @relation(fields: [empresa_id], references: [id])
+
+  @@index([empresa_id])
+  @@map("comunicaciones")
+}
+
+model Notificacion {
+  id             String             @id @default(uuid())
+  empresa_id     String
+  colaborador_id String?
+  tipo           TipoNotificacion
+  titulo         String
+  descripcion    String?
+  estado         EstadoNotificacion @default(NO_LEIDA)
+  metadata       Json?
+  created_at     DateTime           @default(now())
+
+  empresa     Empresa      @relation(fields: [empresa_id], references: [id])
+  colaborador Colaborador? @relation(fields: [colaborador_id], references: [id])
+
+  @@index([empresa_id])
+  @@index([empresa_id, estado])
+  @@map("notificaciones")
+}
+
+model WebhookWA {
+  id            String   @id @default(uuid())
+  from_number   String
+  body          String
+  latitud       Float?
+  longitud      Float?
+  wa_message_id String   @unique
+  procesado     Boolean  @default(false)
+  error         String?
+  created_at    DateTime @default(now())
+
+  @@index([from_number])
+  @@map("webhooks_wa")
+}
