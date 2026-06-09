@@ -1,15 +1,23 @@
-import { Megaphone } from "lucide-react"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { redirect } from "next/navigation"
+import { ComunicacionesCliente } from "@/components/comunicaciones/comunicaciones-cliente"
 
-export default function ComunicacionesPage() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Megaphone size={20} className="text-[#E8593C]" />
-        <h1 className="text-xl font-semibold text-gray-900">Comunicaciones</h1>
-      </div>
-      <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
-        Próximamente — Fase 3
-      </div>
-    </div>
-  )
+export default async function ComunicacionesPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const session = await auth()
+  if (!session?.user) redirect("/login")
+
+  const { slug } = await params
+  const empresaId = session.user.empresaId
+
+  const comunicaciones = await prisma.comunicacion.findMany({
+    where: { empresa_id: empresaId, deleted_at: null },
+    orderBy: { fecha_inicio: "desc" },
+  })
+
+  return <ComunicacionesCliente slug={slug} comunicaciones={comunicaciones} />
 }

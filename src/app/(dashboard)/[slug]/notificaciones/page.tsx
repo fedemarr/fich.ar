@@ -1,15 +1,25 @@
-import { Bell } from "lucide-react"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { redirect } from "next/navigation"
+import { NotificacionesCliente } from "@/components/notificaciones/notificaciones-cliente"
 
-export default function NotificacionesPage() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <Bell size={20} className="text-[#E8593C]" />
-        <h1 className="text-xl font-semibold text-gray-900">Notificaciones</h1>
-      </div>
-      <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
-        Próximamente — Fase 3
-      </div>
-    </div>
-  )
+export default async function NotificacionesPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>
+}) {
+  const session = await auth()
+  if (!session?.user) redirect("/login")
+
+  await params
+  const empresaId = session.user.empresaId
+
+  const notificaciones = await prisma.notificacion.findMany({
+    where: { empresa_id: empresaId },
+    include: { colaborador: true },
+    orderBy: { created_at: "desc" },
+    take: 100,
+  })
+
+  return <NotificacionesCliente notificaciones={notificaciones} />
 }
