@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { Sidebar } from "@/components/dashboard/sidebar"
 import { Header } from "@/components/dashboard/header"
 import { Toaster } from "@/components/ui/sonner"
+import { ChatWidget } from "@/components/ai/chat-widget"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -38,6 +39,7 @@ export default async function DashboardLayout({
         <main className="flex-1 overflow-y-auto p-6">{children}</main>
       </div>
       <Toaster richColors position="top-right" />
+      <ChatWidget />
     </div>
   )
 }
