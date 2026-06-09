@@ -42,7 +42,7 @@ function DiaToggle({ dia, activo, onClick }: { dia: string; activo: boolean; onC
       onClick={onClick}
       className={`px-2.5 py-1 rounded text-xs font-medium capitalize transition-colors border ${
         activo
-          ? "bg-[#E8593C] text-white border-[#E8593C]"
+          ? "bg-[#2563EB] text-white border-[#2563EB]"
           : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
       }`}
     >
@@ -143,7 +143,7 @@ export function JornadasDialog({ punto, onClose, onSuccess }: JornadasDialogProp
             <Button
               variant="outline"
               size="sm"
-              className="w-full gap-1.5 text-[#E8593C] border-dashed border-[#E8593C] hover:bg-[#FEF3F0]"
+              className="w-full gap-1.5 text-[#2563EB] border-dashed border-[#2563EB] hover:bg-[#EFF6FF]"
               onClick={() => setMostrarForm(true)}
             >
               <Plus size={14} />
@@ -188,7 +188,7 @@ export function JornadasDialog({ punto, onClose, onSuccess }: JornadasDialogProp
               </div>
               <div className="flex gap-2">
                 <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setMostrarForm(false)}>Cancelar</Button>
-                <Button type="submit" size="sm" className="flex-1 bg-[#E8593C] hover:bg-[#D04828] text-white" disabled={isSubmitting}>
+                <Button type="submit" size="sm" className="flex-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={isSubmitting}>
                   {isSubmitting ? "Creando..." : "Crear turno"}
                 </Button>
               </div>

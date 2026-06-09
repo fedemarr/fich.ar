@@ -45,7 +45,7 @@ function NavLink({ href, label, icon: Icon, slug }: { href: string; label: strin
       className={cn(
         "flex items-center gap-3 px-3 py-2 rounded-lg text-sm font-medium transition-colors",
         isActive
-          ? "text-[#E8593C] bg-[#FEF3F0] border-l-2 border-[#E8593C] pl-[10px]"
+          ? "text-[#2563EB] bg-[#EFF6FF] border-l-2 border-[#2563EB] pl-[10px]"
           : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
       )}
     >
@@ -59,7 +59,7 @@ export function Sidebar({ slug }: SidebarProps) {
   return (
     <aside className="w-60 min-h-screen bg-white border-r border-gray-200 flex flex-col">
       <div className="px-6 py-5 border-b border-gray-100">
-        <span className="text-2xl font-bold text-[#E8593C] tracking-tight">Fich.ar</span>
+        <span className="text-2xl font-bold text-[#2563EB] tracking-tight">Fich.ar</span>
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">

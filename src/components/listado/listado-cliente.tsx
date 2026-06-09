@@ -96,7 +96,7 @@ export function ListadoCliente({
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <ClipboardList size={20} className="text-[#E8593C]" />
+        <ClipboardList size={20} className="text-[#2563EB]" />
         <h1 className="text-xl font-semibold text-gray-900">Listado del día</h1>
         <span className="text-sm text-gray-400 ml-1">
           Presentismo de todos los colaboradores
@@ -129,7 +129,7 @@ export function ListadoCliente({
           <Button
             variant="outline"
             size="sm"
-            className="h-9 gap-1.5 text-[#E8593C] border-[#E8593C] hover:bg-[#FEF3F0]"
+            className="h-9 gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
             onClick={() => setModalFichada(true)}
           >
             Fichada manual
@@ -138,7 +138,7 @@ export function ListadoCliente({
           <Button
             variant="outline"
             size="sm"
-            className="h-9 gap-1.5 text-[#E8593C] border-[#E8593C] hover:bg-[#FEF3F0]"
+            className="h-9 gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
             onClick={handleExportar}
           >
             <Download size={14} />
@@ -179,7 +179,7 @@ export function ListadoCliente({
                   >
                     <td className="px-4 py-3">
                       <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-[#FEF3F0] flex items-center justify-center text-xs font-semibold text-[#E8593C]">
+                        <div className="w-7 h-7 rounded-full bg-[#EFF6FF] flex items-center justify-center text-xs font-semibold text-[#2563EB]">
                           {colaborador.nombre[0]}{colaborador.apellido[0]}
                         </div>
                         <span className="font-medium text-gray-800">

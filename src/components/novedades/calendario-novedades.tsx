@@ -133,13 +133,13 @@ export function CalendarioNovedades({
           placeholder="Buscar colaborador..."
           value={filtroBusqueda}
           onChange={(e) => setFiltroBusqueda(e.target.value)}
-          className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E8593C]/20 w-52"
+          className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 w-52"
         />
 
         <select
           value={filtroTipo}
           onChange={(e) => setFiltroTipo(e.target.value)}
-          className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E8593C]/20"
+          className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
         >
           <option value="">Todos</option>
           {(Object.entries(ETIQUETAS_NOVEDAD) as [TipoNovedad, string][]).map(([k, v]) => (
@@ -149,7 +149,7 @@ export function CalendarioNovedades({
 
         <button
           onClick={() => setMostrarRefs((v) => !v)}
-          className="flex items-center gap-1.5 text-sm text-[#E8593C] hover:underline"
+          className="flex items-center gap-1.5 text-sm text-[#2563EB] hover:underline"
         >
           <Info size={14} />
           Referencias
@@ -206,7 +206,7 @@ export function CalendarioNovedades({
                   <th
                     key={dia}
                     className={`text-xs font-medium px-1 py-2.5 w-9 text-center ${
-                      esHoy(dia) ? "text-[#E8593C] bg-[#FEF3F0]" : "text-gray-500"
+                      esHoy(dia) ? "text-[#2563EB] bg-[#EFF6FF]" : "text-gray-500"
                     }`}
                   >
                     {dia}
@@ -254,7 +254,7 @@ export function CalendarioNovedades({
                           ) : (
                             <button
                               onClick={() => onCeldaClick(c, dia)}
-                              className="w-full h-7 rounded bg-white hover:bg-[#FEF3F0] transition-colors relative overflow-hidden border border-gray-100"
+                              className="w-full h-7 rounded bg-white hover:bg-[#EFF6FF] transition-colors relative overflow-hidden border border-gray-100"
                               title="Agregar novedad"
                             >
                               {/* Yellow corner indicator */}
@@ -284,7 +284,7 @@ export function CalendarioNovedades({
         <Button
           variant="outline"
           size="sm"
-          className="gap-1.5 text-[#E8593C] border-[#E8593C] hover:bg-[#FEF3F0]"
+          className="gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
           onClick={() => exportarExcel(colaboradores, novedadesMes, mes, anio)}
         >
           <Download size={14} />

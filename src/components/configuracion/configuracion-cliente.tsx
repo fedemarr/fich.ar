@@ -79,7 +79,7 @@ function TabButton({ active, onClick, icon: Icon, label }: {
       onClick={onClick}
       className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors -mb-px ${
         active
-          ? "border-[#E8593C] text-[#E8593C]"
+          ? "border-[#2563EB] text-[#2563EB]"
           : "border-transparent text-gray-500 hover:text-gray-700"
       }`}
     >
@@ -186,7 +186,7 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
   return (
     <div className="space-y-4 max-w-2xl">
       <div className="flex items-center gap-2">
-        <Settings size={20} className="text-[#E8593C]" />
+        <Settings size={20} className="text-[#2563EB]" />
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Configuración</h1>
           <p className="text-xs text-gray-400">Administrá tu cuenta y empresa</p>
@@ -217,7 +217,7 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
               <Input value={empresa.slug} disabled className="max-w-sm bg-gray-50 text-gray-400" />
               <p className="text-xs text-gray-400">No se puede cambiar sin afectar los links</p>
             </div>
-            <Button type="submit" className="bg-[#E8593C] hover:bg-[#D04828] text-white" disabled={loadEmp}>
+            <Button type="submit" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={loadEmp}>
               {loadEmp ? "Guardando..." : "Guardar cambios"}
             </Button>
           </form>
@@ -249,7 +249,7 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
                   {ROLES[usuario.rol]}
                 </Badge>
               </div>
-              <Button type="submit" className="bg-[#E8593C] hover:bg-[#D04828] text-white" disabled={loadCuenta}>
+              <Button type="submit" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={loadCuenta}>
                 {loadCuenta ? "Guardando..." : "Guardar perfil"}
               </Button>
             </form>
@@ -278,7 +278,7 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
                   {errPass.password_confirmar && <p className="text-xs text-red-500">{errPass.password_confirmar.message}</p>}
                 </div>
               </div>
-              <Button type="submit" className="bg-[#E8593C] hover:bg-[#D04828] text-white" disabled={loadPass}>
+              <Button type="submit" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={loadPass}>
                 {loadPass ? "Cambiando..." : "Cambiar contraseña"}
               </Button>
             </form>
@@ -294,7 +294,7 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
               <p className="text-sm font-medium text-gray-700">Accesos al sistema</p>
               <Button
                 size="sm"
-                className="h-8 gap-1.5 bg-[#E8593C] hover:bg-[#D04828] text-white"
+                className="h-8 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
                 onClick={() => setMostrarNuevoUsuario((v) => !v)}
               >
                 <Plus size={13} />
@@ -330,7 +330,7 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
                 </div>
                 <div className="flex gap-2">
                   <Button type="button" variant="outline" size="sm" onClick={() => setMostrarNuevoUsuario(false)}>Cancelar</Button>
-                  <Button type="submit" size="sm" className="bg-[#E8593C] hover:bg-[#D04828] text-white" disabled={loadUser}>
+                  <Button type="submit" size="sm" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={loadUser}>
                     {loadUser ? "Creando..." : "Crear usuario"}
                   </Button>
                 </div>
@@ -340,7 +340,7 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
             <div className="divide-y divide-gray-50">
               {usuariosIniciales.map((u) => (
                 <div key={u.id} className="flex items-center gap-4 px-5 py-3">
-                  <div className="w-8 h-8 rounded-full bg-[#FEF3F0] flex items-center justify-center text-xs font-bold text-[#E8593C] shrink-0">
+                  <div className="w-8 h-8 rounded-full bg-[#EFF6FF] flex items-center justify-center text-xs font-bold text-[#2563EB] shrink-0">
                     {u.nombre.charAt(0).toUpperCase()}
                   </div>
                   <div className="flex-1 min-w-0">

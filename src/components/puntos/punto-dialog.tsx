@@ -94,7 +94,7 @@ export function PuntoDialog({ open, punto, onSuccess, onClose }: PuntoDialogProp
           </div>
           <div className="flex gap-2 pt-2">
             <Button type="button" variant="outline" className="flex-1" onClick={onClose}>Cancelar</Button>
-            <Button type="submit" className="flex-1 bg-[#E8593C] hover:bg-[#D04828] text-white" disabled={isSubmitting}>
+            <Button type="submit" className="flex-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={isSubmitting}>
               {isSubmitting ? "Guardando..." : esEdicion ? "Guardar" : "Crear punto"}
             </Button>
           </div>

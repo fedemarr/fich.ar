@@ -1,15 +1,38 @@
-import { MapPin } from "lucide-react"
+import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
+import { redirect } from "next/navigation"
+import { PuntosCliente } from "@/components/puntos/puntos-cliente"
 
-export default function PuntosPage() {
-  return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <MapPin size={20} className="text-[#E8593C]" />
-        <h1 className="text-xl font-semibold text-gray-900">Puntos QR</h1>
-      </div>
-      <div className="bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400">
-        Próximamente — Fase 2
-      </div>
-    </div>
-  )
+interface PuntosPageProps {
+  params: Promise<{ slug: string }>
+}
+
+export default async function PuntosPage({ params }: PuntosPageProps) {
+  const session = await auth()
+  if (!session?.user) redirect("/login")
+
+  const { slug } = await params
+
+  const empresa = await prisma.empresa.findUnique({
+    where: { slug },
+    select: { id: true },
+  })
+  if (!empresa) redirect("/login")
+
+  const puntos = await prisma.puntoFichaje.findMany({
+    where: { empresa_id: empresa.id },
+    include: {
+      jornadas: {
+        where: { activo: true },
+        include: {
+          colaboradores: {
+            where: { fecha_hasta: null },
+          },
+        },
+      },
+    },
+    orderBy: { created_at: "asc" },
+  })
+
+  return <PuntosCliente puntos={puntos} empresaId={empresa.id} />
 }

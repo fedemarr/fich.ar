@@ -49,7 +49,7 @@ export default function LoginPage() {
     <div className="min-h-screen flex items-center justify-center bg-[#F9FAFB]">
       <Card className="w-full max-w-sm shadow-sm">
         <CardHeader className="text-center pb-2">
-          <div className="text-3xl font-bold text-[#E8593C] mb-1">Fich.ar</div>
+          <div className="text-3xl font-bold text-[#2563EB] mb-1">Fich.ar</div>
           <CardTitle className="text-lg font-medium text-gray-700">
             Iniciar sesión
           </CardTitle>
@@ -89,7 +89,7 @@ export default function LoginPage() {
 
             <Button
               type="submit"
-              className="w-full bg-[#E8593C] hover:bg-[#D04828] text-white"
+              className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Ingresando..." : "Ingresar"}

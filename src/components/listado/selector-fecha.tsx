@@ -90,7 +90,7 @@ export function SelectorFecha({ fechaInicial, hastaInicial }: SelectorFechaProps
           </Button>
           <Button
             size="sm"
-            className="flex-1 bg-[#E8593C] hover:bg-[#D04828] text-white"
+            className="flex-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
             onClick={aplicar}
           >
             Aplicar

@@ -101,7 +101,7 @@ export function NovedadDialog({
             <Label>Colaborador</Label>
             <select
               {...register("colaborador_id")}
-              className="w-full h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E8593C]/20"
+              className="w-full h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
             >
               <option value="">Seleccionar...</option>
               {colaboradores.map((c) => (
@@ -125,7 +125,7 @@ export function NovedadDialog({
               <Label>Tipo</Label>
               <select
                 {...register("tipo")}
-                className="w-full h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E8593C]/20"
+                className="w-full h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
               >
                 {(Object.entries(ETIQUETAS_NOVEDAD) as [TipoNovedad, string][]).map(([k, v]) => (
                   <option key={k} value={k}>{v}</option>
@@ -140,7 +140,7 @@ export function NovedadDialog({
               {...register("observacion")}
               rows={2}
               placeholder="Notas adicionales..."
-              className="w-full text-sm px-3 py-2 rounded-md border border-gray-200 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-[#E8593C]/20"
+              className="w-full text-sm px-3 py-2 rounded-md border border-gray-200 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
             />
           </div>
 
@@ -151,7 +151,7 @@ export function NovedadDialog({
               aria-checked={aprobada}
               onClick={() => setValue("aprobada", !aprobada)}
               className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                aprobada ? "bg-[#E8593C] border-[#E8593C]" : "border-gray-300"
+                aprobada ? "bg-[#2563EB] border-[#2563EB]" : "border-gray-300"
               }`}
             >
               {aprobada && <span className="text-white text-xs leading-none">✓</span>}
@@ -167,7 +167,7 @@ export function NovedadDialog({
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-[#E8593C] hover:bg-[#D04828] text-white"
+              className="flex-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Guardando..." : esEdicion ? "Guardar" : "Registrar"}

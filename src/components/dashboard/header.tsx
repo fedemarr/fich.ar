@@ -33,7 +33,7 @@ export function Header({ userName, empresaNombre }: HeaderProps) {
           className="flex items-center gap-2 rounded-lg px-2 py-1 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors outline-none"
         >
           <Avatar className="h-7 w-7">
-            <AvatarFallback className="text-xs bg-[#FEF3F0] text-[#E8593C] font-semibold">
+            <AvatarFallback className="text-xs bg-[#EFF6FF] text-[#2563EB] font-semibold">
               {initials}
             </AvatarFallback>
           </Avatar>

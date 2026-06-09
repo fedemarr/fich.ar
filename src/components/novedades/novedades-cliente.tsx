@@ -41,7 +41,7 @@ function SelectorTipoNovedad({
       value={value ?? ""}
       onChange={(e) => { if (e.target.value) onChange(e.target.value as TipoNovedad) }}
       disabled={disabled}
-      className={`h-9 px-3 pr-8 text-sm rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-[#E8593C]/20 appearance-none bg-white ${
+      className={`h-9 px-3 pr-8 text-sm rounded-lg border transition-colors focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 appearance-none bg-white ${
         value
           ? "border-gray-300 text-gray-800 font-medium"
           : "border-gray-200 text-gray-400"
@@ -188,13 +188,13 @@ export function NovedadesCliente({
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Calendar size={20} className="text-[#E8593C]" />
+        <Calendar size={20} className="text-[#2563EB]" />
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Novedades</h1>
           <p className="text-xs text-gray-400">Gestión de todos los colaboradores</p>
         </div>
         <Button
-          className="ml-auto h-9 gap-1.5 bg-[#E8593C] hover:bg-[#D04828] text-white"
+          className="ml-auto h-9 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
           onClick={() => {
             setColaboradorDialog(null)
             setFechaDialog("")
@@ -247,12 +247,12 @@ export function NovedadesCliente({
                 placeholder="Buscar colaborador..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="h-9 pl-9 pr-4 text-sm rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E8593C]/20 w-64"
+                className="h-9 pl-9 pr-4 text-sm rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 w-64"
               />
             </div>
             <button
               onClick={() => router.refresh()}
-              className="text-[#E8593C] hover:text-[#D04828] transition-colors"
+              className="text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
               title="Actualizar"
             >
               <RefreshCw size={16} />
@@ -277,7 +277,7 @@ export function NovedadesCliente({
                   >
                     {/* Avatar + nombre */}
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-[#FEF3F0] border-2 border-[#E8593C]/20 flex items-center justify-center text-xs font-bold text-[#E8593C] shrink-0">
+                      <div className="w-9 h-9 rounded-full bg-[#EFF6FF] border-2 border-[#2563EB]/20 flex items-center justify-center text-xs font-bold text-[#2563EB] shrink-0">
                         {avatarLetras(item.colaborador.nombre, item.colaborador.apellido)}
                       </div>
                       <span className="text-sm font-medium text-gray-800 truncate">
@@ -297,7 +297,7 @@ export function NovedadesCliente({
                     {/* Delete */}
                     <button
                       onClick={() => void eliminar(item)}
-                      className="text-[#E8593C] hover:text-[#D04828] transition-colors shrink-0"
+                      className="text-[#2563EB] hover:text-[#1D4ED8] transition-colors shrink-0"
                       title="Eliminar"
                     >
                       <Trash2 size={17} />

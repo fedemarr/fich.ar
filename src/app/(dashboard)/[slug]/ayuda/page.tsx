@@ -59,7 +59,7 @@ export default function AyudaPage() {
   return (
     <div className="space-y-6 max-w-3xl">
       <div className="flex items-center gap-2">
-        <HelpCircle size={20} className="text-[#E8593C]" />
+        <HelpCircle size={20} className="text-[#2563EB]" />
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Centro de Ayuda</h1>
           <p className="text-xs text-gray-400">Guías y preguntas frecuentes</p>
@@ -71,9 +71,9 @@ export default function AyudaPage() {
         <h2 className="text-sm font-semibold text-gray-800 mb-4">Guía rápida de cada sección</h2>
         <div className="grid gap-4 sm:grid-cols-2">
           {SECCIONES.map(({ icon: Icon, titulo, desc }) => (
-            <div key={titulo} className="flex gap-3 p-3 rounded-lg border border-gray-100 hover:border-[#E8593C]/30 hover:bg-[#FEF3F0]/30 transition-colors">
-              <div className="w-8 h-8 rounded-lg bg-[#FEF3F0] flex items-center justify-center shrink-0">
-                <Icon size={16} className="text-[#E8593C]" />
+            <div key={titulo} className="flex gap-3 p-3 rounded-lg border border-gray-100 hover:border-[#2563EB]/30 hover:bg-[#EFF6FF]/30 transition-colors">
+              <div className="w-8 h-8 rounded-lg bg-[#EFF6FF] flex items-center justify-center shrink-0">
+                <Icon size={16} className="text-[#2563EB]" />
               </div>
               <div>
                 <p className="text-sm font-medium text-gray-800">{titulo}</p>
@@ -100,14 +100,14 @@ export default function AyudaPage() {
       {/* Contacto */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <div className="flex items-center gap-3">
-          <div className="w-10 h-10 rounded-lg bg-[#FEF3F0] flex items-center justify-center">
-            <Mail size={18} className="text-[#E8593C]" />
+          <div className="w-10 h-10 rounded-lg bg-[#EFF6FF] flex items-center justify-center">
+            <Mail size={18} className="text-[#2563EB]" />
           </div>
           <div>
             <p className="text-sm font-semibold text-gray-800">¿Necesitás soporte?</p>
             <p className="text-xs text-gray-500 mt-0.5">
               Escribinos a{" "}
-              <a href="mailto:soporte@fich.ar" className="text-[#E8593C] hover:underline">
+              <a href="mailto:soporte@fich.ar" className="text-[#2563EB] hover:underline">
                 soporte@fich.ar
               </a>
               {" "}y te respondemos a la brevedad.

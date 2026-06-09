@@ -24,8 +24,8 @@ interface Props {
 
 function AvatarColaborador({ nombre, apellido }: { nombre: string; apellido: string }) {
   return (
-    <div className="w-9 h-9 rounded-full bg-[#FEF3F0] border border-[#F5C4BA] flex items-center justify-center shrink-0">
-      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-[#E8593C]">
+    <div className="w-9 h-9 rounded-full bg-[#EFF6FF] border border-[#F5C4BA] flex items-center justify-center shrink-0">
+      <svg width="18" height="18" viewBox="0 0 24 24" fill="none" className="text-[#2563EB]">
         <circle cx="12" cy="7" r="4" stroke="currentColor" strokeWidth="1.8" />
         <path d="M5 20c0-3.866 3.134-7 7-7s7 3.134 7 7" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round"/>
         <circle cx="19" cy="5" r="3" fill="currentColor" opacity="0.25" />
@@ -105,7 +105,7 @@ function TablaColaboradores({
                 <div className="flex items-center gap-2.5 justify-end">
                   <button
                     onClick={() => onEditar(c)}
-                    className="text-gray-300 hover:text-[#E8593C] transition-colors"
+                    className="text-gray-300 hover:text-[#2563EB] transition-colors"
                     title="Editar"
                   >
                     <Pencil size={15} />
@@ -163,7 +163,7 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Users size={20} className="text-[#E8593C]" />
+        <Users size={20} className="text-[#2563EB]" />
         <div>
           <h1 className="text-xl font-semibold text-gray-900">Colaboradores</h1>
           <p className="text-xs text-gray-400">Gestión de todos los colaboradores</p>
@@ -220,7 +220,7 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
             <Button
               variant="outline"
               size="sm"
-              className="h-8 gap-1.5 text-xs text-[#E8593C] border-[#E8593C] hover:bg-[#FEF3F0]"
+              className="h-8 gap-1.5 text-xs text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
               onClick={() => exportarCSV(tab === "desactivados" ? desactivados : activos)}
             >
               <Download size={13} />
@@ -235,7 +235,7 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
                 placeholder="Search"
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="h-8 pl-7 pr-3 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#E8593C]/20 w-44"
+                className="h-8 pl-7 pr-3 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 w-44"
               />
             </div>
           </div>

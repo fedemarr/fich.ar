@@ -83,7 +83,7 @@ export function ComunicacionDialog({ open, comunicacion, onClose, onSuccess }: C
               {...register("texto")}
               rows={4}
               placeholder="Escribí el mensaje para los colaboradores..."
-              className="w-full text-sm px-3 py-2 rounded-md border border-gray-200 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-[#E8593C]/20"
+              className="w-full text-sm px-3 py-2 rounded-md border border-gray-200 bg-white resize-none focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
             />
             {errors.texto && <p className="text-xs text-red-500">{errors.texto.message}</p>}
           </div>
@@ -108,7 +108,7 @@ export function ComunicacionDialog({ open, comunicacion, onClose, onSuccess }: C
               aria-checked={activa}
               onClick={() => setValue("activa", !activa)}
               className={`w-5 h-5 rounded border-2 flex items-center justify-center transition-colors ${
-                activa ? "bg-[#E8593C] border-[#E8593C]" : "border-gray-300"
+                activa ? "bg-[#2563EB] border-[#2563EB]" : "border-gray-300"
               }`}
             >
               {activa && <span className="text-white text-xs leading-none">✓</span>}
@@ -124,7 +124,7 @@ export function ComunicacionDialog({ open, comunicacion, onClose, onSuccess }: C
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-[#E8593C] hover:bg-[#D04828] text-white"
+              className="flex-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
               disabled={isSubmitting}
             >
               {isSubmitting ? "Guardando..." : esEdicion ? "Guardar" : "Crear"}

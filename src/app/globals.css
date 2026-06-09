@@ -55,8 +55,8 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  /* Fich.ar coral primary #E8593C */
-  --primary: oklch(0.613 0.207 30.5);
+  /* Fich.ar blue primary #2563EB */
+  --primary: oklch(0.546 0.245 262.9);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
@@ -84,9 +84,9 @@
   --sidebar-ring: oklch(0.613 0.207 30.5);
 
   /* Design tokens */
-  --primary-hex: #E8593C;
-  --primary-hover-hex: #D04828;
-  --primary-light-hex: #FEF3F0;
+  --primary-hex: #2563EB;
+  --primary-hover-hex: #1D4ED8;
+  --primary-light-hex: #EFF6FF;
   --bg-page-hex: #F9FAFB;
 }
 

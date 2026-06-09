@@ -77,10 +77,10 @@ export function ComunicacionesCliente({ comunicaciones: commsIniciales }: Comuni
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Megaphone size={20} className="text-[#E8593C]" />
+        <Megaphone size={20} className="text-[#2563EB]" />
         <h1 className="text-xl font-semibold text-gray-900">Comunicaciones</h1>
         <Button
-          className="ml-auto h-9 gap-1.5 bg-[#E8593C] hover:bg-[#D04828] text-white"
+          className="ml-auto h-9 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
           onClick={() => { setEditando(null); setDialogoAbierto(true) }}
         >
           <Plus size={15} />
@@ -93,7 +93,7 @@ export function ComunicacionesCliente({ comunicaciones: commsIniciales }: Comuni
         <button
           onClick={() => setFiltro("todas")}
           className={`bg-white rounded-xl border p-4 text-left transition-colors ${
-            filtro === "todas" ? "border-[#E8593C] bg-[#FEF3F0]" : "border-gray-200 hover:border-gray-300"
+            filtro === "todas" ? "border-[#2563EB] bg-[#EFF6FF]" : "border-gray-200 hover:border-gray-300"
           }`}
         >
           <p className="text-2xl font-bold text-gray-900">{comunicaciones.length}</p>
@@ -102,7 +102,7 @@ export function ComunicacionesCliente({ comunicaciones: commsIniciales }: Comuni
         <button
           onClick={() => setFiltro("activas")}
           className={`bg-white rounded-xl border p-4 text-left transition-colors ${
-            filtro === "activas" ? "border-[#E8593C] bg-[#FEF3F0]" : "border-gray-200 hover:border-gray-300"
+            filtro === "activas" ? "border-[#2563EB] bg-[#EFF6FF]" : "border-gray-200 hover:border-gray-300"
           }`}
         >
           <p className="text-2xl font-bold text-green-600">{activas}</p>
@@ -111,7 +111,7 @@ export function ComunicacionesCliente({ comunicaciones: commsIniciales }: Comuni
         <button
           onClick={() => setFiltro("vencidas")}
           className={`bg-white rounded-xl border p-4 text-left transition-colors ${
-            filtro === "vencidas" ? "border-[#E8593C] bg-[#FEF3F0]" : "border-gray-200 hover:border-gray-300"
+            filtro === "vencidas" ? "border-[#2563EB] bg-[#EFF6FF]" : "border-gray-200 hover:border-gray-300"
           }`}
         >
           <p className="text-2xl font-bold text-gray-400">{vencidas}</p>
@@ -193,7 +193,7 @@ export function ComunicacionesCliente({ comunicaciones: commsIniciales }: Comuni
                     <Button
                       variant="ghost"
                       size="sm"
-                      className="h-8 w-8 p-0 text-gray-400 hover:text-[#E8593C]"
+                      className="h-8 w-8 p-0 text-gray-400 hover:text-[#2563EB]"
                       onClick={() => { setEditando(c); setDialogoAbierto(true) }}
                     >
                       <Pencil size={13} />

@@ -42,7 +42,7 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
             Radio permitido: {punto.radio_metros}m
           </p>
           <Button
-            className="w-full gap-2 bg-[#E8593C] hover:bg-[#D04828] text-white"
+            className="w-full gap-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
             onClick={descargar}
           >
             <Download size={15} />

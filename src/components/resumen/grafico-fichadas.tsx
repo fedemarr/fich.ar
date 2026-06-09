@@ -74,8 +74,8 @@ export function GraficoFichadas({ datos }: GraficoFichadasProps) {
           iconType="circle"
           iconSize={8}
         />
-        <Bar dataKey="ingresos" fill="#E8593C" radius={[3, 3, 0, 0]} maxBarSize={20} />
-        <Bar dataKey="salidas" fill="#D04828" radius={[3, 3, 0, 0]} maxBarSize={20} />
+        <Bar dataKey="ingresos" fill="#2563EB" radius={[3, 3, 0, 0]} maxBarSize={20} />
+        <Bar dataKey="salidas" fill="#1D4ED8" radius={[3, 3, 0, 0]} maxBarSize={20} />
       </BarChart>
     </ResponsiveContainer>
   )

@@ -18,7 +18,7 @@ const ICONOS: Record<TipoNotificacion, React.ReactNode> = {
   FALLA_FICHADA: <AlertCircle size={16} className="text-orange-500" />,
   INASISTENCIA: <UserX size={16} className="text-red-500" />,
   SISTEMA: <Info size={16} className="text-blue-500" />,
-  COMUNICACION_NUEVA: <Megaphone size={16} className="text-[#E8593C]" />,
+  COMUNICACION_NUEVA: <Megaphone size={16} className="text-[#2563EB]" />,
 }
 
 const ETIQUETAS: Record<TipoNotificacion, string> = {
@@ -67,10 +67,10 @@ export function NotificacionesCliente({ notificaciones: notifs }: Notificaciones
     <div className="space-y-4">
       {/* Header */}
       <div className="flex items-center gap-2">
-        <Bell size={20} className="text-[#E8593C]" />
+        <Bell size={20} className="text-[#2563EB]" />
         <h1 className="text-xl font-semibold text-gray-900">Notificaciones</h1>
         {noLeidas.length > 0 && (
-          <Badge className="bg-[#E8593C] text-white text-xs">{noLeidas.length}</Badge>
+          <Badge className="bg-[#2563EB] text-white text-xs">{noLeidas.length}</Badge>
         )}
         {noLeidas.length > 0 && (
           <Button
@@ -120,7 +120,7 @@ export function NotificacionesCliente({ notificaciones: notifs }: Notificaciones
               <div
                 key={n.id}
                 className={`flex items-start gap-4 px-5 py-4 hover:bg-gray-50/50 transition-colors ${
-                  n.estado === "NO_LEIDA" ? "bg-[#FEF3F0]/30" : ""
+                  n.estado === "NO_LEIDA" ? "bg-[#EFF6FF]/30" : ""
                 }`}
               >
                 <div className="mt-0.5 shrink-0">
@@ -135,7 +135,7 @@ export function NotificacionesCliente({ notificaciones: notifs }: Notificaciones
                       {ETIQUETAS[n.tipo]}
                     </Badge>
                     {n.estado === "NO_LEIDA" && (
-                      <span className="w-2 h-2 rounded-full bg-[#E8593C] shrink-0" />
+                      <span className="w-2 h-2 rounded-full bg-[#2563EB] shrink-0" />
                     )}
                   </div>
                   {n.descripcion && (
@@ -154,7 +154,7 @@ export function NotificacionesCliente({ notificaciones: notifs }: Notificaciones
                   {n.estado === "NO_LEIDA" && (
                     <button
                       onClick={() => marcarLeida(n.id)}
-                      className="text-gray-300 hover:text-[#E8593C] transition-colors"
+                      className="text-gray-300 hover:text-[#2563EB] transition-colors"
                       title="Marcar como leída"
                     >
                       <CheckCheck size={15} />

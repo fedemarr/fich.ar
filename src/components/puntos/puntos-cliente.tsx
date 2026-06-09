@@ -33,11 +33,11 @@ export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center gap-2">
-        <MapPin size={20} className="text-[#E8593C]" />
+        <MapPin size={20} className="text-[#2563EB]" />
         <h1 className="text-xl font-semibold text-gray-900">Puntos QR</h1>
         <span className="text-sm text-gray-400 ml-1">{puntos.length} configurados</span>
         <Button
-          className="ml-auto h-9 gap-1.5 bg-[#E8593C] hover:bg-[#D04828] text-white"
+          className="ml-auto h-9 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
           onClick={() => { setEditando(null); setDialogoAbierto(true) }}
         >
           <Plus size={15} />
@@ -57,8 +57,8 @@ export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
               <div key={p.id} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
                 <div className="flex items-start justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="w-10 h-10 rounded-lg bg-[#FEF3F0] flex items-center justify-center">
-                      <QrCode size={20} className="text-[#E8593C]" />
+                    <div className="w-10 h-10 rounded-lg bg-[#EFF6FF] flex items-center justify-center">
+                      <QrCode size={20} className="text-[#2563EB]" />
                     </div>
                     <div>
                       <p className="font-semibold text-gray-900">{p.nombre}</p>
@@ -76,7 +76,7 @@ export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
                   <span>Radio: <strong className="text-gray-700">{p.radio_metros}m</strong></span>
                   <span>
                     <button
-                      className="text-[#E8593C] hover:underline font-medium"
+                      className="text-[#2563EB] hover:underline font-medium"
                       onClick={() => setVerJornadas(p)}
                     >
                       {p.jornadas.length} {p.jornadas.length === 1 ? "turno" : "turnos"}
@@ -101,7 +101,7 @@ export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
                   <Button
                     variant="outline"
                     size="sm"
-                    className="h-8 w-8 p-0 text-gray-400 hover:text-[#E8593C]"
+                    className="h-8 w-8 p-0 text-gray-400 hover:text-[#2563EB]"
                     onClick={() => { setEditando(p); setDialogoAbierto(true) }}
                   >
                     <Pencil size={13} />

@@ -62,7 +62,7 @@ export function ChatWidget() {
       {abierto && (
         <div className="absolute bottom-16 right-0 w-80 sm:w-96 bg-white rounded-2xl shadow-2xl border border-gray-200 flex flex-col overflow-hidden" style={{ height: "480px" }}>
           {/* Header */}
-          <div className="flex items-center gap-2.5 px-4 py-3 bg-[#E8593C] text-white">
+          <div className="flex items-center gap-2.5 px-4 py-3 bg-[#2563EB] text-white">
             <div className="w-8 h-8 rounded-full bg-white/20 flex items-center justify-center">
               <Bot size={16} />
             </div>
@@ -95,7 +95,7 @@ export function ChatWidget() {
                     <button
                       key={sug}
                       onClick={() => { setInput(sug) }}
-                      className="block w-full text-left text-xs px-3 py-2 rounded-lg border border-gray-200 hover:border-[#E8593C] hover:bg-[#FEF3F0] transition-colors text-gray-600"
+                      className="block w-full text-left text-xs px-3 py-2 rounded-lg border border-gray-200 hover:border-[#2563EB] hover:bg-[#EFF6FF] transition-colors text-gray-600"
                     >
                       {sug}
                     </button>
@@ -107,14 +107,14 @@ export function ChatWidget() {
             {mensajes.map((m, i) => (
               <div key={i} className={`flex ${m.role === "user" ? "justify-end" : "justify-start"}`}>
                 {m.role === "assistant" && (
-                  <div className="w-6 h-6 rounded-full bg-[#FEF3F0] flex items-center justify-center mr-2 mt-0.5 shrink-0">
-                    <Bot size={12} className="text-[#E8593C]" />
+                  <div className="w-6 h-6 rounded-full bg-[#EFF6FF] flex items-center justify-center mr-2 mt-0.5 shrink-0">
+                    <Bot size={12} className="text-[#2563EB]" />
                   </div>
                 )}
                 <div
                   className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
                     m.role === "user"
-                      ? "bg-[#E8593C] text-white rounded-br-sm"
+                      ? "bg-[#2563EB] text-white rounded-br-sm"
                       : "bg-gray-100 text-gray-800 rounded-bl-sm"
                   }`}
                 >
@@ -125,8 +125,8 @@ export function ChatWidget() {
 
             {cargando && (
               <div className="flex justify-start">
-                <div className="w-6 h-6 rounded-full bg-[#FEF3F0] flex items-center justify-center mr-2 mt-0.5">
-                  <Bot size={12} className="text-[#E8593C]" />
+                <div className="w-6 h-6 rounded-full bg-[#EFF6FF] flex items-center justify-center mr-2 mt-0.5">
+                  <Bot size={12} className="text-[#2563EB]" />
                 </div>
                 <div className="bg-gray-100 rounded-2xl rounded-bl-sm px-3 py-2">
                   <Loader2 size={14} className="text-gray-400 animate-spin" />
@@ -146,12 +146,12 @@ export function ChatWidget() {
               onKeyDown={onKeyDown}
               placeholder="Escribí tu consulta..."
               rows={1}
-              className="flex-1 text-sm px-3 py-2 rounded-xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-[#E8593C]/20 max-h-24"
+              className="flex-1 text-sm px-3 py-2 rounded-xl border border-gray-200 resize-none focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 max-h-24"
               style={{ minHeight: "38px" }}
             />
             <Button
               size="sm"
-              className="h-9 w-9 p-0 bg-[#E8593C] hover:bg-[#D04828] text-white rounded-xl shrink-0"
+              className="h-9 w-9 p-0 bg-[#2563EB] hover:bg-[#1D4ED8] text-white rounded-xl shrink-0"
               onClick={() => void enviar()}
               disabled={cargando || !input.trim()}
             >
@@ -165,7 +165,7 @@ export function ChatWidget() {
       <button
         onClick={() => setAbierto((v) => !v)}
         className={`w-14 h-14 rounded-full shadow-lg flex items-center justify-center transition-all duration-200 ${
-          abierto ? "bg-gray-800 hover:bg-gray-700" : "bg-[#E8593C] hover:bg-[#D04828]"
+          abierto ? "bg-gray-800 hover:bg-gray-700" : "bg-[#2563EB] hover:bg-[#1D4ED8]"
         } text-white`}
       >
         {abierto ? <X size={20} /> : <MessageCircle size={22} />}

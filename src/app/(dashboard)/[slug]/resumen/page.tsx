@@ -75,7 +75,7 @@ export default async function ResumenPage({
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-2">
-        <LayoutDashboard size={20} className="text-[#E8593C]" />
+        <LayoutDashboard size={20} className="text-[#2563EB]" />
         <h1 className="text-xl font-semibold text-gray-900">Resumen del día</h1>
         <span className="text-sm text-gray-500 ml-2 capitalize">{fechaFormateada}</span>
       </div>
@@ -153,14 +153,14 @@ function KpiCard({
 }) {
   const styles = {
     neutral: "bg-white border border-dashed border-gray-300",
-    coral: "bg-[#E8593C] text-white",
-    dark: "bg-[#D04828] text-white",
+    coral: "bg-[#2563EB] text-white",
+    dark: "bg-[#1D4ED8] text-white",
   }
   const textStyles = { neutral: "text-gray-900", coral: "text-white", dark: "text-white" }
   const labelStyles = {
     neutral: "text-gray-500",
-    coral: "text-orange-100",
-    dark: "text-orange-100",
+    coral: "text-blue-100",
+    dark: "text-blue-100",
   }
 
   return (
