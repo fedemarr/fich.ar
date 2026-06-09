@@ -1,0 +1,149 @@
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { MapPin, Plus, Pencil, Trash2, QrCode, Users } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
+import { PuntoDialog } from "@/components/puntos/punto-dialog"
+import { QrDialog } from "@/components/puntos/qr-dialog"
+import { JornadasDialog } from "@/components/puntos/jornadas-dialog"
+import type { PuntoFichaje, Jornada, ColaboradorJornada } from "@/generated/prisma/client"
+
+type JornadaConColabs = Jornada & {
+  colaboradores: ColaboradorJornada[]
+}
+
+type PuntoConJornadas = PuntoFichaje & {
+  jornadas: JornadaConColabs[]
+}
+
+interface PuntosClienteProps {
+  puntos: PuntoConJornadas[]
+  empresaId: string
+}
+
+export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
+  const router = useRouter()
+  const [dialogoAbierto, setDialogoAbierto] = useState(false)
+  const [editando, setEditando] = useState<PuntoConJornadas | null>(null)
+  const [verQr, setVerQr] = useState<PuntoConJornadas | null>(null)
+  const [verJornadas, setVerJornadas] = useState<PuntoConJornadas | null>(null)
+
+  return (
+    <div className="space-y-4">
+      <div className="flex items-center gap-2">
+        <MapPin size={20} className="text-[#E8593C]" />
+        <h1 className="text-xl font-semibold text-gray-900">Puntos QR</h1>
+        <span className="text-sm text-gray-400 ml-1">{puntos.length} configurados</span>
+        <Button
+          className="ml-auto h-9 gap-1.5 bg-[#E8593C] hover:bg-[#D04828] text-white"
+          onClick={() => { setEditando(null); setDialogoAbierto(true) }}
+        >
+          <Plus size={15} />
+          Nuevo punto
+        </Button>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-2">
+        {puntos.length === 0 ? (
+          <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
+            No hay puntos de fichaje configurados
+          </div>
+        ) : (
+          puntos.map((p) => {
+            const totalColabs = p.jornadas.reduce((acc, j) => acc + j.colaboradores.length, 0)
+            return (
+              <div key={p.id} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-lg bg-[#FEF3F0] flex items-center justify-center">
+                      <QrCode size={20} className="text-[#E8593C]" />
+                    </div>
+                    <div>
+                      <p className="font-semibold text-gray-900">{p.nombre}</p>
+                      <p className="text-xs text-gray-400">
+                        {p.latitud.toFixed(4)}, {p.longitud.toFixed(4)}
+                      </p>
+                    </div>
+                  </div>
+                  <Badge variant="outline" className={p.activo ? "text-green-700 border-green-200 bg-green-50" : "text-gray-500 border-gray-200"}>
+                    {p.activo ? "Activo" : "Inactivo"}
+                  </Badge>
+                </div>
+
+                <div className="flex items-center gap-4 text-sm text-gray-500">
+                  <span>Radio: <strong className="text-gray-700">{p.radio_metros}m</strong></span>
+                  <span>
+                    <button
+                      className="text-[#E8593C] hover:underline font-medium"
+                      onClick={() => setVerJornadas(p)}
+                    >
+                      {p.jornadas.length} {p.jornadas.length === 1 ? "turno" : "turnos"}
+                    </button>
+                  </span>
+                  <span className="flex items-center gap-1">
+                    <Users size={12} />
+                    {totalColabs} colaboradores
+                  </span>
+                </div>
+
+                <div className="flex gap-2 pt-1 border-t border-gray-100">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="flex-1 gap-1.5 text-xs h-8"
+                    onClick={() => setVerQr(p)}
+                  >
+                    <QrCode size={13} />
+                    Ver QR
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-gray-400 hover:text-[#E8593C]"
+                    onClick={() => { setEditando(p); setDialogoAbierto(true) }}
+                  >
+                    <Pencil size={13} />
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+                    onClick={async () => {
+                      if (!confirm(`¿Eliminar "${p.nombre}"?`)) return
+                      await fetch(`/api/puntos/${p.id}`, { method: "DELETE" })
+                      router.refresh()
+                    }}
+                  >
+                    <Trash2 size={13} />
+                  </Button>
+                </div>
+              </div>
+            )
+          })
+        )}
+      </div>
+
+      <PuntoDialog
+        open={dialogoAbierto}
+        punto={editando}
+        empresaId={empresaId}
+        onClose={() => setDialogoAbierto(false)}
+        onSuccess={() => { router.refresh(); setDialogoAbierto(false) }}
+      />
+
+      {verQr && (
+        <QrDialog punto={verQr} onClose={() => setVerQr(null)} />
+      )}
+
+      {verJornadas && (
+        <JornadasDialog
+          punto={verJornadas}
+          onClose={() => setVerJornadas(null)}
+          onSuccess={() => { router.refresh(); setVerJornadas(null) }}
+        />
+      )}
+    </div>
+  )
+}
