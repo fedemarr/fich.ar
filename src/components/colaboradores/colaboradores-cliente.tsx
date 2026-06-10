@@ -2,10 +2,11 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Pencil, UserCog, Download } from "lucide-react"
+import { Users, Pencil, UserCog, Download, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ColaboradorDialog } from "@/components/colaboradores/colaborador-dialog"
 import { EliminarDialog } from "@/components/colaboradores/eliminar-dialog"
+import { ImportarColaboradoresDialog } from "@/components/colaboradores/importar-colaboradores-dialog"
 import { toast } from "sonner"
 import type { Colaborador, ColaboradorJornada, Jornada, PuntoFichaje } from "@/generated/prisma/client"
 
@@ -134,6 +135,7 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   const [editando, setEditando] = useState<ColaboradorConJornada | null>(null)
   const [eliminando, setEliminando] = useState<ColaboradorConJornada | null>(null)
+  const [importarAbierto, setImportarAbierto] = useState(false)
 
   const activos = useMemo(() => colaboradores.filter((c) => c.estado === "ACTIVO"), [colaboradores])
   const desactivados = useMemo(
@@ -168,6 +170,19 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
           <h1 className="text-xl font-semibold text-gray-900">Colaboradores</h1>
           <p className="text-xs text-gray-400">Gestión de todos los colaboradores</p>
         </div>
+      </div>
+
+      {/* Acciones header */}
+      <div className="flex justify-end">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 text-xs text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
+          onClick={() => setImportarAbierto(true)}
+        >
+          <Upload size={13} />
+          Importar Excel
+        </Button>
       </div>
 
       {/* Tabs */}
@@ -272,6 +287,12 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
         colaborador={eliminando}
         onClose={() => setEliminando(null)}
         onSuccess={() => { router.refresh(); setEliminando(null) }}
+      />
+
+      <ImportarColaboradoresDialog
+        open={importarAbierto}
+        onClose={() => setImportarAbierto(false)}
+        onSuccess={() => { router.refresh(); setImportarAbierto(false) }}
       />
     </div>
   )
