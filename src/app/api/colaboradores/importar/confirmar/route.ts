@@ -27,9 +27,21 @@ export async function POST(req: Request) {
   let actualizados = 0
 
   for (const fila of rows) {
-    const existente = await prisma.colaborador.findFirst({
-      where: { empresa_id: empresaId, celular: fila.celular, deleted_at: null },
-    })
+    let existente = null
+
+    // Buscar por celular primero (más exacto)
+    if (fila.celular) {
+      existente = await prisma.colaborador.findFirst({
+        where: { empresa_id: empresaId, celular: fila.celular, deleted_at: null },
+      })
+    }
+
+    // Si no hay celular, buscar por legajo
+    if (!existente && fila.legajo) {
+      existente = await prisma.colaborador.findFirst({
+        where: { empresa_id: empresaId, legajo: fila.legajo, deleted_at: null },
+      })
+    }
 
     if (existente) {
       await prisma.colaborador.update({
@@ -37,10 +49,11 @@ export async function POST(req: Request) {
         data: {
           nombre: fila.nombre || existente.nombre,
           apellido: fila.apellido || existente.apellido,
-          legajo: fila.legajo || existente.legajo,
-          sector: fila.sector || existente.sector,
-          identificacion: fila.identificacion || existente.identificacion,
-          email: fila.email || existente.email,
+          ...(fila.celular && { celular: fila.celular }),
+          ...(fila.legajo && { legajo: fila.legajo }),
+          ...(fila.sector && { sector: fila.sector }),
+          ...(fila.identificacion && { identificacion: fila.identificacion }),
+          ...(fila.email && { email: fila.email }),
         },
       })
       actualizados++
@@ -48,9 +61,9 @@ export async function POST(req: Request) {
       await prisma.colaborador.create({
         data: {
           empresa_id: empresaId,
-          nombre: fila.nombre,
+          nombre: fila.nombre || "Sin nombre",
           apellido: fila.apellido,
-          celular: fila.celular,
+          celular: fila.celular || `SIN_CEL_${Date.now()}_${Math.random().toString(36).slice(2, 7)}`,
           legajo: fila.legajo || null,
           sector: fila.sector || null,
           identificacion: fila.identificacion || null,
