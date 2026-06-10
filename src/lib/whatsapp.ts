@@ -14,6 +14,7 @@ interface TextMessage {
 }
 
 async function waPost(payload: Record<string, unknown>) {
+  console.log("[WA] Enviando a:", (payload as { to?: string }).to)
   const res = await fetch(`${WA_API}/${PHONE_ID}/messages`, {
     method: "POST",
     headers: {

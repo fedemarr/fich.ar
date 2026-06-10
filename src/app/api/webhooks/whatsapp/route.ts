@@ -38,8 +38,11 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: false }, { status: 400 })
   }
 
-  // Process async (respond 200 immediately to Meta)
-  void procesarWebhook(payload).catch((e) => console.error("[WA] Error procesando:", e))
+  try {
+    await procesarWebhook(payload)
+  } catch (e) {
+    console.error("[WA] Error procesando:", e)
+  }
 
   return NextResponse.json({ status: "ok" })
 }
@@ -54,6 +57,7 @@ async function procesarWebhook(payload: WAPayload) {
   for (const msg of value.messages ?? []) {
     const from = msg.from
     const waId = msg.id
+    console.log("[WA DEBUG] from:", from, "| tipo:", msg.type)
 
     // Evitar duplicados
     const ya = await prisma.webhookWA.findUnique({ where: { wa_message_id: waId } })
