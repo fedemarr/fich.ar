@@ -15,7 +15,7 @@ export async function POST(req: Request) {
   const session = await auth()
   if (!session?.user) return Response.json({ error: "No auth" }, { status: 401 })
 
-  const empresaId = (session.user as { empresaId?: string }).empresaId
+  const empresaId = session.user.empresaId
   if (!empresaId) return Response.json({ error: "Sin empresa" }, { status: 403 })
 
   const { rows } = (await req.json()) as { rows: FilaColaborador[] }

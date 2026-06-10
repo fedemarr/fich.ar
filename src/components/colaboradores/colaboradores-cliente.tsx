@@ -73,6 +73,7 @@ function TablaColaboradores({
       <thead>
         <tr className="border-b border-gray-200">
           <th className="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Colaborador</th>
+          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Legajo</th>
           <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Celular</th>
           <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Identificación</th>
           <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Empresa</th>
@@ -95,6 +96,7 @@ function TablaColaboradores({
                   </span>
                 </div>
               </td>
+              <td className="px-4 py-3.5 text-gray-500 font-mono text-xs">{c.legajo ?? "—"}</td>
               <td className="px-4 py-3.5 text-gray-600">{c.celular}</td>
               <td className="px-4 py-3.5 text-gray-400 text-sm">
                 {c.identificacion ?? "No especificado"}
