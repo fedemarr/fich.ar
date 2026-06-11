@@ -82,6 +82,8 @@ model Empresa {
   novedades      Novedad[]
   comunicaciones Comunicacion[]
   notificaciones Notificacion[]
+  proyecciones   ProyeccionMensual[]
+  asignaciones   AsignacionMensual[]
 
   @@map("empresas")
 }
@@ -127,6 +129,7 @@ model Colaborador {
   novedades      Novedad[]
   notificaciones Notificacion[]
   jornadas       ColaboradorJornada[]
+  asignaciones   AsignacionMensual[]
 
   @@index([empresa_id])
   @@index([celular])
@@ -145,9 +148,10 @@ model PuntoFichaje {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  empresa  Empresa    @relation(fields: [empresa_id], references: [id])
-  fichadas Fichada[]
-  jornadas Jornada[]
+  empresa      Empresa             @relation(fields: [empresa_id], references: [id])
+  fichadas     Fichada[]
+  jornadas     Jornada[]
+  asignaciones AsignacionMensual[]
 
   @@index([empresa_id])
   @@index([qr_token])
@@ -306,4 +310,82 @@ model WebhookWA {
 
   @@index([from_number])
   @@map("webhooks_wa")
+}
+
+model ProyeccionMensual {
+  id         String   @id @default(uuid())
+  empresa_id String
+  mes        Int
+  anio       Int
+  archivo    String?
+  subido_por String?
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  empresa      Empresa             @relation(fields: [empresa_id], references: [id])
+  asignaciones AsignacionMensual[]
+
+  @@unique([empresa_id, mes, anio])
+  @@index([empresa_id])
+  @@map("proyecciones_mensuales")
+}
+
+model AsignacionMensual {
+  id               String  @id @default(uuid())
+  empresa_id       String
+  proyeccion_id    String
+  colaborador_id   String
+  punto_fichaje_id String?
+  servicio_nombre  String
+  nro_socio        String?
+  categoria        String?
+  valor_hora       Float?
+  hora_inicio      String?
+  hora_fin         String?
+
+  dia_01 Float?
+  dia_02 Float?
+  dia_03 Float?
+  dia_04 Float?
+  dia_05 Float?
+  dia_06 Float?
+  dia_07 Float?
+  dia_08 Float?
+  dia_09 Float?
+  dia_10 Float?
+  dia_11 Float?
+  dia_12 Float?
+  dia_13 Float?
+  dia_14 Float?
+  dia_15 Float?
+  dia_16 Float?
+  dia_17 Float?
+  dia_18 Float?
+  dia_19 Float?
+  dia_20 Float?
+  dia_21 Float?
+  dia_22 Float?
+  dia_23 Float?
+  dia_24 Float?
+  dia_25 Float?
+  dia_26 Float?
+  dia_27 Float?
+  dia_28 Float?
+  dia_29 Float?
+  dia_30 Float?
+  dia_31 Float?
+
+  total_horas Float?
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  empresa       Empresa            @relation(fields: [empresa_id], references: [id])
+  proyeccion    ProyeccionMensual  @relation(fields: [proyeccion_id], references: [id])
+  colaborador   Colaborador        @relation(fields: [colaborador_id], references: [id])
+  punto_fichaje PuntoFichaje?      @relation(fields: [punto_fichaje_id], references: [id])
+
+  @@index([empresa_id])
+  @@index([proyeccion_id])
+  @@index([colaborador_id])
+  @@map("asignaciones_mensuales")
 }

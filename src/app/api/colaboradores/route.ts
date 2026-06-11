@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { normalizarCelular } from "@/lib/utils"
 
 const schema = z.object({
   nombre: z.string().min(1),
@@ -28,6 +29,7 @@ export async function POST(req: Request) {
   const colaborador = await prisma.colaborador.create({
     data: {
       ...rest,
+      celular: normalizarCelular(rest.celular),
       email: email || null,
       legajo: legajo || null,
       sector: sector || null,

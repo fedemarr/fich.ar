@@ -1,3 +1,5 @@
+import { prisma } from "@/lib/prisma"
+
 const WA_API = "https://graph.facebook.com/v21.0"
 const PHONE_ID = process.env.META_WA_PHONE_NUMBER_ID!
 const TOKEN = process.env.META_WA_TOKEN!
@@ -14,7 +16,8 @@ interface TextMessage {
 }
 
 async function waPost(payload: Record<string, unknown>) {
-  console.log("[WA] Enviando a:", (payload as { to?: string }).to)
+  const to = (payload as { to?: string }).to
+  console.log("[WA_TO]", to)
   const res = await fetch(`${WA_API}/${PHONE_ID}/messages`, {
     method: "POST",
     headers: {
@@ -25,7 +28,7 @@ async function waPost(payload: Record<string, unknown>) {
   })
   if (!res.ok) {
     const err = await res.text()
-    console.error("[WA] Error:", err)
+    console.error("[WA_ERR_CODE]", res.status, "[WA_ERR_BODY]", err.slice(0, 500))
   }
   return res
 }
@@ -53,6 +56,32 @@ export async function enviarBotones({ to, body, buttons }: ButtonMessage) {
           reply: { id: b.id, title: b.title },
         })),
       },
+    },
+  })
+}
+
+export async function identificarColaborador(fromNumber: string, empresaId: string) {
+  // Buscar con y sin el "9" de los celulares argentinos en WhatsApp
+  const conMas = "+" + fromNumber
+  const sinNueve = /^549\d{10}$/.test(fromNumber) ? "+54" + fromNumber.slice(3) : null
+
+  return prisma.colaborador.findFirst({
+    where: {
+      empresa_id: empresaId,
+      celular: { in: [conMas, ...(sinNueve ? [sinNueve] : [])] },
+      estado: "ACTIVO",
+      deleted_at: null,
+    },
+  })
+}
+
+export async function identificarPorDNI(dni: string, empresaId: string) {
+  return prisma.colaborador.findFirst({
+    where: {
+      empresa_id: empresaId,
+      identificacion: dni.replace(/\./g, "").trim(),
+      estado: "ACTIVO",
+      deleted_at: null,
     },
   })
 }

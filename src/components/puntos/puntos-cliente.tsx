@@ -2,12 +2,14 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { MapPin, Plus, Pencil, Trash2, QrCode, Users } from "lucide-react"
+import { MapPin, Plus, Pencil, Trash2, QrCode, Users, Upload } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PuntoDialog } from "@/components/puntos/punto-dialog"
 import { QrDialog } from "@/components/puntos/qr-dialog"
 import { JornadasDialog } from "@/components/puntos/jornadas-dialog"
+import { ImportarPuntosDialog } from "@/components/puntos/importar-puntos-dialog"
+import { ImportarServiciosModal } from "@/components/puntos/importar-servicios-modal"
 import type { PuntoFichaje, Jornada, ColaboradorJornada } from "@/generated/prisma/client"
 
 type JornadaConColabs = Jornada & {
@@ -26,6 +28,8 @@ interface PuntosClienteProps {
 export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
   const router = useRouter()
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
+  const [importarAbierto, setImportarAbierto] = useState(false)
+  const [importarServiciosAbierto, setImportarServiciosAbierto] = useState(false)
   const [editando, setEditando] = useState<PuntoConJornadas | null>(null)
   const [verQr, setVerQr] = useState<PuntoConJornadas | null>(null)
   const [verJornadas, setVerJornadas] = useState<PuntoConJornadas | null>(null)
@@ -36,13 +40,31 @@ export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
         <MapPin size={20} className="text-[#2563EB]" />
         <h1 className="text-xl font-semibold text-gray-900">Puntos QR</h1>
         <span className="text-sm text-gray-400 ml-1">{puntos.length} configurados</span>
-        <Button
-          className="ml-auto h-9 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-          onClick={() => { setEditando(null); setDialogoAbierto(true) }}
-        >
-          <Plus size={15} />
-          Nuevo punto
-        </Button>
+        <div className="ml-auto flex gap-2">
+          <Button
+            variant="outline"
+            className="h-9 gap-1.5 text-gray-600 border-gray-200 hover:bg-gray-50"
+            onClick={() => setImportarServiciosAbierto(true)}
+          >
+            <Upload size={15} />
+            Importar servicios Excel
+          </Button>
+          <Button
+            variant="outline"
+            className="h-9 gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
+            onClick={() => setImportarAbierto(true)}
+          >
+            <Upload size={15} />
+            Importar Excel
+          </Button>
+          <Button
+            className="h-9 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+            onClick={() => { setEditando(null); setDialogoAbierto(true) }}
+          >
+            <Plus size={15} />
+            Nuevo punto
+          </Button>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-2">
@@ -131,6 +153,18 @@ export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
         empresaId={empresaId}
         onClose={() => setDialogoAbierto(false)}
         onSuccess={() => { router.refresh(); setDialogoAbierto(false) }}
+      />
+
+      <ImportarPuntosDialog
+        open={importarAbierto}
+        onClose={() => setImportarAbierto(false)}
+        onSuccess={() => { router.refresh(); setImportarAbierto(false) }}
+      />
+
+      <ImportarServiciosModal
+        open={importarServiciosAbierto}
+        onClose={() => setImportarServiciosAbierto(false)}
+        onSuccess={() => { router.refresh(); setImportarServiciosAbierto(false) }}
       />
 
       {verQr && (

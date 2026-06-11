@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { normalizarCelular } from "@/lib/utils"
 
 const schema = z.object({
   nombre: z.string().min(1),
@@ -35,6 +36,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     where: { id },
     data: {
       ...rest,
+      celular: normalizarCelular(rest.celular),
       email: email || null,
       legajo: legajo || null,
       sector: sector || null,

@@ -1,17 +1,15 @@
 import { Redis } from "@upstash/redis"
 
-export const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_URL!,
-  token: process.env.UPSTASH_REDIS_TOKEN!,
-})
+export const redis = Redis.fromEnv()
 
 export interface EstadoBotWA {
-  step: "waiting_tipo" | "waiting_location"
+  paso: "esperando_accion" | "esperando_dni" | "esperando_ubicacion"
   qr_token: string
-  tipo?: "ENTRADA" | "SALIDA"
   punto_id: string
   empresa_id: string
-  colaborador_id: string
+  colaborador_id?: string      // undefined hasta ser identificado por DNI
+  tipo_fichada?: "ENTRADA" | "SALIDA"
+  timestamp: number
 }
 
 const TTL_SEGUNDOS = 600 // 10 minutos

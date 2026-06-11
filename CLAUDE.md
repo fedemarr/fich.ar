@@ -390,37 +390,56 @@ KPIs: Colaboradores (blanco/borde punteado), Ingresos (coral), Salidas (coral os
 
 ## Orden de implementación
 
-### FASE 1 — Setup ← EMPEZAR AQUÍ
-- [ ] `npx create-next-app@latest fichar --typescript --tailwind --app`
-- [ ] Instalar: prisma @prisma/client next-auth bcryptjs zod react-hook-form @tanstack/react-query zustand lucide-react recharts framer-motion xlsx qrcode @upstash/redis
-- [ ] `npx shadcn@latest init` + componentes: button input label card table dialog select tabs badge avatar calendar popover dropdown-menu toast sheet
-- [ ] Schema Prisma + `npx prisma migrate dev --name init`
-- [ ] Seed con datos de Olimpia
-- [ ] NextAuth con credenciales
-- [ ] Layout dashboard + sidebar + header
-- [ ] Middleware auth → redirige a `/[slug]/resumen`
+### FASE 1 — Setup ✅
+- [x] `npx create-next-app@latest fichar --typescript --tailwind --app`
+- [x] Instalar: prisma @prisma/client next-auth bcryptjs zod react-hook-form @tanstack/react-query zustand lucide-react recharts framer-motion xlsx qrcode @upstash/redis
+- [x] `npx shadcn@latest init` + componentes: button input label card table dialog select tabs badge avatar calendar popover dropdown-menu toast sheet
+- [x] Schema Prisma + `npx prisma migrate dev --name init`
+- [x] Seed con datos de Olimpia
+- [x] NextAuth con credenciales
+- [x] Layout dashboard + sidebar + header
+- [ ] Middleware auth → redirige a `/[slug]/resumen` ⚠️ falta `src/middleware.ts` formal (auth funciona vía callbacks en auth.config.ts)
 
-### FASE 2 — Core
-- [ ] Resumen (KPIs + gráfico Recharts)
-- [ ] Listado (tabla + fichada manual + export Excel)
-- [ ] Colaboradores (CRUD + tabs)
-- [ ] Puntos QR (CRUD + jornadas + generar QR PNG)
+### FASE 2 — Core ✅
+- [x] Resumen (KPIs + gráfico Recharts)
+- [x] Listado (tabla + fichada manual + export Excel)
+- [x] Colaboradores (CRUD + tabs + importar Excel)
+- [x] Puntos QR (CRUD + jornadas + generar QR PNG)
 
-### FASE 3 — Novedades y comunicación
-- [ ] Novedades (inasistencias + calendario + export Excel)
-- [ ] Comunicaciones (cartelera + vencimiento)
-- [ ] Notificaciones (tabs + badge + marcar leídas)
+### FASE 3 — Novedades y comunicación ✅
+- [x] Novedades (inasistencias + calendario + export Excel)
+- [x] Comunicaciones (cartelera + vencimiento)
+- [x] Notificaciones (tabs + badge + marcar leídas)
 
-### FASE 4 — Bot WhatsApp
-- [ ] Webhook Meta (GET verificación + POST mensajes)
-- [ ] Flujo: token QR → botones → ubicación → validar GPS → fichar
-- [ ] Estado sesión en Redis
-- [ ] Cron alertas 13:00 UTC (10:00 ARG)
+### FASE 4 — Bot WhatsApp ✅
+- [x] Webhook Meta (GET verificación + POST mensajes)
+- [x] Flujo: token QR → botones → ubicación → validar GPS → fichar
+- [x] Estado sesión en Redis
+- [x] Cron alertas 13:00 UTC (10:00 ARG)
 
-### FASE 5 — IA
-- [ ] Chat widget flotante
-- [ ] `/api/ai/chat` con system prompt dinámico
-- [ ] Tools: query_fichadas, query_novedades, get_resumen_dia, crear_novedad, crear_comunicacion
+### FASE 5 — IA ✅
+- [x] Chat widget flotante
+- [x] `/api/ai/chat` con system prompt dinámico
+- [x] Tools: query_fichadas, query_novedades, get_resumen_dia, crear_novedad, crear_comunicacion, listar_colaboradores
+
+### FASE 6 — Proyección + Mejoras bot ✅
+- [x] Schema Prisma: ProyeccionMensual + AsignacionMensual
+- [x] Parser planilla Excel mensual (`src/lib/importar-planilla.ts`)
+- [x] Página `/[slug]/proyeccion` con resumen, detalle y comparación
+- [x] Endpoints `/api/proyeccion` + `/api/proyeccion/importar` + confirmar
+- [x] Importar servicios para Puntos QR (`importar-servicios-modal.tsx`)
+- [x] Sincronizar colaboradores — nuevo flujo con preview y desactivación
+- [x] Bot WhatsApp: identificación por DNI como fallback
+- [x] Bot WhatsApp: cruce con proyección mensual al fichar (avisar franco)
+- [x] Sidebar: ítem Proyección agregado
+
+### FASE 7 — Producción ← EMPEZAR AQUÍ
+- [ ] `npx prisma migrate dev --name proyeccion` — ejecutar en DB
+- [ ] `src/middleware.ts` formal con matcher de rutas
+- [ ] Rate limiting en webhooks WhatsApp
+- [ ] Validación de permisos por rol (SUPER_ADMIN / ADMIN / MANAGER) en todos los endpoints
+- [ ] Tests de integración críticos (webhook WA, cron alertas, fichada GPS)
+- [ ] Dominio fich.ar + deploy Vercel + Railway
 
 ---
 
