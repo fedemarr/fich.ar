@@ -118,6 +118,7 @@ model Colaborador {
   email          String?
   avatar_url     String?
   sector         String?
+  domicilio      String?
   estado         EstadoColaborador @default(ACTIVO)
   fecha_ingreso  DateTime?
   created_at     DateTime          @default(now())

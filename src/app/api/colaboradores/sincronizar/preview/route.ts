@@ -29,7 +29,7 @@ export interface FilaAsociado {
   apellido: string
   nombre: string
   identificacion: string
-  sector: string
+  domicilio: string
 }
 
 export interface ColabDesactivado {
@@ -100,9 +100,9 @@ async function previewAsociados(rows: RowRaw[], empresaId: string): Promise<Resp
 
     const { apellido, nombre } = splitNombre(nombreCompleto)
     const identificacion = col(row, "DNI", "dni").replace(/\./g, "").trim()
-    const sector = col(row, "DOMICILIO", "domicilio")
+    const domicilio = col(row, "DOMICILIO", "domicilio")
 
-    excelMap.set(legajo, { legajo, apellido, nombre, identificacion, sector })
+    excelMap.set(legajo, { legajo, apellido, nombre, identificacion, domicilio })
   }
 
   if (excelMap.size === 0) {
@@ -115,7 +115,7 @@ async function previewAsociados(rows: RowRaw[], empresaId: string): Promise<Resp
   // Obtener todos los colaboradores de la empresa (incluyendo desactivados)
   const enDB = await prisma.colaborador.findMany({
     where: { empresa_id: empresaId, deleted_at: null, legajo: { not: null } },
-    select: { id: true, legajo: true, nombre: true, apellido: true, identificacion: true, sector: true, estado: true },
+    select: { id: true, legajo: true, nombre: true, apellido: true, identificacion: true, domicilio: true, estado: true },
   })
 
   const creados: FilaAsociado[] = []
@@ -133,10 +133,10 @@ async function previewAsociados(rows: RowRaw[], empresaId: string): Promise<Resp
       fila.apellido.toLowerCase() !== existente.apellido.toLowerCase() ||
       fila.nombre.toLowerCase() !== existente.nombre.toLowerCase()
     const cambioDNI = fila.identificacion && fila.identificacion !== (existente.identificacion ?? "")
-    const cambioSector = fila.sector && fila.sector !== (existente.sector ?? "")
+    const cambioDomicilio = fila.domicilio && fila.domicilio !== (existente.domicilio ?? "")
     const estabaDesactivado = existente.estado === "DESACTIVADO"
 
-    if (cambioNombre || cambioDNI || cambioSector || estabaDesactivado) {
+    if (cambioNombre || cambioDNI || cambioDomicilio || estabaDesactivado) {
       actualizados.push(fila)
     } else {
       sinCambios++

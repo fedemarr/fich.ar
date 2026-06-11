@@ -19,6 +19,7 @@ const schema = z.object({
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   legajo: z.string().optional(),
   sector: z.string().optional(),
+  domicilio: z.string().optional(),
   estado: z.enum(["ACTIVO", "INACTIVO", "DESACTIVADO"]),
   jornada_id: z.string().optional(),
 })
@@ -66,6 +67,7 @@ export function ColaboradorDialog({
         email: colaborador.email ?? "",
         legajo: colaborador.legajo ?? "",
         sector: colaborador.sector ?? "",
+        domicilio: colaborador.domicilio ?? "",
         estado: colaborador.estado,
         jornada_id: colaborador.jornadas[0]?.jornada_id ?? "",
       })
@@ -138,21 +140,26 @@ export function ColaboradorDialog({
               <Input {...register("sector")} />
             </div>
             <div className="space-y-1.5">
-              <Label>Estado</Label>
-              <Select
-                defaultValue={colaborador?.estado ?? "ACTIVO"}
-                onValueChange={(v) => setValue("estado", v as FormData["estado"])}
-              >
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="ACTIVO">Activo</SelectItem>
-                  <SelectItem value="INACTIVO">Inactivo</SelectItem>
-                  <SelectItem value="DESACTIVADO">Desactivado</SelectItem>
-                </SelectContent>
-              </Select>
+              <Label>Domicilio (opcional)</Label>
+              <Input {...register("domicilio")} />
             </div>
+          </div>
+
+          <div className="space-y-1.5">
+            <Label>Estado</Label>
+            <Select
+              defaultValue={colaborador?.estado ?? "ACTIVO"}
+              onValueChange={(v) => setValue("estado", v as FormData["estado"])}
+            >
+              <SelectTrigger>
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="ACTIVO">Activo</SelectItem>
+                <SelectItem value="INACTIVO">Inactivo</SelectItem>
+                <SelectItem value="DESACTIVADO">Desactivado</SelectItem>
+              </SelectContent>
+            </Select>
           </div>
 
           <div className="space-y-1.5">

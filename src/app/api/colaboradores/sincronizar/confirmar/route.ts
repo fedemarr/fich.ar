@@ -7,7 +7,7 @@ const FilaAsociadoSchema = z.object({
   apellido: z.string(),
   nombre: z.string(),
   identificacion: z.string(),
-  sector: z.string(),
+  domicilio: z.string(),
 })
 
 const FilaServicioSchema = z.object({
@@ -68,7 +68,7 @@ async function confirmarAsociados(
         nombre: fila.nombre || fila.apellido,
         celular: `SIN_CEL_${fila.legajo}`,
         identificacion: fila.identificacion || null,
-        sector: fila.sector || null,
+        domicilio: fila.domicilio || null,
         estado: "ACTIVO",
       },
     })
@@ -84,7 +84,7 @@ async function confirmarAsociados(
         apellido: fila.apellido,
         nombre: fila.nombre || fila.apellido,
         ...(fila.identificacion && { identificacion: fila.identificacion }),
-        ...(fila.sector && { sector: fila.sector }),
+        ...(fila.domicilio && { domicilio: fila.domicilio }),
         estado: "ACTIVO",
         deleted_at: null,
       },

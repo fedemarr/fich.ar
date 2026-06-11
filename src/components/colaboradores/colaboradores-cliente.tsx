@@ -37,10 +37,10 @@ function AvatarColaborador({ nombre, apellido }: { nombre: string; apellido: str
 }
 
 function exportarCSV(colaboradores: ColaboradorConJornada[]) {
-  const headers = ["Apellido", "Nombre", "Celular", "Identificación", "Legajo", "Sector", "Estado"]
+  const headers = ["Apellido", "Nombre", "Celular", "DNI", "Legajo", "Sector", "Domicilio", "Estado"]
   const rows = colaboradores.map((c) => [
-    c.apellido, c.nombre, c.celular,
-    c.identificacion ?? "", c.legajo ?? "", c.sector ?? "", c.estado,
+    c.apellido, c.nombre, c.celular, c.identificacion ?? "",
+    c.legajo ?? "", c.sector ?? "", c.domicilio ?? "", c.estado,
   ])
   const csv = [headers, ...rows].map((r) => r.map((v) => `"${v}"`).join(",")).join("\n")
   const blob = new Blob(["﻿" + csv], { type: "text/csv;charset=utf-8;" })
@@ -75,7 +75,7 @@ function TablaColaboradores({
           <th className="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Colaborador</th>
           <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Legajo</th>
           <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Celular</th>
-          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Identificación</th>
+          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">DNI / Domicilio</th>
           <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Empresa</th>
           <th className="px-4 py-3 w-20" />
         </tr>
@@ -99,7 +99,12 @@ function TablaColaboradores({
               <td className="px-4 py-3.5 text-gray-500 font-mono text-xs">{c.legajo ?? "—"}</td>
               <td className="px-4 py-3.5 text-gray-600">{c.celular}</td>
               <td className="px-4 py-3.5 text-gray-400 text-sm">
-                {c.identificacion ?? "No especificado"}
+                <div>{c.identificacion ?? "—"}</div>
+                {c.domicilio && (
+                  <div className="text-xs text-gray-300 mt-0.5 max-w-[160px] truncate" title={c.domicilio}>
+                    {c.domicilio}
+                  </div>
+                )}
               </td>
               <td className="px-4 py-3.5 text-gray-400 text-sm">
                 {empresa ?? "No especificado"}
