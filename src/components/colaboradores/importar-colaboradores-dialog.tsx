@@ -219,7 +219,7 @@ interface UploadStepProps {
   tipo: Tipo
   archivo: File | null
   errorMsg: string
-  inputRef: React.RefObject<HTMLInputElement>
+  inputRef: React.RefObject<HTMLInputElement | null>
   onTipoChange: (t: Tipo) => void
   onFileSelect: (f: File) => void
   onCancelar: () => void

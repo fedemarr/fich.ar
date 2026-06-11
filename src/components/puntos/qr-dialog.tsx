@@ -56,8 +56,8 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
               level="M"
             />
           </div>
-          <p className="text-xs text-gray-400 text-center">
-            Radio permitido: {punto.radio_metros}m
+          <p className="text-xs text-gray-400 text-center break-all">
+            {url}
           </p>
           <Button
             className="w-full gap-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"

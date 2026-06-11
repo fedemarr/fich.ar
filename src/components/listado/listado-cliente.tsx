@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useMemo } from "react"
+import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { ClipboardList, Search, RefreshCw, Download } from "lucide-react"
 import { Input } from "@/components/ui/input"
@@ -69,6 +69,13 @@ export function ListadoCliente({
   const router = useRouter()
   const [busqueda, setBusqueda] = useState("")
   const [modalFichada, setModalFichada] = useState(false)
+
+  // Auto-refresh cada 30s solo si estamos viendo hoy
+  useEffect(() => {
+    if (fechaInicial !== new Date().toISOString().split("T")[0]) return
+    const id = setInterval(() => router.refresh(), 30_000)
+    return () => clearInterval(id)
+  }, [fechaInicial, router])
 
   const filas: FilaListado[] = useMemo(() => {
     return colaboradores.map((col) => {
