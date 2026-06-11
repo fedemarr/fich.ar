@@ -119,15 +119,22 @@ export function ImportarExcelModal({ open, mes, anio, puntos, onClose, onSuccess
         : (puntoByServicio.get(h.servicio) ?? null),
     }))
 
+    const payload = { mes: preview.mes, anio: preview.anio, hojas }
+    console.log("[confirmar] payload hojas:", hojas.length, "| primera hoja filas:", hojas[0]?.filas?.length, "| primera fila:", JSON.stringify(hojas[0]?.filas?.[0]))
+
     try {
       const res = await fetch("/api/proyeccion/importar/confirmar", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ mes: preview.mes, anio: preview.anio, hojas }),
+        body: JSON.stringify(payload),
       })
-      const data = await res.json() as { error?: string; asignaciones?: number; creados_colaboradores?: number }
+      const data = await res.json() as { error?: string; issues?: unknown[]; asignaciones?: number; creados_colaboradores?: number }
       if (!res.ok || data.error) {
-        toast.error(data.error ?? "Error al importar")
+        console.error("[confirmar] Zod issues:", JSON.stringify(data.issues, null, 2))
+        const primerIssue = Array.isArray(data.issues) && data.issues.length > 0
+          ? ` (${JSON.stringify(data.issues[0])})`
+          : ""
+        toast.error((data.error ?? "Error al importar") + primerIssue)
         setStep("preview")
         return
       }
