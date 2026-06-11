@@ -109,10 +109,14 @@ export function ImportarExcelModal({ open, mes, anio, puntos, onClose, onSuccess
     if (!preview) return
     setStep("confirming")
 
-    // Aplicar overrides manuales sobre los datos del preview
+    // punto_id viene de preview.servicios, no de _hojas (que no lo incluye)
+    const puntoByServicio = new Map(preview.servicios.map((s) => [s.servicio, s.punto_id]))
+
     const hojas = preview._hojas.map((h) => ({
       ...h,
-      punto_id: overrides.has(h.servicio) ? (overrides.get(h.servicio) ?? null) : h.punto_id,
+      punto_id: overrides.has(h.servicio)
+        ? (overrides.get(h.servicio) ?? null)
+        : (puntoByServicio.get(h.servicio) ?? null),
     }))
 
     try {

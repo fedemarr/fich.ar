@@ -19,7 +19,7 @@ const FilaSchema = z.object({
 
 const HojaSchema = z.object({
   servicio: z.string(),
-  punto_id: z.union([z.string(), z.null()]),
+  punto_id: z.union([z.string(), z.null(), z.undefined()]).transform((v) => v ?? null),
   filas: z.array(FilaSchema),
 })
 
