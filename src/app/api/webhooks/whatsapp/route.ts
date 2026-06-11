@@ -128,6 +128,7 @@ async function manejarMensaje(from: string, msg: WAMessage) {
         timestamp: Date.now(),
       })
 
+      await avisarPuntoIncorrecto(to, colaborador.id, estado.punto_id, nombrePunto, estado.empresa_id)
       await enviarBotones({
         to,
         body: `✅ ¡Hola ${colaborador.nombre}! ¿Qué registrás en *${nombrePunto}*?`,
@@ -218,6 +219,7 @@ async function manejarMensaje(from: string, msg: WAMessage) {
       colaborador_id: colaborador.id,
       timestamp: Date.now(),
     })
+    await avisarPuntoIncorrecto(to, colaborador.id, punto.id, punto.nombre, punto.empresa_id)
     await enviarBotones({
       to,
       body: `¡Hola ${colaborador.nombre}! ¿Qué registrás en *${punto.nombre}*?`,
@@ -238,6 +240,36 @@ async function manejarMensaje(from: string, msg: WAMessage) {
     await enviarTexto({
       to,
       body: `¡Hola! Estás en *${punto.nombre}*.\n\nNo encontramos tu número registrado. Por favor ingresá tu *número de DNI* para identificarte:`,
+    })
+  }
+}
+
+async function avisarPuntoIncorrecto(
+  to: string,
+  colaboradorId: string,
+  puntoId: string,
+  nombrePunto: string,
+  empresaId: string
+) {
+  const ahora = new Date()
+  const mes = ahora.getMonth() + 1
+  const anio = ahora.getFullYear()
+
+  const proyeccion = await prisma.proyeccionMensual.findUnique({
+    where: { empresa_id_mes_anio: { empresa_id: empresaId, mes, anio } },
+    select: { id: true },
+  })
+  if (!proyeccion) return
+
+  const asignacion = await prisma.asignacionMensual.findFirst({
+    where: { proyeccion_id: proyeccion.id, colaborador_id: colaboradorId, punto_fichaje_id: puntoId },
+    select: { id: true },
+  })
+
+  if (!asignacion) {
+    await enviarTexto({
+      to,
+      body: `⚠️ Atención: según la planilla de ${ahora.toLocaleString("es-AR", { month: "long" })}, no figurás asignado/a a *${nombrePunto}*. Verificá que estás escaneando el QR correcto o consultá con tu supervisor.`,
     })
   }
 }
