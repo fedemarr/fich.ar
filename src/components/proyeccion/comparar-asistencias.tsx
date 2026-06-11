@@ -9,7 +9,6 @@ interface AsignacionMensual {
   punto_fichaje_id: string | null
   servicio_nombre: string
   colaborador: { id: string; nombre: string; apellido: string }
-  [key: string]: unknown
 }
 
 interface FichadaReal {
@@ -76,7 +75,7 @@ export function CompararAsistencias({ asignaciones, mes, anio }: Props) {
 
   function estadoDia(asignacion: AsignacionMensual, dia: number): EstadoDia {
     const key = `dia_${String(dia).padStart(2, "0")}`
-    const horasEsperadas = asignacion[key] as number | null
+    const horasEsperadas = (asignacion as unknown as Record<string, unknown>)[key] as number | null
 
     if (horasEsperadas === null || horasEsperadas === undefined) return "NO_LABORAL"
     if (horasEsperadas === 0) return "FRANCO"
@@ -119,7 +118,7 @@ export function CompararAsistencias({ asignaciones, mes, anio }: Props) {
         }).length
         const totalHoy = filas.filter((a) => {
           const key = `dia_${String(diaActual).padStart(2, "0")}`
-          const h = a[key] as number | null
+          const h = (a as unknown as Record<string, unknown>)[key] as number | null
           return h !== null && h !== undefined && h > 0
         }).length
 

@@ -9,7 +9,6 @@ interface AsignacionMensual {
   categoria: string | null
   total_horas: number | null
   colaborador: { id: string; nombre: string; apellido: string; legajo: string | null }
-  [key: string]: unknown
 }
 
 interface Props {
@@ -117,7 +116,7 @@ export function TablaProyeccion({ asignaciones, mes, anio }: Props) {
                 <td className="px-3 py-1.5 text-gray-400">{a.categoria ?? "—"}</td>
                 {Array.from({ length: dias }, (_, i) => i + 1).map((d) => {
                   const key = `dia_${String(d).padStart(2, "0")}`
-                  const val = a[key]
+                  const val = (a as unknown as Record<string, unknown>)[key]
                   return (
                     <td
                       key={d}

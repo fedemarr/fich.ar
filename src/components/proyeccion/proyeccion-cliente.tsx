@@ -68,6 +68,109 @@ interface Props {
   puntos: { id: string; nombre: string }[]
 }
 
+const MESES_DIAS = [31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31]
+function diasEnMes(m: number, a: number) {
+  if (m === 2 && ((a % 4 === 0 && a % 100 !== 0) || a % 400 === 0)) return 29
+  return MESES_DIAS[m - 1]
+}
+
+function TablaEmpleados({ asignaciones, mes, anio }: { asignaciones: AsignacionMensual[]; mes: number; anio: number }) {
+  const dias = diasEnMes(mes, anio)
+  const hoy = new Date().getDate()
+  const esEsteMes = new Date().getMonth() + 1 === mes && new Date().getFullYear() === anio
+
+  // Agrupar por colaborador_id — sumar horas por día
+  const porEmpleado = new Map<string, { colaborador: Colaborador; servicios: string[]; dias: (number | null)[]; total: number }>()
+  for (const a of asignaciones) {
+    if (!porEmpleado.has(a.colaborador_id)) {
+      porEmpleado.set(a.colaborador_id, {
+        colaborador: a.colaborador,
+        servicios: [],
+        dias: Array(31).fill(null),
+        total: 0,
+      })
+    }
+    const entry = porEmpleado.get(a.colaborador_id)!
+    if (!entry.servicios.includes(a.servicio_nombre)) entry.servicios.push(a.servicio_nombre)
+    entry.total += a.total_horas ?? 0
+    for (let i = 0; i < 31; i++) {
+      const key = `dia_${String(i + 1).padStart(2, "0")}` as keyof AsignacionMensual
+      const v = a[key] as number | null
+      if (v !== null && v !== undefined) {
+        const cur = entry.dias[i]
+        entry.dias[i] = (cur ?? 0) + v
+      }
+    }
+  }
+
+  const filas = Array.from(porEmpleado.values()).sort((a, b) =>
+    `${a.colaborador.apellido} ${a.colaborador.nombre}`.localeCompare(
+      `${b.colaborador.apellido} ${b.colaborador.nombre}`
+    )
+  )
+
+  function celdaVal(v: number | null): string {
+    if (v === null || v === undefined) return ""
+    if (v === 0) return "F"
+    return String(v)
+  }
+  function claseVal(v: number | null): string {
+    if (v === null || v === undefined) return "text-gray-200"
+    if (v === 0) return "text-gray-400 font-medium"
+    return "text-gray-700"
+  }
+
+  return (
+    <div className="overflow-x-auto border border-gray-200 rounded-xl">
+      <table className="text-xs w-full">
+        <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+          <tr>
+            <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Empleado</th>
+            <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Servicios</th>
+            {Array.from({ length: dias }, (_, i) => i + 1).map((d) => (
+              <th
+                key={d}
+                className={`px-1.5 py-2 font-medium text-center w-6 ${
+                  esEsteMes && d === hoy ? "bg-blue-100 text-[#2563EB]" : "text-gray-400"
+                }`}
+              >
+                {d}
+              </th>
+            ))}
+            <th className="text-right px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Hs</th>
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-50">
+          {filas.map(({ colaborador, servicios, dias: diaArr, total }) => (
+            <tr key={colaborador.id} className="hover:bg-gray-50">
+              <td className="px-3 py-1.5 whitespace-nowrap text-gray-700">
+                {colaborador.apellido} {colaborador.nombre}
+              </td>
+              <td className="px-3 py-1.5 text-gray-400 max-w-[140px] truncate" title={servicios.join(", ")}>
+                {servicios.join(", ")}
+              </td>
+              {Array.from({ length: dias }, (_, i) => i + 1).map((d) => {
+                const v = diaArr[d - 1]
+                return (
+                  <td
+                    key={d}
+                    className={`px-1.5 py-1.5 text-center w-6 ${claseVal(v)} ${
+                      esEsteMes && d === hoy ? "bg-blue-50" : ""
+                    }`}
+                  >
+                    {celdaVal(v)}
+                  </td>
+                )
+              })}
+              <td className="px-3 py-1.5 text-right font-medium text-gray-700">{Math.round(total)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
 export function ProyeccionCliente({ slug, mes, anio, proyeccion, puntos }: Props) {
   const [modalAbierto, setModalAbierto] = useState(false)
   const router = useRouter()
@@ -172,10 +275,12 @@ export function ProyeccionCliente({ slug, mes, anio, proyeccion, puntos }: Props
           <Tabs defaultValue="resumen">
             <TabsList>
               <TabsTrigger value="resumen">Resumen</TabsTrigger>
-              <TabsTrigger value="detalle">Detalle completo</TabsTrigger>
-              <TabsTrigger value="comparar">Comparar con asistencias</TabsTrigger>
+              <TabsTrigger value="por-servicio">Por servicio</TabsTrigger>
+              <TabsTrigger value="por-empleado">Por empleado</TabsTrigger>
+              <TabsTrigger value="comparar">Comparar</TabsTrigger>
             </TabsList>
 
+            {/* Resumen: tabla por servicio */}
             <TabsContent value="resumen" className="mt-4">
               <div className="border border-gray-200 rounded-xl overflow-hidden">
                 <table className="w-full text-sm">
@@ -212,10 +317,17 @@ export function ProyeccionCliente({ slug, mes, anio, proyeccion, puntos }: Props
               </div>
             </TabsContent>
 
-            <TabsContent value="detalle" className="mt-4">
+            {/* Por servicio: tabla completa con chips de filtro */}
+            <TabsContent value="por-servicio" className="mt-4">
               <TablaProyeccion asignaciones={proyeccion.asignaciones} mes={mes} anio={anio} />
             </TabsContent>
 
+            {/* Por empleado: una fila por persona, horas totales por día sumadas */}
+            <TabsContent value="por-empleado" className="mt-4">
+              <TablaEmpleados asignaciones={proyeccion.asignaciones} mes={mes} anio={anio} />
+            </TabsContent>
+
+            {/* Comparar */}
             <TabsContent value="comparar" className="mt-4">
               <CompararAsistencias
                 proyeccionId={proyeccion.id}
