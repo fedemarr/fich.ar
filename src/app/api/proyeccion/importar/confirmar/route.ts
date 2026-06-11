@@ -10,16 +10,16 @@ const FilaSchema = z.object({
   apellido: z.string(),
   nombre: z.string(),
   categoria: z.string(),
-  valorHora: z.number().nullable(),
-  horaInicio: z.string().nullable(),
-  horaFin: z.string().nullable(),
-  totalHoras: z.number().nullable(),
-  dias: z.array(z.number().nullable()).length(31),
+  valorHora: z.union([z.number(), z.null()]),
+  horaInicio: z.union([z.string(), z.null()]),
+  horaFin: z.union([z.string(), z.null()]),
+  totalHoras: z.union([z.number(), z.null()]),
+  dias: z.array(z.union([z.number(), z.null()])),
 })
 
 const HojaSchema = z.object({
   servicio: z.string(),
-  punto_id: z.string().nullable(), // null = sin matcheo
+  punto_id: z.union([z.string(), z.null()]),
   filas: z.array(FilaSchema),
 })
 
@@ -38,8 +38,12 @@ export async function POST(req: Request): Promise<Response> {
   const empresaId = session.user.empresaId
   if (!empresaId) return NextResponse.json({ error: "Sin empresa" }, { status: 403 })
 
-  const body = BodySchema.safeParse(await req.json())
-  if (!body.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
+  const rawBody = await req.json()
+  const body = BodySchema.safeParse(rawBody)
+  if (!body.success) {
+    console.error("[proyeccion/confirmar] Zod error:", JSON.stringify(body.error.issues, null, 2))
+    return NextResponse.json({ error: "Datos inválidos", issues: body.error.issues }, { status: 400 })
+  }
 
   const { mes, anio, hojas } = body.data
 
