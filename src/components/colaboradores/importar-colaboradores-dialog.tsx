@@ -422,7 +422,7 @@ function PreviewStep({
           <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
             <Layers size={14} className="text-[#2563EB] shrink-0" />
             <span className="text-xs text-gray-600 font-medium">Hoja:</span>
-            <Select value={preview.sheet_actual} onValueChange={onCambiarHoja}>
+            <Select value={preview.sheet_actual} onValueChange={(v) => v && onCambiarHoja(v)}>
               <SelectTrigger className="h-7 text-xs flex-1 border-0 bg-transparent shadow-none px-1 focus:ring-0">
                 <SelectValue />
               </SelectTrigger>
@@ -546,7 +546,7 @@ function PreviewStep({
         <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
           <Layers size={14} className="text-[#2563EB] shrink-0" />
           <span className="text-xs text-gray-600 font-medium">Hoja:</span>
-          <Select value={preview.sheet_actual} onValueChange={onCambiarHoja}>
+          <Select value={preview.sheet_actual} onValueChange={(v) => v && onCambiarHoja(v)}>
             <SelectTrigger className="h-7 text-xs flex-1 border-0 bg-transparent shadow-none px-1 focus:ring-0">
               <SelectValue />
             </SelectTrigger>
