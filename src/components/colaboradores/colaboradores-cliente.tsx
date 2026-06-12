@@ -298,6 +298,7 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
 
       <ImportarColaboradoresDialog
         open={importarAbierto}
+        jornadas={jornadas}
         onClose={() => setImportarAbierto(false)}
         onSuccess={() => { router.refresh(); setImportarAbierto(false) }}
       />

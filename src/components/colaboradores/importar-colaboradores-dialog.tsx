@@ -11,6 +11,13 @@ import {
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select"
 import { toast } from "sonner"
 
 type Tipo = "asociados" | "servicios"
@@ -21,7 +28,7 @@ interface FilaAsociado {
   apellido: string
   nombre: string
   identificacion: string
-  sector: string
+  domicilio: string
 }
 
 interface ColabDesactivado {
@@ -69,19 +76,27 @@ interface ResultadoServicios {
 
 type Resultado = ResultadoAsociados | ResultadoServicios
 
+interface JornadaOpcion {
+  id: string
+  nombre: string
+  punto_fichaje: { nombre: string }
+}
+
 interface Props {
   open: boolean
   onClose: () => void
   onSuccess: () => void
+  jornadas: JornadaOpcion[]
 }
 
-export function ImportarColaboradoresDialog({ open, onClose, onSuccess }: Props) {
+export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas }: Props) {
   const [step, setStep] = useState<Step>("upload")
   const [tipo, setTipo] = useState<Tipo>("asociados")
   const [archivo, setArchivo] = useState<File | null>(null)
   const [preview, setPreview] = useState<Preview | null>(null)
   const [resultado, setResultado] = useState<Resultado | null>(null)
   const [errorMsg, setErrorMsg] = useState("")
+  const [jornadaId, setJornadaId] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   function reset() {
@@ -90,6 +105,7 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess }: Props)
     setPreview(null)
     setResultado(null)
     setErrorMsg("")
+    setJornadaId(null)
   }
 
   function handleClose() {
@@ -139,6 +155,7 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess }: Props)
         creados: preview.creados,
         actualizados: preview.actualizados,
         desactivarIds: preview.desactivados.map((d) => d.id),
+        jornada_id: jornadaId ?? undefined,
       }
     } else {
       body = { tipo: "servicios", asignaciones: preview.asignaciones }
@@ -195,7 +212,14 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess }: Props)
         )}
 
         {step === "preview" && preview && (
-          <PreviewStep preview={preview} onVolver={() => setStep("upload")} onConfirmar={confirmar} />
+          <PreviewStep
+            preview={preview}
+            jornadas={jornadas}
+            jornadaId={jornadaId}
+            onJornadaChange={setJornadaId}
+            onVolver={() => setStep("upload")}
+            onConfirmar={confirmar}
+          />
         )}
 
         {step === "confirming" && (
@@ -226,7 +250,16 @@ interface UploadStepProps {
   onProcesar: () => void
 }
 
-function UploadStep({ tipo, archivo, errorMsg, inputRef, onTipoChange, onFileSelect, onCancelar, onProcesar }: UploadStepProps) {
+function UploadStep({
+  tipo,
+  archivo,
+  errorMsg,
+  inputRef,
+  onTipoChange,
+  onFileSelect,
+  onCancelar,
+  onProcesar,
+}: UploadStepProps) {
   return (
     <div className="space-y-5 mt-1">
       <div className="space-y-2">
@@ -328,16 +361,23 @@ function UploadStep({ tipo, archivo, errorMsg, inputRef, onTipoChange, onFileSel
 
 function PreviewStep({
   preview,
+  jornadas,
+  jornadaId,
+  onJornadaChange,
   onVolver,
   onConfirmar,
 }: {
   preview: Preview
+  jornadas: JornadaOpcion[]
+  jornadaId: string | null
+  onJornadaChange: (id: string | null) => void
   onVolver: () => void
   onConfirmar: () => void
 }) {
   if (preview.tipo === "asociados") {
     const { creados, actualizados, sinCambios, desactivados } = preview
     const totalCambios = creados.length + actualizados.length + desactivados.length
+    const totalParaAsignar = creados.length + actualizados.length
 
     return (
       <div className="space-y-4 mt-1">
@@ -399,6 +439,31 @@ function PreviewStep({
             </div>
           )}
         </div>
+
+        {totalParaAsignar > 0 && (
+          <div className="space-y-1.5 border-t border-gray-100 pt-3">
+            <p className="text-sm font-medium text-gray-700">Asignar jornada (opcional)</p>
+            <Select
+              value={jornadaId ?? "none"}
+              onValueChange={(v) => onJornadaChange(v === "none" ? null : v)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="Sin asignar jornada" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="none">Sin asignar jornada</SelectItem>
+                {jornadas.map((j) => (
+                  <SelectItem key={j.id} value={j.id}>
+                    {j.nombre} — {j.punto_fichaje.nombre}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <p className="text-xs text-gray-400">
+              Se asignará a los {totalParaAsignar} colaboradores creados o actualizados
+            </p>
+          </div>
+        )}
 
         <div className="flex gap-2 pt-1">
           <Button variant="outline" className="flex-1" onClick={onVolver}>

@@ -23,6 +23,7 @@ const BodySchema = z.discriminatedUnion("tipo", [
     creados: z.array(FilaAsociadoSchema),
     actualizados: z.array(FilaAsociadoSchema),
     desactivarIds: z.array(z.string()),
+    jornada_id: z.string().optional(),
   }),
   z.object({
     tipo: z.literal("servicios"),
@@ -45,12 +46,19 @@ export async function POST(req: Request): Promise<Response> {
 }
 
 async function confirmarAsociados(
-  data: { tipo: "asociados"; creados: z.infer<typeof FilaAsociadoSchema>[]; actualizados: z.infer<typeof FilaAsociadoSchema>[]; desactivarIds: string[] },
+  data: {
+    tipo: "asociados"
+    creados: z.infer<typeof FilaAsociadoSchema>[]
+    actualizados: z.infer<typeof FilaAsociadoSchema>[]
+    desactivarIds: string[]
+    jornada_id?: string
+  },
   empresaId: string
 ): Promise<Response> {
   let creados = 0
   let actualizados = 0
   let desactivados = 0
+  const { jornada_id } = data
 
   // Pre-cargar todos para no hacer N queries individuales
   const existentes = await prisma.colaborador.findMany({
@@ -60,7 +68,7 @@ async function confirmarAsociados(
   const mapaId = new Map(existentes.map((c) => [c.legajo!, c.id]))
 
   for (const fila of data.creados) {
-    await prisma.colaborador.create({
+    const colab = await prisma.colaborador.create({
       data: {
         empresa_id: empresaId,
         legajo: fila.legajo,
@@ -72,6 +80,11 @@ async function confirmarAsociados(
         estado: "ACTIVO",
       },
     })
+    if (jornada_id) {
+      await prisma.colaboradorJornada.create({
+        data: { colaborador_id: colab.id, jornada_id, fecha_desde: new Date() },
+      })
+    }
     creados++
   }
 
@@ -89,6 +102,16 @@ async function confirmarAsociados(
         deleted_at: null,
       },
     })
+    if (jornada_id) {
+      // Cerrar jornadas vigentes y asignar la nueva
+      await prisma.colaboradorJornada.updateMany({
+        where: { colaborador_id: id, fecha_hasta: null },
+        data: { fecha_hasta: new Date() },
+      })
+      await prisma.colaboradorJornada.create({
+        data: { colaborador_id: id, jornada_id, fecha_desde: new Date() },
+      })
+    }
     actualizados++
   }
 
