@@ -8,6 +8,7 @@ import {
   Loader2,
   ChevronLeft,
   RefreshCw,
+  Layers,
 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -40,6 +41,8 @@ interface ColabDesactivado {
 
 interface PreviewAsociados {
   tipo: "asociados"
+  sheets: string[]
+  sheet_actual: string
   creados: FilaAsociado[]
   actualizados: FilaAsociado[]
   sinCambios: number
@@ -55,6 +58,8 @@ interface FilaServicio {
 
 interface PreviewServicios {
   tipo: "servicios"
+  sheets: string[]
+  sheet_actual: string
   asignaciones: FilaServicio[]
   sinColaborador: string[]
   sinPunto: string[]
@@ -97,6 +102,8 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas
   const [resultado, setResultado] = useState<Resultado | null>(null)
   const [errorMsg, setErrorMsg] = useState("")
   const [jornadaId, setJornadaId] = useState<string | null>(null)
+  const [desactivarAusentes, setDesactivarAusentes] = useState(false)
+  const [cambiandoHoja, setCambiandoHoja] = useState(false)
   const inputRef = useRef<HTMLInputElement>(null)
 
   function reset() {
@@ -106,6 +113,8 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas
     setResultado(null)
     setErrorMsg("")
     setJornadaId(null)
+    setDesactivarAusentes(false)
+    setCambiandoHoja(false)
   }
 
   function handleClose() {
@@ -114,33 +123,42 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas
     setTimeout(reset, 300)
   }
 
-  function handleFileSelect(file: File) {
-    setArchivo(file)
-    setErrorMsg("")
+  async function fetchPreview(file: File, tipoParam: Tipo, sheetName?: string) {
+    const fd = new FormData()
+    fd.append("file", file)
+    fd.append("tipo", tipoParam)
+    if (sheetName) fd.append("sheet_name", sheetName)
+
+    const res = await fetch("/api/colaboradores/sincronizar/preview", { method: "POST", body: fd })
+    const data = (await res.json()) as { error?: string } & Partial<Preview>
+    if (!res.ok || data.error) throw new Error(data.error ?? "Error al procesar el archivo")
+    return data as Preview
   }
 
   async function procesarArchivo() {
     if (!archivo) return
     setStep("processing")
     setErrorMsg("")
-
-    const fd = new FormData()
-    fd.append("file", archivo)
-    fd.append("tipo", tipo)
-
     try {
-      const res = await fetch("/api/colaboradores/sincronizar/preview", { method: "POST", body: fd })
-      const data = (await res.json()) as { error?: string } & Partial<Preview>
-      if (!res.ok || data.error) {
-        setErrorMsg(data.error ?? "Error al procesar el archivo")
-        setStep("upload")
-        return
-      }
-      setPreview(data as Preview)
+      const data = await fetchPreview(archivo, tipo)
+      setPreview(data)
       setStep("preview")
-    } catch {
-      setErrorMsg("Error de conexión")
+    } catch (e) {
+      setErrorMsg(e instanceof Error ? e.message : "Error al procesar")
       setStep("upload")
+    }
+  }
+
+  async function cambiarHoja(sheetName: string) {
+    if (!archivo || !preview) return
+    setCambiandoHoja(true)
+    try {
+      const data = await fetchPreview(archivo, tipo, sheetName)
+      setPreview(data)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Error al cambiar hoja")
+    } finally {
+      setCambiandoHoja(false)
     }
   }
 
@@ -154,7 +172,7 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas
         tipo: "asociados",
         creados: preview.creados,
         actualizados: preview.actualizados,
-        desactivarIds: preview.desactivados.map((d) => d.id),
+        desactivarIds: desactivarAusentes ? preview.desactivados.map((d) => d.id) : [],
         jornada_id: jornadaId ?? undefined,
       }
     } else {
@@ -187,7 +205,7 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
             <RefreshCw size={17} className="text-[#2563EB]" />
-            Sincronizar colaboradores
+            Importar colaboradores
           </DialogTitle>
         </DialogHeader>
 
@@ -197,8 +215,8 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas
             archivo={archivo}
             errorMsg={errorMsg}
             inputRef={inputRef}
-            onTipoChange={setTipo}
-            onFileSelect={handleFileSelect}
+            onTipoChange={(t) => { setTipo(t); setArchivo(null); setErrorMsg("") }}
+            onFileSelect={(f) => { setArchivo(f); setErrorMsg("") }}
             onCancelar={handleClose}
             onProcesar={procesarArchivo}
           />
@@ -212,14 +230,24 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas
         )}
 
         {step === "preview" && preview && (
-          <PreviewStep
-            preview={preview}
-            jornadas={jornadas}
-            jornadaId={jornadaId}
-            onJornadaChange={setJornadaId}
-            onVolver={() => setStep("upload")}
-            onConfirmar={confirmar}
-          />
+          <div className="relative">
+            {cambiandoHoja && (
+              <div className="absolute inset-0 bg-white/70 z-10 flex items-center justify-center rounded-lg">
+                <Loader2 size={24} className="animate-spin text-[#2563EB]" />
+              </div>
+            )}
+            <PreviewStep
+              preview={preview}
+              jornadas={jornadas}
+              jornadaId={jornadaId}
+              desactivarAusentes={desactivarAusentes}
+              onJornadaChange={setJornadaId}
+              onDesactivarChange={setDesactivarAusentes}
+              onCambiarHoja={cambiarHoja}
+              onVolver={() => setStep("upload")}
+              onConfirmar={confirmar}
+            />
+          </div>
         )}
 
         {step === "confirming" && (
@@ -363,17 +391,25 @@ function PreviewStep({
   preview,
   jornadas,
   jornadaId,
+  desactivarAusentes,
   onJornadaChange,
+  onDesactivarChange,
+  onCambiarHoja,
   onVolver,
   onConfirmar,
 }: {
   preview: Preview
   jornadas: JornadaOpcion[]
   jornadaId: string | null
+  desactivarAusentes: boolean
   onJornadaChange: (id: string | null) => void
+  onDesactivarChange: (v: boolean) => void
+  onCambiarHoja: (name: string) => void
   onVolver: () => void
   onConfirmar: () => void
 }) {
+  const multipleHojas = preview.sheets.length > 1
+
   if (preview.tipo === "asociados") {
     const { creados, actualizados, sinCambios, desactivados } = preview
     const totalCambios = creados.length + actualizados.length + desactivados.length
@@ -381,55 +417,77 @@ function PreviewStep({
 
     return (
       <div className="space-y-4 mt-1">
+        {/* Selector de hoja */}
+        {multipleHojas && (
+          <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+            <Layers size={14} className="text-[#2563EB] shrink-0" />
+            <span className="text-xs text-gray-600 font-medium">Hoja:</span>
+            <Select value={preview.sheet_actual} onValueChange={onCambiarHoja}>
+              <SelectTrigger className="h-7 text-xs flex-1 border-0 bg-transparent shadow-none px-1 focus:ring-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {preview.sheets.map((s) => (
+                  <SelectItem key={s} value={s}>{s}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+        )}
+
         <p className="text-sm font-semibold text-gray-700">Resumen de cambios</p>
 
         <div className="space-y-2">
           {sinCambios > 0 && (
             <div className="flex items-center gap-3 text-sm text-gray-600 bg-gray-50 rounded-lg px-3 py-2.5">
               <CheckCircle2 size={15} className="text-gray-400 shrink-0" />
-              <span>
-                <strong>{sinCambios}</strong> colaboradores sin cambios
-              </span>
+              <span><strong>{sinCambios}</strong> colaboradores sin cambios</span>
             </div>
           )}
           {actualizados.length > 0 && (
             <div className="flex items-center gap-3 text-sm text-blue-700 bg-blue-50 rounded-lg px-3 py-2.5">
               <RefreshCw size={15} className="text-blue-500 shrink-0" />
-              <span>
-                <strong>{actualizados.length}</strong> colaboradores con datos actualizados
-              </span>
+              <span><strong>{actualizados.length}</strong> colaboradores con datos actualizados</span>
             </div>
           )}
           {creados.length > 0 && (
             <div className="flex items-center gap-3 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2.5">
               <span className="shrink-0 font-bold text-green-600">+</span>
-              <span>
-                <strong>{creados.length}</strong> colaboradores nuevos — se dan de alta
-              </span>
+              <span><strong>{creados.length}</strong> colaboradores nuevos — se dan de alta</span>
             </div>
           )}
           {desactivados.length > 0 && (
             <div className="space-y-2">
-              <div className="flex items-center gap-3 text-sm text-red-700 bg-red-50 rounded-lg px-3 py-2.5">
-                <AlertCircle size={15} className="text-red-500 shrink-0" />
-                <span>
-                  <strong>{desactivados.length}</strong> colaboradores se van a DESACTIVAR
-                </span>
-              </div>
-              <div className="border border-red-100 rounded-lg overflow-hidden">
-                <div className="bg-red-50 px-3 py-1.5 border-b border-red-100">
-                  <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">
-                    Desactivados
+              <label className="flex items-start gap-2.5 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={desactivarAusentes}
+                  onChange={(e) => onDesactivarChange(e.target.checked)}
+                  className="mt-0.5 accent-red-500"
+                />
+                <div>
+                  <p className="text-sm text-red-700 font-medium">
+                    Desactivar {desactivados.length} colaborador{desactivados.length > 1 ? "es" : ""} ausentes en este archivo
+                  </p>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Marcalo solo si subiste la lista completa del grupo
                   </p>
                 </div>
-                <div className="max-h-32 overflow-y-auto divide-y divide-gray-50">
-                  {desactivados.map((d) => (
-                    <p key={d.id} className="px-3 py-1.5 text-xs text-gray-600">
-                      {d.legajo} — {d.apellido} {d.nombre}
-                    </p>
-                  ))}
+              </label>
+              {desactivarAusentes && (
+                <div className="border border-red-100 rounded-lg overflow-hidden">
+                  <div className="bg-red-50 px-3 py-1.5 border-b border-red-100">
+                    <p className="text-xs font-semibold text-red-600 uppercase tracking-wide">Se desactivarán</p>
+                  </div>
+                  <div className="max-h-28 overflow-y-auto divide-y divide-gray-50">
+                    {desactivados.map((d) => (
+                      <p key={d.id} className="px-3 py-1.5 text-xs text-gray-600">
+                        {d.legajo} — {d.apellido} {d.nombre}
+                      </p>
+                    ))}
+                  </div>
                 </div>
-              </div>
+              )}
             </div>
           )}
           {totalCambios === 0 && (
@@ -484,35 +542,44 @@ function PreviewStep({
   const { asignaciones, sinColaborador, sinPunto } = preview
   return (
     <div className="space-y-4 mt-1">
+      {multipleHojas && (
+        <div className="flex items-center gap-2 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+          <Layers size={14} className="text-[#2563EB] shrink-0" />
+          <span className="text-xs text-gray-600 font-medium">Hoja:</span>
+          <Select value={preview.sheet_actual} onValueChange={onCambiarHoja}>
+            <SelectTrigger className="h-7 text-xs flex-1 border-0 bg-transparent shadow-none px-1 focus:ring-0">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {preview.sheets.map((s) => (
+                <SelectItem key={s} value={s}>{s}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+
       <p className="text-sm font-semibold text-gray-700">Resumen de asignaciones</p>
       <div className="space-y-2">
         <div className="flex items-center gap-3 text-sm text-green-700 bg-green-50 rounded-lg px-3 py-2.5">
           <CheckCircle2 size={15} className="text-green-500 shrink-0" />
-          <span>
-            <strong>{asignaciones.length}</strong> colaboradores con servicios asignados
-          </span>
+          <span><strong>{asignaciones.length}</strong> colaboradores con servicios asignados</span>
         </div>
         {sinColaborador.length > 0 && (
           <div className="flex items-center gap-3 text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2.5">
             <AlertCircle size={15} className="text-amber-500 shrink-0" />
-            <span>
-              <strong>{sinColaborador.length}</strong> empleados no encontrados en el sistema
-            </span>
+            <span><strong>{sinColaborador.length}</strong> empleados no encontrados en el sistema</span>
           </div>
         )}
         {sinPunto.length > 0 && (
           <div className="space-y-1.5">
             <div className="flex items-center gap-3 text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2.5">
               <AlertCircle size={15} className="text-amber-500 shrink-0" />
-              <span>
-                <strong>{sinPunto.length}</strong> objetivos sin punto QR correspondiente
-              </span>
+              <span><strong>{sinPunto.length}</strong> objetivos sin punto QR correspondiente</span>
             </div>
             <div className="border border-amber-100 rounded-lg p-2.5 max-h-28 overflow-y-auto">
               {sinPunto.map((obj) => (
-                <p key={obj} className="text-xs text-gray-500">
-                  • {obj}
-                </p>
+                <p key={obj} className="text-xs text-gray-500">• {obj}</p>
               ))}
             </div>
           </div>

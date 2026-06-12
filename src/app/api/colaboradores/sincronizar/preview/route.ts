@@ -41,6 +41,8 @@ export interface ColabDesactivado {
 
 export interface PreviewAsociados {
   tipo: "asociados"
+  sheets: string[]
+  sheet_actual: string
   creados: FilaAsociado[]
   actualizados: FilaAsociado[]
   sinCambios: number
@@ -56,6 +58,8 @@ export interface FilaServicio {
 
 export interface PreviewServicios {
   tipo: "servicios"
+  sheets: string[]
+  sheet_actual: string
   asignaciones: FilaServicio[]
   sinColaborador: string[]
   sinPunto: string[]
@@ -71,6 +75,7 @@ export async function POST(req: Request): Promise<Response> {
   const formData = await req.formData()
   const file = formData.get("file") as File | null
   const tipo = formData.get("tipo") as string | null
+  const sheetNameParam = formData.get("sheet_name") as string | null
 
   if (!file) return Response.json({ error: "Sin archivo" }, { status: 400 })
   if (tipo !== "asociados" && tipo !== "servicios") {
@@ -79,19 +84,28 @@ export async function POST(req: Request): Promise<Response> {
 
   const buffer = await file.arrayBuffer()
   const workbook = read(buffer, { type: "array" })
-  const sheet = workbook.Sheets[workbook.SheetNames[0]]
+  const sheets = workbook.SheetNames
+
+  const sheetToUse =
+    sheetNameParam && workbook.Sheets[sheetNameParam] ? sheetNameParam : sheets[0]
+
+  const sheet = workbook.Sheets[sheetToUse]
   const rows = utils.sheet_to_json<RowRaw>(sheet, { defval: "" })
 
   if (rows.length === 0) {
-    return Response.json({ error: "El archivo no tiene filas válidas" }, { status: 400 })
+    return Response.json({ error: "El archivo no tiene filas válidas en la hoja seleccionada" }, { status: 400 })
   }
 
-  if (tipo === "asociados") return previewAsociados(rows, empresaId)
-  return previewServicios(rows, empresaId)
+  if (tipo === "asociados") return previewAsociados(rows, empresaId, sheets, sheetToUse)
+  return previewServicios(rows, empresaId, sheets, sheetToUse)
 }
 
-async function previewAsociados(rows: RowRaw[], empresaId: string): Promise<Response> {
-  // Parsear Excel y armar mapa por legajo
+async function previewAsociados(
+  rows: RowRaw[],
+  empresaId: string,
+  sheets: string[],
+  sheetActual: string
+): Promise<Response> {
   const excelMap = new Map<string, FilaAsociado>()
   for (const row of rows) {
     const legajo = col(row, "NRO SOC", "NRO_SOC", "NROSOC", "nro soc")
@@ -112,7 +126,6 @@ async function previewAsociados(rows: RowRaw[], empresaId: string): Promise<Resp
     )
   }
 
-  // Obtener todos los colaboradores de la empresa (incluyendo desactivados)
   const enDB = await prisma.colaborador.findMany({
     where: { empresa_id: empresaId, deleted_at: null, legajo: { not: null } },
     select: { id: true, legajo: true, nombre: true, apellido: true, identificacion: true, domicilio: true, estado: true },
@@ -143,17 +156,28 @@ async function previewAsociados(rows: RowRaw[], empresaId: string): Promise<Resp
     }
   }
 
-  // Desactivar activos con legajo que no están en el Excel
   const desactivados: ColabDesactivado[] = enDB
     .filter((c) => c.legajo && !excelMap.has(c.legajo) && c.estado === "ACTIVO")
     .map((c) => ({ id: c.id, legajo: c.legajo!, apellido: c.apellido, nombre: c.nombre }))
 
-  const preview: PreviewAsociados = { tipo: "asociados", creados, actualizados, sinCambios, desactivados }
+  const preview: PreviewAsociados = {
+    tipo: "asociados",
+    sheets,
+    sheet_actual: sheetActual,
+    creados,
+    actualizados,
+    sinCambios,
+    desactivados,
+  }
   return Response.json(preview)
 }
 
-async function previewServicios(rows: RowRaw[], empresaId: string): Promise<Response> {
-  // Agrupar objetivos por legajo
+async function previewServicios(
+  rows: RowRaw[],
+  empresaId: string,
+  sheets: string[],
+  sheetActual: string
+): Promise<Response> {
   const mapaServicios = new Map<string, { nombreCompleto: string; objetivos: Set<string> }>()
   for (const row of rows) {
     const legajo = col(row, "NRO SOC", "NRO_SOC", "NROSOC", "nro soc")
@@ -180,7 +204,6 @@ async function previewServicios(rows: RowRaw[], empresaId: string): Promise<Resp
 
   const colabPorLegajo = new Map(colaboradores.map((c) => [c.legajo!, c]))
 
-  // Verificar qué objetivos no tienen punto QR correspondiente
   const objetivosUnicos = new Set<string>()
   for (const { objetivos } of mapaServicios.values()) {
     for (const obj of objetivos) objetivosUnicos.add(obj)
@@ -213,6 +236,13 @@ async function previewServicios(rows: RowRaw[], empresaId: string): Promise<Resp
     }
   }
 
-  const preview: PreviewServicios = { tipo: "servicios", asignaciones, sinColaborador, sinPunto }
+  const preview: PreviewServicios = {
+    tipo: "servicios",
+    sheets,
+    sheet_actual: sheetActual,
+    asignaciones,
+    sinColaborador,
+    sinPunto,
+  }
   return Response.json(preview)
 }

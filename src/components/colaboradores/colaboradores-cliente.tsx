@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Pencil, UserCog, Download, Upload } from "lucide-react"
+import { Users, Pencil, UserCog, Download, Upload, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ColaboradorDialog } from "@/components/colaboradores/colaborador-dialog"
 import { EliminarDialog } from "@/components/colaboradores/eliminar-dialog"
@@ -143,6 +143,7 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
   const [editando, setEditando] = useState<ColaboradorConJornada | null>(null)
   const [eliminando, setEliminando] = useState<ColaboradorConJornada | null>(null)
   const [importarAbierto, setImportarAbierto] = useState(false)
+  const [vaciando, setVaciando] = useState(false)
 
   const activos = useMemo(() => colaboradores.filter((c) => c.estado === "ACTIVO"), [colaboradores])
   const desactivados = useMemo(
@@ -156,6 +157,28 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
     return lista.filter((c) =>
       `${c.nombre} ${c.apellido} ${c.celular} ${c.identificacion ?? ""} ${c.legajo ?? ""}`.toLowerCase().includes(q)
     )
+  }
+
+  async function vaciarNomina() {
+    const ok = window.confirm(
+      "¿Vaciar toda la nómina? Esto eliminará todos los colaboradores activos y sus jornadas asignadas.\n\nSolo funciona si no hay fichadas registradas."
+    )
+    if (!ok) return
+    setVaciando(true)
+    try {
+      const res = await fetch("/api/colaboradores/reset", { method: "POST" })
+      const data = await res.json() as { ok?: boolean; eliminados?: number; error?: string }
+      if (!res.ok || data.error) {
+        toast.error(data.error ?? "Error al vaciar la nómina")
+        return
+      }
+      toast.success(`Nómina vaciada — ${data.eliminados ?? 0} colaboradores eliminados`)
+      router.refresh()
+    } catch {
+      toast.error("Error de conexión")
+    } finally {
+      setVaciando(false)
+    }
   }
 
   function abrirEditar(c: ColaboradorConJornada) {
@@ -180,7 +203,17 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
       </div>
 
       {/* Acciones header */}
-      <div className="flex justify-end">
+      <div className="flex justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 gap-1.5 text-xs text-red-500 border-red-200 hover:bg-red-50"
+          onClick={vaciarNomina}
+          disabled={vaciando}
+        >
+          <Trash2 size={13} />
+          {vaciando ? "Vaciando..." : "Vaciar nómina"}
+        </Button>
         <Button
           variant="outline"
           size="sm"
