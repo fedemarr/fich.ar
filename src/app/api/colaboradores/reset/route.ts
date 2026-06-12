@@ -19,18 +19,8 @@ export async function POST(): Promise<Response> {
 
   if (ids.length === 0) return Response.json({ ok: true, eliminados: 0 })
 
-  const fichadas = await prisma.fichada.count({
-    where: { colaborador_id: { in: ids } },
-  })
-
-  if (fichadas > 0) {
-    return Response.json(
-      { error: `No se puede vaciar: hay ${fichadas} fichadas registradas. Desactivá los colaboradores manualmente.` },
-      { status: 409 }
-    )
-  }
-
-  // Sin fichadas → limpiar jornadas, novedades, notificaciones y soft-delete
+  // Limpiar todo lo asociado a estos colaboradores (setup inicial)
+  await prisma.fichada.deleteMany({ where: { colaborador_id: { in: ids } } })
   await prisma.colaboradorJornada.deleteMany({ where: { colaborador_id: { in: ids } } })
   await prisma.novedad.deleteMany({ where: { colaborador_id: { in: ids } } })
   await prisma.notificacion.deleteMany({ where: { colaborador_id: { in: ids } } })
