@@ -1,10 +1,7 @@
 import { Redis } from "@upstash/redis"
 import { Ratelimit } from "@upstash/ratelimit"
 
-const redis = new Redis({
-  url: process.env.UPSTASH_REDIS_URL!,
-  token: process.env.UPSTASH_REDIS_TOKEN!,
-})
+const redis = Redis.fromEnv()
 
 // Bot WhatsApp: max 10 mensajes por minuto por número
 export const rateLimitWA = new Ratelimit({
