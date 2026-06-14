@@ -1,10 +1,11 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import type { TipoNovedad } from "@/generated/prisma/client"
+import { verificarAcceso } from "@/lib/auth-helpers"
+import { registrarAudit } from "@/lib/audit"
 
-const TIPOS_NOVEDAD = ["P","PT","AU","VAC","EN","FR","FE","HDO","C","DES","VIR"] as const
+const TIPOS_NOVEDAD = ["P", "PT", "AU", "VAC", "EN", "FR", "FE", "HDO", "C", "DES", "VIR"] as const
 
 const schema = z.object({
   colaborador_id: z.string().min(1),
@@ -15,14 +16,13 @@ const schema = z.object({
 })
 
 export async function POST(req: Request) {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { error, session } = await verificarAcceso("CREAR_NOVEDAD")
+  if (error) return error
 
   const body = await req.json()
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
 
-  // Verify colaborador belongs to empresa
   const colaborador = await prisma.colaborador.findFirst({
     where: { id: parsed.data.colaborador_id, empresa_id: session.user.empresaId },
   })
@@ -42,12 +42,22 @@ export async function POST(req: Request) {
     include: { colaborador: true },
   })
 
+  await registrarAudit({
+    empresa_id: session.user.empresaId,
+    usuario_id: session.user.id,
+    rol: session.user.rol,
+    accion: "CREAR_NOVEDAD",
+    entidad: "novedad",
+    entidad_id: novedad.id,
+    detalle: { tipo: parsed.data.tipo, fecha: parsed.data.fecha },
+  })
+
   return NextResponse.json(novedad, { status: 201 })
 }
 
 export async function GET(req: Request) {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { error, session } = await verificarAcceso("VER_NOVEDADES")
+  if (error) return error
 
   const { searchParams } = new URL(req.url)
   const desde = searchParams.get("desde")
@@ -57,12 +67,7 @@ export async function GET(req: Request) {
     where: {
       empresa_id: session.user.empresaId,
       ...(desde && hasta
-        ? {
-            fecha: {
-              gte: new Date(desde + "T00:00:00"),
-              lte: new Date(hasta + "T23:59:59"),
-            },
-          }
+        ? { fecha: { gte: new Date(desde + "T00:00:00"), lte: new Date(hasta + "T23:59:59") } }
         : {}),
     },
     include: { colaborador: true },

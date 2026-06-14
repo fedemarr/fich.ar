@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth"
+import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { read, utils } from "xlsx"
 
@@ -66,11 +66,10 @@ export interface PreviewServicios {
 }
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await auth()
-  if (!session?.user) return Response.json({ error: "No auth" }, { status: 401 })
+  const { error, session } = await verificarAcceso("IMPORTAR_COLABORADORES")
+  if (error) return error
 
   const empresaId = session.user.empresaId
-  if (!empresaId) return Response.json({ error: "Sin empresa" }, { status: 403 })
 
   const formData = await req.formData()
   const file = formData.get("file") as File | null

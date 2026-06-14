@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { createHmac } from "crypto"
 import { prisma } from "@/lib/prisma"
+import { rateLimitWA } from "@/lib/rate-limit"
 import { getEstadoBot, setEstadoBot, delEstadoBot, type EstadoBotWA } from "@/lib/redis"
 import {
   enviarTexto,
@@ -37,6 +38,17 @@ export async function POST(req: Request) {
     console.error("[WA webhook] Firma inválida")
     return new Response("Forbidden", { status: 403 })
   }
+
+  // Rate limiting por número de origen (parseamos antes de procesar)
+  let fromNumber = "unknown"
+  try {
+    const parsed = JSON.parse(body) as WAPayload
+    fromNumber = parsed.entry?.[0]?.changes?.[0]?.value?.messages?.[0]?.from ?? "unknown"
+  } catch {
+    // si falla el parse, limitamos por IP genérica
+  }
+  const { success } = await rateLimitWA.limit(fromNumber)
+  if (!success) return new Response("Too Many Requests", { status: 429 })
 
   let payload: WAPayload
   try {

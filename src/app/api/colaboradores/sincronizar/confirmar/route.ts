@@ -1,4 +1,4 @@
-import { auth } from "@/lib/auth"
+import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
@@ -32,11 +32,10 @@ const BodySchema = z.discriminatedUnion("tipo", [
 ])
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await auth()
-  if (!session?.user) return Response.json({ error: "No auth" }, { status: 401 })
+  const { error, session } = await verificarAcceso("IMPORTAR_COLABORADORES")
+  if (error) return error
 
   const empresaId = session.user.empresaId
-  if (!empresaId) return Response.json({ error: "Sin empresa" }, { status: 403 })
 
   const parsed = BodySchema.safeParse(await req.json())
   if (!parsed.success) return Response.json({ error: "Datos inválidos" }, { status: 400 })

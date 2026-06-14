@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
@@ -11,8 +11,8 @@ const schema = z.object({
 })
 
 export async function POST(req: Request) {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { error, session } = await verificarAcceso("CREAR_PUNTO")
+  if (error) return error
 
   const body = await req.json()
   const parsed = schema.safeParse(body)

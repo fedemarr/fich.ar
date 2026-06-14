@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { normalizarCelular } from "@/lib/utils"
+import { verificarAcceso } from "@/lib/auth-helpers"
+import { registrarAudit } from "@/lib/audit"
 
 const schema = z.object({
   nombre: z.string().min(1),
@@ -17,8 +18,8 @@ const schema = z.object({
 })
 
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { error, session } = await verificarAcceso("EDITAR_COLABORADOR")
+  if (error) return error
 
   const { id } = await params
   const body = await req.json()
@@ -55,12 +56,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     })
   }
 
+  await registrarAudit({
+    empresa_id: empresaId,
+    usuario_id: session.user.id,
+    rol: session.user.rol,
+    accion: "EDITAR_COLABORADOR",
+    entidad: "colaborador",
+    entidad_id: id,
+    detalle: { nombre: rest.nombre, apellido: rest.apellido },
+  })
+
   return NextResponse.json({ ok: true })
 }
 
 export async function DELETE(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { error, session } = await verificarAcceso("DESACTIVAR_COLABORADOR")
+  if (error) return error
 
   const { id } = await params
   const empresaId = session.user.empresaId
@@ -73,6 +84,16 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
   await prisma.colaborador.update({
     where: { id },
     data: { deleted_at: new Date(), estado: "DESACTIVADO" },
+  })
+
+  await registrarAudit({
+    empresa_id: empresaId,
+    usuario_id: session.user.id,
+    rol: session.user.rol,
+    accion: "DESACTIVAR_COLABORADOR",
+    entidad: "colaborador",
+    entidad_id: id,
+    detalle: { nombre: colaborador.nombre, apellido: colaborador.apellido },
   })
 
   return NextResponse.json({ ok: true })

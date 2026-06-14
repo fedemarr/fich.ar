@@ -1,8 +1,9 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { calcularAnalisis } from "@/lib/jornadas"
+import { verificarAcceso } from "@/lib/auth-helpers"
+import { registrarAudit } from "@/lib/audit"
 
 const schema = z.object({
   colaborador_id: z.string(),
@@ -13,8 +14,8 @@ const schema = z.object({
 })
 
 export async function POST(req: Request) {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { error, session } = await verificarAcceso("CREAR_FICHADA_MANUAL")
+  if (error) return error
 
   const body = await req.json()
   const parsed = schema.safeParse(body)
@@ -54,12 +55,22 @@ export async function POST(req: Request) {
     },
   })
 
+  await registrarAudit({
+    empresa_id: empresaId,
+    usuario_id: session.user.id,
+    rol: session.user.rol,
+    accion: "FICHADA_MANUAL",
+    entidad: "fichada",
+    entidad_id: fichada.id,
+    detalle: { colaborador_id, tipo, timestamp, metodo },
+  })
+
   return NextResponse.json(fichada, { status: 201 })
 }
 
 export async function GET(req: Request) {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { error, session } = await verificarAcceso("VER_FICHADAS")
+  if (error) return error
 
   const { searchParams } = new URL(req.url)
   const fecha = searchParams.get("fecha")

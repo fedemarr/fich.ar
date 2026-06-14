@@ -390,3 +390,22 @@ model AsignacionMensual {
   @@index([colaborador_id])
   @@map("asignaciones_mensuales")
 }
+
+model AuditLog {
+  id         String   @id @default(uuid())
+  empresa_id String?
+  usuario_id String?
+  rol        String
+  accion     String
+  entidad    String?
+  entidad_id String?
+  detalle    Json?
+  ip         String?
+  user_agent String?
+  created_at DateTime @default(now())
+
+  @@index([empresa_id])
+  @@index([created_at])
+  @@index([accion])
+  @@map("audit_logs")
+}

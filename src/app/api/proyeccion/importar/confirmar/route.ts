@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import type { FilaAsignacion } from "@/lib/importar-planilla"
@@ -32,11 +32,10 @@ const BodySchema = z.object({
 // POST /api/proyeccion/importar/confirmar
 // Idempotente: si ya existe la proyección del mes la reemplaza
 export async function POST(req: Request): Promise<Response> {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ error: "No auth" }, { status: 401 })
+  const { error, session } = await verificarAcceso("IMPORTAR_PROYECCION")
+  if (error) return error
 
   const empresaId = session.user.empresaId
-  if (!empresaId) return NextResponse.json({ error: "Sin empresa" }, { status: 403 })
 
   const rawBody = await req.json()
   const body = BodySchema.safeParse(rawBody)

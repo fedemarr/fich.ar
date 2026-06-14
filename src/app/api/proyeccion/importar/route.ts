@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
+import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { parsearPlanilla } from "@/lib/importar-planilla"
 import { z } from "zod"
@@ -9,11 +9,10 @@ import { z } from "zod"
 // Devuelve un preview con matcheos de servicio → punto QR antes de confirmar
 
 export async function POST(req: Request): Promise<Response> {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ error: "No auth" }, { status: 401 })
+  const { error, session } = await verificarAcceso("IMPORTAR_PROYECCION")
+  if (error) return error
 
   const empresaId = session.user.empresaId
-  if (!empresaId) return NextResponse.json({ error: "Sin empresa" }, { status: 403 })
 
   const formData = await req.formData()
   const file = formData.get("file") as File | null

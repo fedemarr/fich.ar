@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
-import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { verificarAcceso } from "@/lib/auth-helpers"
+import { registrarAudit } from "@/lib/audit"
 
 const schema = z.object({
   texto: z.string().min(1),
@@ -11,8 +12,8 @@ const schema = z.object({
 })
 
 export async function POST(req: Request) {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { error, session } = await verificarAcceso("CREAR_COMUNICACION")
+  if (error) return error
 
   const body = await req.json()
   const parsed = schema.safeParse(body)
@@ -28,12 +29,22 @@ export async function POST(req: Request) {
     },
   })
 
+  await registrarAudit({
+    empresa_id: session.user.empresaId,
+    usuario_id: session.user.id,
+    rol: session.user.rol,
+    accion: "CREAR_COMUNICACION",
+    entidad: "comunicacion",
+    entidad_id: comunicacion.id,
+    detalle: { texto: parsed.data.texto.slice(0, 80) },
+  })
+
   return NextResponse.json(comunicacion, { status: 201 })
 }
 
 export async function GET(req: Request) {
-  const session = await auth()
-  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const { error, session } = await verificarAcceso("VER_COMUNICACIONES")
+  if (error) return error
 
   const { searchParams } = new URL(req.url)
   const soloActivas = searchParams.get("activas") === "true"
@@ -42,9 +53,7 @@ export async function GET(req: Request) {
     where: {
       empresa_id: session.user.empresaId,
       deleted_at: null,
-      ...(soloActivas
-        ? { activa: true, fecha_fin: { gte: new Date() } }
-        : {}),
+      ...(soloActivas ? { activa: true, fecha_fin: { gte: new Date() } } : {}),
     },
     orderBy: { fecha_inicio: "desc" },
   })

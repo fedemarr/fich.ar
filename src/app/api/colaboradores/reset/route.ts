@@ -1,15 +1,14 @@
-import { auth } from "@/lib/auth"
+import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 
 // POST /api/colaboradores/reset
 // Elimina (soft-delete) todos los colaboradores de la empresa.
 // Pensado para el setup inicial antes del primer import real.
 export async function POST(): Promise<Response> {
-  const session = await auth()
-  if (!session?.user) return Response.json({ error: "No auth" }, { status: 401 })
+  const { error, session } = await verificarAcceso("RESET_NOMINA")
+  if (error) return error
 
   const empresaId = session.user.empresaId
-  if (!empresaId) return Response.json({ error: "Sin empresa" }, { status: 403 })
 
   const colaboradores = await prisma.colaborador.findMany({
     where: { empresa_id: empresaId, deleted_at: null },
