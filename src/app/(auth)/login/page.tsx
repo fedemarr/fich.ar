@@ -35,6 +35,7 @@ export default function LoginPage() {
               height={150}
               style={{ width: "80px", height: "auto" }}
               priority
+              unoptimized
             />
           </div>
           <span className="text-4xl font-black text-white tracking-tight">Fichar</span>
@@ -103,6 +104,7 @@ export default function LoginPage() {
               height={150}
               style={{ width: "150px", height: "auto" }}
               priority
+              unoptimized
             />
           </div>
 

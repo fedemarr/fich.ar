@@ -19,7 +19,7 @@ const nextConfig: NextConfig = {
               "default-src 'self'",
               "script-src 'self' 'unsafe-eval' 'unsafe-inline'",
               "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob:",
+              "img-src 'self' data: blob: https:",
               "connect-src 'self' https://api.anthropic.com https://graph.facebook.com",
             ].join("; "),
           },
