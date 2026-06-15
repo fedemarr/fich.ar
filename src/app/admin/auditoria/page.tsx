@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Search, Shield, LogIn, AlertTriangle, Globe, Monitor } from "lucide-react"
+import { RefreshCw, Search, Shield, LogIn, AlertTriangle, Globe, Monitor, Building2 } from "lucide-react"
 
 interface GeoInfo {
   ciudad: string
@@ -26,12 +26,12 @@ interface LogRow {
   detalle: Record<string, unknown> | null
   ip: string | null
   user_agent: string | null
-  geo?: GeoInfo
 }
 
-interface RespuestaLogs {
-  logs: LogRow[]
-  total: number
+interface EmpresaItem {
+  id: string
+  nombre: string
+  slug: string
 }
 
 const COLOR_ACCION: Record<string, string> = {
@@ -66,8 +66,7 @@ function parsearNavegador(ua: string | null): string {
 }
 
 function formatFecha(iso: string): string {
-  const d = new Date(iso)
-  return d.toLocaleString("es-AR", {
+  return new Date(iso).toLocaleString("es-AR", {
     timeZone: "America/Argentina/Buenos_Aires",
     day: "2-digit", month: "2-digit", year: "2-digit",
     hour: "2-digit", minute: "2-digit",
@@ -82,14 +81,20 @@ export default function AuditoriaPage() {
   const [filtro, setFiltro] = useState<"todos" | "logins" | "fallidos" | "cambios">("todos")
   const [geoMap, setGeoMap] = useState<Record<string, GeoInfo>>({})
   const [geoLoading, setGeoLoading] = useState(false)
+  const [empresas, setEmpresas] = useState<EmpresaItem[]>([])
+  const [empresaFiltro, setEmpresaFiltro] = useState<string>("todas")
 
-  const cargarLogs = useCallback(async () => {
+  const cargarLogs = useCallback(async (empresaId?: string) => {
     setLoading(true)
     try {
-      const res = await fetch("/api/admin/auditoria")
-      const data: RespuestaLogs = await res.json()
-      setLogs(data.logs)
-      setTotal(data.total)
+      const url = empresaId && empresaId !== "todas"
+        ? `/api/admin/auditoria?empresa_id=${empresaId}`
+        : "/api/admin/auditoria"
+      const res = await fetch(url)
+      const data = await res.json()
+      setLogs(data.logs ?? [])
+      setTotal(data.total ?? 0)
+      if (data.empresas) setEmpresas(data.empresas)
     } finally {
       setLoading(false)
     }
@@ -114,30 +119,24 @@ export default function AuditoriaPage() {
           const bandera = item.countryCode
             ? String.fromCodePoint(...item.countryCode.split("").map((c) => 0x1f1e6 + c.charCodeAt(0) - 65))
             : "🌐"
-          nuevos[item.query] = {
-            ciudad: item.city,
-            region: item.regionName,
-            pais: item.country,
-            bandera,
-            isp: item.isp,
-          }
+          nuevos[item.query] = { ciudad: item.city, region: item.regionName, pais: item.country, bandera, isp: item.isp }
         }
       }
       setGeoMap((prev) => ({ ...prev, ...nuevos }))
     } catch {
-      // ip-api no disponible — seguimos sin geo
+      // ip-api no disponible
     } finally {
       setGeoLoading(false)
     }
   }, [geoMap])
 
-  useEffect(() => {
-    cargarLogs()
-  }, [cargarLogs])
+  useEffect(() => { cargarLogs() }, [cargarLogs])
+  useEffect(() => { if (logs.length > 0) geolocalizarIPs(logs) }, [logs]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (logs.length > 0) geolocalizarIPs(logs)
-  }, [logs]) // eslint-disable-line react-hooks/exhaustive-deps
+  function cambiarEmpresa(id: string) {
+    setEmpresaFiltro(id)
+    cargarLogs(id)
+  }
 
   const logsFiltrados = logs.filter((log) => {
     if (filtro === "logins") return log.accion === "LOGIN"
@@ -169,11 +168,46 @@ export default function AuditoriaPage() {
           </h1>
           <p className="text-sm text-[#6B7280] mt-1">{total} eventos registrados</p>
         </div>
-        <Button variant="outline" size="sm" onClick={cargarLogs} disabled={loading}>
+        <Button variant="outline" size="sm" onClick={() => cargarLogs(empresaFiltro)} disabled={loading}>
           <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
           Actualizar
         </Button>
       </div>
+
+      {/* Selector de empresa */}
+      {empresas.length > 0 && (
+        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
+          <div className="flex items-center gap-3 flex-wrap">
+            <span className="text-sm font-medium text-[#6B7280] flex items-center gap-1.5">
+              <Building2 className="w-4 h-4" />
+              Empresa:
+            </span>
+            <button
+              onClick={() => cambiarEmpresa("todas")}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                empresaFiltro === "todas"
+                  ? "bg-[#E8593C] text-white"
+                  : "bg-[#F9FAFB] text-[#6B7280] hover:bg-[#FEF3F0] hover:text-[#E8593C]"
+              }`}
+            >
+              Todas
+            </button>
+            {empresas.map((emp) => (
+              <button
+                key={emp.id}
+                onClick={() => cambiarEmpresa(emp.id)}
+                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                  empresaFiltro === emp.id
+                    ? "bg-[#E8593C] text-white"
+                    : "bg-[#F9FAFB] text-[#6B7280] hover:bg-[#FEF3F0] hover:text-[#E8593C]"
+                }`}
+              >
+                {emp.nombre}
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* KPIs */}
       <div className="grid grid-cols-3 gap-4">
@@ -193,7 +227,7 @@ export default function AuditoriaPage() {
         </div>
       </div>
 
-      {/* Filtros */}
+      {/* Filtros de acción */}
       <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 flex flex-wrap gap-3 items-center">
         <div className="flex gap-2">
           {(["todos", "logins", "fallidos", "cambios"] as const).map((f) => (
@@ -236,6 +270,7 @@ export default function AuditoriaPage() {
             <thead className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
               <tr>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Fecha</th>
+                <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Empresa</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Acción</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Usuario</th>
                 <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">
@@ -250,20 +285,21 @@ export default function AuditoriaPage() {
             <tbody className="divide-y divide-[#E5E7EB]">
               {loading ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-[#6B7280]">
+                  <td colSpan={7} className="text-center py-12 text-[#6B7280]">
                     <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
                     Cargando…
                   </td>
                 </tr>
               ) : logsFiltrados.length === 0 ? (
                 <tr>
-                  <td colSpan={6} className="text-center py-12 text-[#6B7280]">No hay eventos que coincidan</td>
+                  <td colSpan={7} className="text-center py-12 text-[#6B7280]">No hay eventos que coincidan</td>
                 </tr>
               ) : (
                 logsFiltrados.map((log) => {
                   const geo = log.ip ? geoMap[log.ip] : undefined
                   const esFallido = log.accion === "LOGIN_FALLIDO"
                   const detalle = log.detalle as Record<string, string> | null
+                  const empresa = empresas.find((e) => e.id === log.empresa_id)
                   return (
                     <tr
                       key={log.id}
@@ -271,6 +307,13 @@ export default function AuditoriaPage() {
                     >
                       <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap text-xs">
                         {formatFecha(log.created_at)}
+                      </td>
+                      <td className="px-4 py-3">
+                        {empresa ? (
+                          <span className="text-xs font-medium text-[#111827]">{empresa.nombre}</span>
+                        ) : (
+                          <span className="text-xs text-[#6B7280]">—</span>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${COLOR_ACCION[log.accion] ?? "bg-gray-100 text-gray-700"}`}>
@@ -289,9 +332,7 @@ export default function AuditoriaPage() {
                         <div className="text-xs">
                           <p className="font-mono text-[#111827]">{log.ip ?? "—"}</p>
                           {geo ? (
-                            <p className="text-[#6B7280]">
-                              {geo.bandera} {geo.ciudad}, {geo.pais}
-                            </p>
+                            <p className="text-[#6B7280]">{geo.bandera} {geo.ciudad}, {geo.pais}</p>
                           ) : log.ip && log.ip !== "unknown" ? (
                             <p className="text-[#6B7280] italic">localizando…</p>
                           ) : null}
