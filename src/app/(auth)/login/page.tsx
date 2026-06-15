@@ -25,14 +25,19 @@ export default function LoginPage() {
         <div className="absolute bottom-0 left-0 w-72 h-72 rounded-full bg-white/10 translate-y-1/3 -translate-x-1/3" />
         <div className="absolute top-1/2 right-8 w-48 h-48 rounded-full bg-white/5" />
 
-        {/* Logo como texto (el PNG tiene fondo blanco, no sirve sobre azul) */}
-        <div className="relative z-10 flex items-center gap-3">
-          <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center border border-white/30">
-            <span className="text-white font-black text-xl leading-none">F</span>
+        {/* Logo + texto */}
+        <div className="relative z-10 flex items-center gap-4">
+          <div className="bg-white rounded-2xl px-3 py-2 shrink-0">
+            <Image
+              src="/logo-fichar.png"
+              alt="Fich.ar"
+              width={600}
+              height={150}
+              style={{ width: "80px", height: "auto" }}
+              priority
+            />
           </div>
-          <span className="text-2xl font-bold text-white tracking-tight">
-            Fich<span className="text-blue-200">.ar</span>
-          </span>
+          <span className="text-4xl font-black text-white tracking-tight">Fichar</span>
         </div>
 
         {/* Texto central */}
