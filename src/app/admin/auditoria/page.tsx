@@ -1,7 +1,6 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { RefreshCw, Search, Shield, LogIn, AlertTriangle, Globe, Monitor, Building2, MapPin } from "lucide-react"
@@ -54,17 +53,14 @@ function parsearNavegador(ua: string | null): string {
   if (!ua) return "Desconocido"
   if (ua.includes("Chrome") && !ua.includes("Edg")) {
     const v = ua.match(/Chrome\/([\d.]+)/)?.[1]?.split(".")[0]
-    const so = ua.includes("Windows") ? "Windows" : ua.includes("Mac") ? "Mac" : ua.includes("Android") ? "Android" : "Linux"
+    const so = ua.includes("Windows") ? "Win" : ua.includes("Mac") ? "Mac" : ua.includes("Android") ? "Android" : "Linux"
     return `Chrome ${v} / ${so}`
   }
-  if (ua.includes("Firefox")) {
-    const v = ua.match(/Firefox\/([\d.]+)/)?.[1]?.split(".")[0]
-    return `Firefox ${v}`
-  }
+  if (ua.includes("Firefox")) return `Firefox ${ua.match(/Firefox\/([\d.]+)/)?.[1]?.split(".")[0]}`
   if (ua.includes("Safari") && !ua.includes("Chrome")) return "Safari / Mac"
   if (ua.includes("Edg")) return "Edge"
   if (ua.includes("python") || ua.includes("curl") || ua.includes("axios")) return "Bot/Script"
-  return ua.slice(0, 40)
+  return ua.slice(0, 30)
 }
 
 function formatFecha(iso: string): string {
@@ -73,6 +69,17 @@ function formatFecha(iso: string): string {
     day: "2-digit", month: "2-digit", year: "2-digit",
     hour: "2-digit", minute: "2-digit",
   })
+}
+
+function AccionBadge({ accion }: { accion: string }) {
+  const esFallido = accion === "LOGIN_FALLIDO"
+  return (
+    <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${COLOR_ACCION[accion] ?? "bg-gray-100 text-gray-700"}`}>
+      {esFallido && <AlertTriangle className="w-3 h-3" />}
+      {accion === "LOGIN" && <LogIn className="w-3 h-3" />}
+      {accion.replace(/_/g, " ")}
+    </span>
+  )
 }
 
 export default function AuditoriaPage() {
@@ -99,13 +106,10 @@ export default function AuditoriaPage() {
       setLogs(nuevosLogs)
       setTotal(data.total ?? 0)
       if (data.empresas) setEmpresas(data.empresas)
-
-      // Alerta si hubo intentos fallidos en los últimos 10 minutos
       const hace10min = Date.now() - 10 * 60 * 1000
-      const recientes = nuevosLogs.filter(
+      setAlertaFallidos(nuevosLogs.some(
         (l) => l.accion === "LOGIN_FALLIDO" && new Date(l.created_at).getTime() > hace10min
-      )
-      setAlertaFallidos(recientes.length > 0)
+      ))
     } finally {
       setLoading(false)
     }
@@ -115,24 +119,19 @@ export default function AuditoriaPage() {
     const ips = [...new Set(rows.map((r) => r.ip).filter(Boolean))] as string[]
     const pendientes = ips.filter((ip) => !geoMap[ip] && ip !== "unknown" && ip !== "127.0.0.1" && !ip.startsWith("192.168"))
     if (pendientes.length === 0) return
-
     setGeoLoading(true)
     try {
       const res = await fetch(`/api/admin/geoip?ips=${pendientes.slice(0, 100).join(",")}`)
       if (!res.ok) return
       const data: Record<string, GeoInfo> = await res.json()
       setGeoMap((prev) => ({ ...prev, ...data }))
-    } catch {
-      // geoip no disponible
-    } finally {
+    } catch { /* geoip no disponible */ } finally {
       setGeoLoading(false)
     }
   }, [geoMap])
 
   useEffect(() => { cargarLogs() }, [cargarLogs])
   useEffect(() => { if (logs.length > 0) geolocalizarIPs(logs) }, [logs]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-refresh cada 30 segundos
   useEffect(() => {
     const interval = setInterval(() => cargarLogs(empresaFiltro), 30_000)
     return () => clearInterval(interval)
@@ -143,182 +142,202 @@ export default function AuditoriaPage() {
     cargarLogs(id)
   }
 
-  const logsFiltrados = logs.filter((log) => {
-    if (filtro === "logins") return log.accion === "LOGIN"
-    if (filtro === "fallidos") return log.accion === "LOGIN_FALLIDO"
-    if (filtro === "cambios") return !log.accion.startsWith("LOGIN")
-    return true
-  }).filter((log) => {
-    if (!busqueda) return true
-    const q = busqueda.toLowerCase()
-    return (
-      log.accion.toLowerCase().includes(q) ||
-      log.ip?.toLowerCase().includes(q) ||
-      (log.detalle as Record<string, string>)?.email?.toLowerCase().includes(q) ||
-      log.rol.toLowerCase().includes(q)
-    )
-  })
+  const logsFiltrados = logs
+    .filter((log) => {
+      if (filtro === "logins") return log.accion === "LOGIN"
+      if (filtro === "fallidos") return log.accion === "LOGIN_FALLIDO"
+      if (filtro === "cambios") return !log.accion.startsWith("LOGIN")
+      return true
+    })
+    .filter((log) => {
+      if (!busqueda) return true
+      const q = busqueda.toLowerCase()
+      return (
+        log.accion.toLowerCase().includes(q) ||
+        log.ip?.toLowerCase().includes(q) ||
+        (log.detalle as Record<string, string>)?.email?.toLowerCase().includes(q) ||
+        log.rol.toLowerCase().includes(q)
+      )
+    })
 
   const fallidos = logs.filter((l) => l.accion === "LOGIN_FALLIDO").length
   const exitosos = logs.filter((l) => l.accion === "LOGIN").length
 
   return (
-    <div className="max-w-7xl mx-auto space-y-6">
+    <div className="max-w-7xl mx-auto space-y-4">
+
       {/* Cabecera */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-[#111827] flex items-center gap-2">
-            <Shield className="w-6 h-6 text-[#E8593C]" />
-            Auditoría de Seguridad
+          <h1 className="text-xl lg:text-2xl font-bold text-[#111827] flex items-center gap-2">
+            <Shield className="w-5 h-5 lg:w-6 lg:h-6 text-[#E8593C]" />
+            Auditoría
           </h1>
-          <p className="text-sm text-[#6B7280] mt-1">{total} eventos registrados</p>
+          <p className="text-sm text-[#6B7280] mt-0.5">{total} eventos · auto-refresh 30s</p>
         </div>
         <Button variant="outline" size="sm" onClick={() => cargarLogs(empresaFiltro)} disabled={loading}>
-          <RefreshCw className={`w-4 h-4 mr-2 ${loading ? "animate-spin" : ""}`} />
-          Actualizar
+          <RefreshCw className={`w-4 h-4 ${loading ? "animate-spin" : ""} lg:mr-2`} />
+          <span className="hidden lg:inline">Actualizar</span>
         </Button>
       </div>
 
-      {/* Alerta intentos fallidos recientes */}
+      {/* Alerta fallidos */}
       {alertaFallidos && (
-        <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3 flex items-center gap-3">
-          <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
-          <div>
-            <p className="text-sm font-semibold text-red-700">Intentos de acceso fallidos en los últimos 10 minutos</p>
-            <p className="text-xs text-red-600">Revisá la tabla — filtrá por "Fallidos" para ver los detalles.</p>
+        <div className="bg-red-50 border border-red-200 rounded-xl px-4 py-3 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-semibold text-red-700">Intentos fallidos en los últimos 10 min</p>
+            <p className="text-xs text-red-600">Filtrá por "Fallidos" para ver los detalles.</p>
           </div>
-          <button
-            onClick={() => setAlertaFallidos(false)}
-            className="ml-auto text-red-400 hover:text-red-600 text-lg leading-none"
-          >
-            ×
-          </button>
-        </div>
-      )}
-
-      {/* Selector de empresa */}
-      {empresas.length > 0 && (
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
-          <div className="flex items-center gap-3 flex-wrap">
-            <span className="text-sm font-medium text-[#6B7280] flex items-center gap-1.5">
-              <Building2 className="w-4 h-4" />
-              Empresa:
-            </span>
-            <button
-              onClick={() => cambiarEmpresa("todas")}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                empresaFiltro === "todas"
-                  ? "bg-[#E8593C] text-white"
-                  : "bg-[#F9FAFB] text-[#6B7280] hover:bg-[#FEF3F0] hover:text-[#E8593C]"
-              }`}
-            >
-              Todas
-            </button>
-            {empresas.map((emp) => (
-              <button
-                key={emp.id}
-                onClick={() => cambiarEmpresa(emp.id)}
-                className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                  empresaFiltro === emp.id
-                    ? "bg-[#E8593C] text-white"
-                    : "bg-[#F9FAFB] text-[#6B7280] hover:bg-[#FEF3F0] hover:text-[#E8593C]"
-                }`}
-              >
-                {emp.nombre}
-              </button>
-            ))}
-          </div>
+          <button onClick={() => setAlertaFallidos(false)} className="text-red-400 hover:text-red-600 text-xl leading-none shrink-0">×</button>
         </div>
       )}
 
       {/* KPIs */}
-      <div className="grid grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
-          <p className="text-xs text-[#6B7280] uppercase tracking-wide">Ingresos exitosos</p>
-          <p className="text-3xl font-bold text-green-600 mt-1">{exitosos}</p>
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-white rounded-xl border border-[#E5E7EB] p-3 lg:p-4">
+          <p className="text-[10px] lg:text-xs text-[#6B7280] uppercase tracking-wide">Ingresos</p>
+          <p className="text-2xl lg:text-3xl font-bold text-green-600 mt-1">{exitosos}</p>
         </div>
-        <div className={`rounded-xl border p-4 transition-colors ${fallidos > 0 ? "bg-red-50 border-red-200" : "bg-white border-[#E5E7EB]"}`}>
-          <p className={`text-xs uppercase tracking-wide flex items-center gap-1 ${fallidos > 0 ? "text-red-600 font-semibold" : "text-[#6B7280]"}`}>
+        <div className={`rounded-xl border p-3 lg:p-4 ${fallidos > 0 ? "bg-red-50 border-red-200" : "bg-white border-[#E5E7EB]"}`}>
+          <p className={`text-[10px] lg:text-xs uppercase tracking-wide flex items-center gap-1 ${fallidos > 0 ? "text-red-600 font-semibold" : "text-[#6B7280]"}`}>
             {fallidos > 0 && <AlertTriangle className="w-3 h-3" />}
-            Intentos fallidos
+            Fallidos
           </p>
-          <p className="text-3xl font-bold text-red-600 mt-1">{fallidos}</p>
+          <p className="text-2xl lg:text-3xl font-bold text-red-600 mt-1">{fallidos}</p>
         </div>
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
-          <p className="text-xs text-[#6B7280] uppercase tracking-wide">IPs únicas</p>
-          <p className="text-3xl font-bold text-[#111827] mt-1">
+        <div className="bg-white rounded-xl border border-[#E5E7EB] p-3 lg:p-4">
+          <p className="text-[10px] lg:text-xs text-[#6B7280] uppercase tracking-wide">IPs únicas</p>
+          <p className="text-2xl lg:text-3xl font-bold text-[#111827] mt-1">
             {new Set(logs.map((l) => l.ip).filter(Boolean)).size}
           </p>
         </div>
       </div>
 
-      {/* Filtros de acción */}
-      <div className="bg-white rounded-xl border border-[#E5E7EB] p-4 flex flex-wrap gap-3 items-center">
-        <div className="flex gap-2">
+      {/* Selector empresa */}
+      {empresas.length > 0 && (
+        <div className="bg-white rounded-xl border border-[#E5E7EB] p-3 lg:p-4">
+          <div className="flex items-center gap-2 flex-wrap">
+            <span className="text-xs font-medium text-[#6B7280] flex items-center gap-1">
+              <Building2 className="w-3.5 h-3.5" /> Empresa:
+            </span>
+            {["todas", ...empresas.map((e) => e.id)].map((id) => {
+              const label = id === "todas" ? "Todas" : empresas.find((e) => e.id === id)?.nombre ?? id
+              return (
+                <button
+                  key={id}
+                  onClick={() => cambiarEmpresa(id)}
+                  className={`px-3 py-1 rounded-lg text-xs font-medium transition-colors ${
+                    empresaFiltro === id ? "bg-[#E8593C] text-white" : "bg-[#F9FAFB] text-[#6B7280] hover:bg-[#FEF3F0] hover:text-[#E8593C]"
+                  }`}
+                >
+                  {label}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
+      {/* Filtros */}
+      <div className="bg-white rounded-xl border border-[#E5E7EB] p-3 lg:p-4 space-y-3">
+        <div className="flex gap-1.5 flex-wrap">
           {(["todos", "logins", "fallidos", "cambios"] as const).map((f) => (
             <button
               key={f}
               onClick={() => setFiltro(f)}
-              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                filtro === f
-                  ? "bg-[#E8593C] text-white"
-                  : "bg-[#F9FAFB] text-[#6B7280] hover:bg-[#FEF3F0] hover:text-[#E8593C]"
+              className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                filtro === f ? "bg-[#E8593C] text-white" : "bg-[#F9FAFB] text-[#6B7280] hover:bg-[#FEF3F0] hover:text-[#E8593C]"
               }`}
             >
-              {f === "todos" && "Todos"}
-              {f === "logins" && "Ingresos"}
-              {f === "fallidos" && "Fallidos"}
-              {f === "cambios" && "Cambios"}
+              {f === "todos" ? "Todos" : f === "logins" ? "Ingresos" : f === "fallidos" ? "Fallidos" : "Cambios"}
             </button>
           ))}
+          {geoLoading && (
+            <span className="text-xs text-[#6B7280] flex items-center gap-1 ml-auto">
+              <Globe className="w-3 h-3 animate-pulse" /> Geolocalizando…
+            </span>
+          )}
         </div>
-        <div className="relative ml-auto w-64">
+        <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-[#6B7280]" />
-          <Input
-            placeholder="Buscar IP, email, acción…"
-            className="pl-9"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
+          <Input placeholder="Buscar IP, email, acción…" className="pl-9 w-full" value={busqueda} onChange={(e) => setBusqueda(e.target.value)} />
         </div>
-        {geoLoading && (
-          <span className="text-xs text-[#6B7280] flex items-center gap-1">
-            <Globe className="w-3 h-3 animate-pulse" /> Geolocalizando IPs…
-          </span>
+      </div>
+
+      {/* ── VISTA MOBILE: cards ── */}
+      <div className="lg:hidden space-y-3">
+        {loading ? (
+          <div className="text-center py-12 text-[#6B7280]">
+            <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />Cargando…
+          </div>
+        ) : logsFiltrados.length === 0 ? (
+          <div className="text-center py-12 text-[#6B7280] bg-white rounded-xl border border-[#E5E7EB]">No hay eventos</div>
+        ) : (
+          logsFiltrados.map((log) => {
+            const geo = log.ip ? geoMap[log.ip] : undefined
+            const esFallido = log.accion === "LOGIN_FALLIDO"
+            const detalle = log.detalle as Record<string, string> | null
+            const empresa = empresas.find((e) => e.id === log.empresa_id)
+            return (
+              <div
+                key={log.id}
+                className={`bg-white rounded-xl border p-4 space-y-2 ${esFallido ? "border-red-200 bg-red-50/30" : "border-[#E5E7EB]"}`}
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <AccionBadge accion={log.accion} />
+                  <span className="text-xs text-[#6B7280] shrink-0">{formatFecha(log.created_at)}</span>
+                </div>
+                <div className="flex items-center gap-3 text-xs">
+                  <span className="font-medium text-[#111827]">{detalle?.email ?? log.usuario_id?.slice(0, 8) ?? "—"}</span>
+                  <span className="text-[#6B7280]">{log.rol}</span>
+                  {empresa && <span className="text-[#6B7280]">· {empresa.nombre}</span>}
+                </div>
+                {log.ip && (
+                  <div className="text-xs text-[#6B7280] flex items-center gap-1.5">
+                    <Globe className="w-3 h-3 shrink-0" />
+                    <span className="font-mono">{log.ip}</span>
+                    {geo && (
+                      <>
+                        <span>· {geo.bandera} {geo.ciudad}, {geo.pais}</span>
+                        <a
+                          href={`https://www.google.com/maps?q=${geo.lat},${geo.lon}`}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="text-[#E8593C] flex items-center gap-0.5 font-medium"
+                        >
+                          <MapPin className="w-3 h-3" />Maps
+                        </a>
+                      </>
+                    )}
+                  </div>
+                )}
+                <div className="text-xs text-[#6B7280] flex items-center gap-1">
+                  <Monitor className="w-3 h-3 shrink-0" />
+                  {parsearNavegador(log.user_agent)}
+                </div>
+              </div>
+            )
+          })
         )}
       </div>
 
-      {/* Tabla */}
-      <div className="bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
+      {/* ── VISTA DESKTOP: tabla ── */}
+      <div className="hidden lg:block bg-white rounded-xl border border-[#E5E7EB] overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-[#F9FAFB] border-b border-[#E5E7EB]">
               <tr>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Fecha</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Empresa</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Acción</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Usuario</th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">
-                  <span className="flex items-center gap-1"><Globe className="w-3 h-3" /> IP / Ubicación</span>
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">
-                  <span className="flex items-center gap-1"><Monitor className="w-3 h-3" /> Dispositivo</span>
-                </th>
-                <th className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide">Detalle</th>
+                {["Fecha", "Empresa", "Acción", "Usuario", "IP / Ubicación", "Dispositivo", "Detalle"].map((h) => (
+                  <th key={h} className="text-left px-4 py-3 text-xs font-semibold text-[#6B7280] uppercase tracking-wide whitespace-nowrap">{h}</th>
+                ))}
               </tr>
             </thead>
             <tbody className="divide-y divide-[#E5E7EB]">
               {loading ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-12 text-[#6B7280]">
-                    <RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />
-                    Cargando…
-                  </td>
-                </tr>
+                <tr><td colSpan={7} className="text-center py-12 text-[#6B7280]"><RefreshCw className="w-5 h-5 animate-spin mx-auto mb-2" />Cargando…</td></tr>
               ) : logsFiltrados.length === 0 ? (
-                <tr>
-                  <td colSpan={7} className="text-center py-12 text-[#6B7280]">No hay eventos que coincidan</td>
-                </tr>
+                <tr><td colSpan={7} className="text-center py-12 text-[#6B7280]">No hay eventos que coincidan</td></tr>
               ) : (
                 logsFiltrados.map((log) => {
                   const geo = log.ip ? geoMap[log.ip] : undefined
@@ -326,27 +345,10 @@ export default function AuditoriaPage() {
                   const detalle = log.detalle as Record<string, string> | null
                   const empresa = empresas.find((e) => e.id === log.empresa_id)
                   return (
-                    <tr
-                      key={log.id}
-                      className={`hover:bg-[#F9FAFB] transition-colors ${esFallido ? "bg-red-50/50" : ""}`}
-                    >
-                      <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap text-xs">
-                        {formatFecha(log.created_at)}
-                      </td>
-                      <td className="px-4 py-3">
-                        {empresa ? (
-                          <span className="text-xs font-medium text-[#111827]">{empresa.nombre}</span>
-                        ) : (
-                          <span className="text-xs text-[#6B7280]">—</span>
-                        )}
-                      </td>
-                      <td className="px-4 py-3">
-                        <span className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-xs font-medium ${COLOR_ACCION[log.accion] ?? "bg-gray-100 text-gray-700"}`}>
-                          {esFallido && <AlertTriangle className="w-3 h-3" />}
-                          {log.accion === "LOGIN" && <LogIn className="w-3 h-3" />}
-                          {log.accion.replace(/_/g, " ")}
-                        </span>
-                      </td>
+                    <tr key={log.id} className={`hover:bg-[#F9FAFB] transition-colors ${esFallido ? "bg-red-50/50" : ""}`}>
+                      <td className="px-4 py-3 text-[#6B7280] whitespace-nowrap text-xs">{formatFecha(log.created_at)}</td>
+                      <td className="px-4 py-3 text-xs font-medium text-[#111827]">{empresa?.nombre ?? "—"}</td>
+                      <td className="px-4 py-3"><AccionBadge accion={log.accion} /></td>
                       <td className="px-4 py-3">
                         <div className="text-xs">
                           <p className="font-medium text-[#111827]">{detalle?.email ?? log.usuario_id?.slice(0, 8) ?? "—"}</p>
@@ -360,14 +362,9 @@ export default function AuditoriaPage() {
                             <>
                               <p className="text-[#6B7280]">{geo.bandera} {geo.ciudad}, {geo.pais}</p>
                               {geo.isp && <p className="text-[#6B7280] truncate max-w-[180px]">{geo.isp}</p>}
-                              <a
-                                href={`https://www.google.com/maps?q=${geo.lat},${geo.lon}`}
-                                target="_blank"
-                                rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-[#E8593C] hover:underline font-medium mt-0.5"
-                              >
-                                <MapPin className="w-3 h-3" />
-                                Ver en Maps
+                              <a href={`https://www.google.com/maps?q=${geo.lat},${geo.lon}`} target="_blank" rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[#E8593C] hover:underline font-medium">
+                                <MapPin className="w-3 h-3" />Ver en Maps
                               </a>
                             </>
                           ) : log.ip && log.ip !== "unknown" ? (
@@ -375,18 +372,9 @@ export default function AuditoriaPage() {
                           ) : null}
                         </div>
                       </td>
-                      <td className="px-4 py-3">
-                        <p className="text-xs text-[#6B7280] max-w-[200px] truncate" title={log.user_agent ?? ""}>
-                          {parsearNavegador(log.user_agent)}
-                        </p>
-                      </td>
+                      <td className="px-4 py-3 text-xs text-[#6B7280] max-w-[200px] truncate">{parsearNavegador(log.user_agent)}</td>
                       <td className="px-4 py-3 text-xs text-[#6B7280] max-w-[200px]">
-                        {detalle
-                          ? Object.entries(detalle)
-                              .filter(([k]) => k !== "email")
-                              .map(([k, v]) => `${k}: ${v}`)
-                              .join(" · ") || "—"
-                          : "—"}
+                        {detalle ? Object.entries(detalle).filter(([k]) => k !== "email").map(([k, v]) => `${k}: ${v}`).join(" · ") || "—" : "—"}
                       </td>
                     </tr>
                   )
