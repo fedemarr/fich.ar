@@ -15,41 +15,35 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen flex">
 
-      {/* COLUMNA IZQUIERDA — solo desktop */}
+      {/* ── COLUMNA IZQUIERDA (solo desktop) ── */}
       <div
         className="hidden lg:flex lg:w-3/5 flex-col justify-between p-12 relative overflow-hidden"
         style={{ background: "linear-gradient(135deg, #1D4ED8 0%, #3B82F6 100%)" }}
       >
         {/* Círculos decorativos */}
-        <div
-          className="absolute top-0 right-0 w-96 h-96 rounded-full opacity-10"
-          style={{ background: "white", transform: "translate(30%, -30%)" }}
-        />
-        <div
-          className="absolute bottom-0 left-0 w-80 h-80 rounded-full opacity-10"
-          style={{ background: "white", transform: "translate(-30%, 30%)" }}
-        />
+        <div className="absolute top-0 right-0 w-96 h-96 rounded-full bg-white/10 -translate-y-1/3 translate-x-1/3" />
+        <div className="absolute bottom-0 left-0 w-72 h-72 rounded-full bg-white/10 translate-y-1/3 -translate-x-1/3" />
+        <div className="absolute top-1/2 right-8 w-48 h-48 rounded-full bg-white/5" />
 
-        {/* Logo grande */}
-        <div className="relative z-10">
-          <Image
-            src="/logo-fichar.png"
-            alt="Fich.ar"
-            width={200}
-            height={60}
-            className="brightness-0 invert"
-          />
+        {/* Logo como texto (el PNG tiene fondo blanco, no sirve sobre azul) */}
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="w-11 h-11 rounded-2xl bg-white/20 backdrop-blur flex items-center justify-center border border-white/30">
+            <span className="text-white font-black text-xl leading-none">F</span>
+          </div>
+          <span className="text-2xl font-bold text-white tracking-tight">
+            Fich<span className="text-blue-200">.ar</span>
+          </span>
         </div>
 
         {/* Texto central */}
-        <div className="space-y-8 relative z-10">
+        <div className="relative z-10 space-y-8">
           <div>
             <h1 className="text-5xl font-bold text-white leading-tight">
               El sistema de RRHH<br />
               que tu empresa<br />
               <span className="text-blue-200">necesitaba.</span>
             </h1>
-            <p className="mt-4 text-blue-100 text-lg">
+            <p className="mt-4 text-blue-100 text-lg leading-relaxed">
               Control de asistencia inteligente con WhatsApp,
               IA y reportes en tiempo real.
             </p>
@@ -59,7 +53,7 @@ export default function LoginPage() {
             {FEATURES.map((f) => (
               <li key={f} className="flex items-center gap-3 text-white">
                 <CheckCircle2 className="w-5 h-5 text-blue-200 shrink-0" />
-                <span>{f}</span>
+                <span className="text-[15px]">{f}</span>
               </li>
             ))}
           </ul>
@@ -68,59 +62,58 @@ export default function LoginPage() {
         {/* Card estadística flotante */}
         <div className="relative z-10 bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl p-6 max-w-sm">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-2xl">
+            <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl shrink-0">
               📊
             </div>
             <div>
-              <p className="text-white font-bold text-2xl">500+</p>
+              <p className="text-white font-bold text-2xl leading-tight">500+</p>
               <p className="text-blue-100 text-sm">empleados gestionados en tiempo real</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-white/20">
-            <div className="text-center">
-              <p className="text-white font-bold text-xl">98%</p>
-              <p className="text-blue-200 text-xs">precisión GPS</p>
-            </div>
-            <div className="text-center">
-              <p className="text-white font-bold text-xl">2s</p>
-              <p className="text-blue-200 text-xs">tiempo fichada</p>
-            </div>
-            <div className="text-center">
-              <p className="text-white font-bold text-xl">24/7</p>
-              <p className="text-blue-200 text-xs">disponible</p>
-            </div>
+            {[
+              { valor: "98%", label: "precisión GPS" },
+              { valor: "2s", label: "tiempo fichada" },
+              { valor: "24/7", label: "disponible" },
+            ].map(({ valor, label }) => (
+              <div key={label} className="text-center">
+                <p className="text-white font-bold text-xl">{valor}</p>
+                <p className="text-blue-200 text-xs mt-0.5">{label}</p>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* COLUMNA DERECHA — formulario */}
-      <div className="w-full lg:w-2/5 flex flex-col justify-between p-8 lg:p-12 bg-white">
+      {/* ── COLUMNA DERECHA (formulario) ── */}
+      <div className="w-full lg:w-2/5 flex flex-col bg-white">
+        <div className="flex-1 flex flex-col justify-center px-8 lg:px-12 py-10 max-w-md mx-auto w-full">
 
-        {/* Logo mobile */}
-        <div className="lg:hidden mb-8">
-          <Image src="/logo-fichar.png" alt="Fich.ar" width={140} height={42} />
-        </div>
+          {/* Logo real (fondo blanco → se ve perfecto) */}
+          <div className="mb-10">
+            <Image
+              src="/logo-fichar.png"
+              alt="Fich.ar"
+              width={600}
+              height={150}
+              style={{ width: "150px", height: "auto" }}
+              priority
+            />
+          </div>
 
-        {/* Logo desktop pequeño */}
-        <div className="hidden lg:block mb-8">
-          <Image src="/logo-fichar.png" alt="Fich.ar" width={120} height={36} />
-        </div>
-
-        {/* Formulario */}
-        <div className="flex-1 flex flex-col justify-center max-w-sm mx-auto w-full">
           <div className="mb-8">
             <h2 className="text-3xl font-bold text-slate-900">Iniciá sesión</h2>
-            <p className="text-slate-500 mt-2">Ingresá con tu cuenta de empresa</p>
+            <p className="text-slate-500 mt-1.5 text-[15px]">Ingresá con tu cuenta de empresa</p>
           </div>
 
           <LoginForm />
         </div>
 
-        {/* FMCODE — parte inferior */}
-        <div className="max-w-sm mx-auto w-full mt-8">
+        {/* FMCODE — pie */}
+        <div className="px-8 lg:px-12 pb-10 max-w-md mx-auto w-full">
           <div className="border-t border-slate-100 pt-8">
             <p className="text-slate-500 text-sm text-center mb-4">
-              ¿Querés implementar <strong>Fich.ar</strong> en tu empresa?
+              ¿Querés <strong>Fich.ar</strong> para tu empresa?
             </p>
 
             <a
@@ -136,28 +129,25 @@ export default function LoginPage() {
                   </p>
                   <p className="text-slate-500 text-sm">Desarrollo de software a medida</p>
                 </div>
-                <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors">
-                  <span className="text-blue-600 text-lg font-bold">→</span>
+                <div className="w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center group-hover:bg-blue-100 transition-colors shrink-0">
+                  <span className="text-blue-600 font-bold">→</span>
                 </div>
               </div>
-
-              <div className="mt-4 space-y-2">
-                <div className="flex items-center gap-2 text-slate-600 text-sm">
-                  <span>🌐</span>
-                  <span>fmcode.com.ar</span>
-                </div>
-                <div className="flex items-center gap-2 text-slate-600 text-sm">
-                  <span>💬</span>
-                  <span>WhatsApp: +54 9 11 2234-0114</span>
-                </div>
-                <div className="flex items-center gap-2 text-slate-600 text-sm">
-                  <span>📧</span>
-                  <span>fedenez11@gmail.com</span>
-                </div>
+              <div className="mt-4 space-y-1.5">
+                {[
+                  { icon: "🌐", text: "fmcode.com.ar" },
+                  { icon: "💬", text: "WhatsApp: +54 9 11 2234-0114" },
+                  { icon: "📧", text: "fedenez11@gmail.com" },
+                ].map(({ icon, text }) => (
+                  <div key={text} className="flex items-center gap-2 text-slate-600 text-sm">
+                    <span>{icon}</span>
+                    <span>{text}</span>
+                  </div>
+                ))}
               </div>
             </a>
 
-            <p className="text-center text-slate-400 text-xs mt-6">
+            <p className="text-center text-slate-400 text-xs mt-5">
               Powered by{" "}
               <a href="https://fmcode.com.ar" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline font-medium">
                 FMCODE
@@ -167,6 +157,7 @@ export default function LoginPage() {
           </div>
         </div>
       </div>
+
     </div>
   )
 }
