@@ -85,6 +85,7 @@ export default function AuditoriaPage() {
   const [geoLoading, setGeoLoading] = useState(false)
   const [empresas, setEmpresas] = useState<EmpresaItem[]>([])
   const [empresaFiltro, setEmpresaFiltro] = useState<string>("todas")
+  const [alertaFallidos, setAlertaFallidos] = useState(false)
 
   const cargarLogs = useCallback(async (empresaId?: string) => {
     setLoading(true)
@@ -94,9 +95,17 @@ export default function AuditoriaPage() {
         : "/api/admin/auditoria"
       const res = await fetch(url)
       const data = await res.json()
-      setLogs(data.logs ?? [])
+      const nuevosLogs: LogRow[] = data.logs ?? []
+      setLogs(nuevosLogs)
       setTotal(data.total ?? 0)
       if (data.empresas) setEmpresas(data.empresas)
+
+      // Alerta si hubo intentos fallidos en los últimos 10 minutos
+      const hace10min = Date.now() - 10 * 60 * 1000
+      const recientes = nuevosLogs.filter(
+        (l) => l.accion === "LOGIN_FALLIDO" && new Date(l.created_at).getTime() > hace10min
+      )
+      setAlertaFallidos(recientes.length > 0)
     } finally {
       setLoading(false)
     }
@@ -122,6 +131,12 @@ export default function AuditoriaPage() {
 
   useEffect(() => { cargarLogs() }, [cargarLogs])
   useEffect(() => { if (logs.length > 0) geolocalizarIPs(logs) }, [logs]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Auto-refresh cada 30 segundos
+  useEffect(() => {
+    const interval = setInterval(() => cargarLogs(empresaFiltro), 30_000)
+    return () => clearInterval(interval)
+  }, [cargarLogs, empresaFiltro])
 
   function cambiarEmpresa(id: string) {
     setEmpresaFiltro(id)
@@ -164,6 +179,23 @@ export default function AuditoriaPage() {
         </Button>
       </div>
 
+      {/* Alerta intentos fallidos recientes */}
+      {alertaFallidos && (
+        <div className="bg-red-50 border border-red-200 rounded-xl px-5 py-3 flex items-center gap-3">
+          <AlertTriangle className="w-5 h-5 text-red-600 shrink-0" />
+          <div>
+            <p className="text-sm font-semibold text-red-700">Intentos de acceso fallidos en los últimos 10 minutos</p>
+            <p className="text-xs text-red-600">Revisá la tabla — filtrá por "Fallidos" para ver los detalles.</p>
+          </div>
+          <button
+            onClick={() => setAlertaFallidos(false)}
+            className="ml-auto text-red-400 hover:text-red-600 text-lg leading-none"
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Selector de empresa */}
       {empresas.length > 0 && (
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
@@ -205,8 +237,11 @@ export default function AuditoriaPage() {
           <p className="text-xs text-[#6B7280] uppercase tracking-wide">Ingresos exitosos</p>
           <p className="text-3xl font-bold text-green-600 mt-1">{exitosos}</p>
         </div>
-        <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
-          <p className="text-xs text-[#6B7280] uppercase tracking-wide">Intentos fallidos</p>
+        <div className={`rounded-xl border p-4 transition-colors ${fallidos > 0 ? "bg-red-50 border-red-200" : "bg-white border-[#E5E7EB]"}`}>
+          <p className={`text-xs uppercase tracking-wide flex items-center gap-1 ${fallidos > 0 ? "text-red-600 font-semibold" : "text-[#6B7280]"}`}>
+            {fallidos > 0 && <AlertTriangle className="w-3 h-3" />}
+            Intentos fallidos
+          </p>
           <p className="text-3xl font-bold text-red-600 mt-1">{fallidos}</p>
         </div>
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-4">
