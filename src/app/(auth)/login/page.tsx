@@ -28,7 +28,7 @@ export default function LoginPage() {
         <div className="relative z-10 flex items-center gap-4">
           <div className="bg-white rounded-2xl px-3 py-2 shrink-0">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-fichar.png" alt="Fich.ar" style={{ width: "80px", height: "auto" }} />
+            <img src="/logo.png" alt="Fich.ar" style={{ width: "80px", height: "auto" }} />
           </div>
           <span className="text-4xl font-black text-white tracking-tight">Fichar</span>
         </div>
@@ -90,7 +90,7 @@ export default function LoginPage() {
           {/* Logo */}
           <div className="mb-10">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src="/logo-fichar.png" alt="Fich.ar" style={{ width: "150px", height: "auto" }} />
+            <img src="/logo.png" alt="Fich.ar" style={{ width: "150px", height: "auto" }} />
           </div>
 
           <div className="mb-8">
