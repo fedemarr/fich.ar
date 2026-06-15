@@ -34,36 +34,27 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   providers: [
     Credentials({
       async authorize(credentials) {
-        try {
-          const parsed = loginSchema.safeParse(credentials)
-          console.log("[AUTH] parsed ok:", parsed.success)
-          if (!parsed.success) return null
+        const parsed = loginSchema.safeParse(credentials)
+        if (!parsed.success) return null
 
-          const { email, password } = parsed.data
-          console.log("[AUTH] email:", email)
+        const { email, password } = parsed.data
 
-          const usuario = await prisma.usuario.findFirst({
-            where: { email, deleted_at: null },
-            include: { empresa: { select: { slug: true } } },
-          })
-          console.log("[AUTH] usuario encontrado:", !!usuario, "activo:", usuario?.activo)
+        const usuario = await prisma.usuario.findFirst({
+          where: { email, deleted_at: null },
+          include: { empresa: { select: { slug: true } } },
+        })
 
-          if (!usuario || !usuario.activo) return null
-          const ok = await bcrypt.compare(password, usuario.password)
-          console.log("[AUTH] password ok:", ok)
-          if (!ok) return null
+        if (!usuario || !usuario.activo) return null
+        const ok = await bcrypt.compare(password, usuario.password)
+        if (!ok) return null
 
-          return {
-            id: usuario.id,
-            email: usuario.email,
-            name: usuario.nombre,
-            empresaId: usuario.empresa_id,
-            empresaSlug: usuario.empresa.slug,
-            rol: usuario.rol,
-          }
-        } catch (e) {
-          console.error("[AUTH] error en authorize:", e)
-          return null
+        return {
+          id: usuario.id,
+          email: usuario.email,
+          name: usuario.nombre,
+          empresaId: usuario.empresa_id,
+          empresaSlug: usuario.empresa.slug,
+          rol: usuario.rol,
         }
       },
     }),
