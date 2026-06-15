@@ -1,4 +1,3 @@
-import Image from "next/image"
 import { LoginForm } from "@/components/auth/login-form"
 import { CheckCircle2 } from "lucide-react"
 
@@ -28,15 +27,8 @@ export default function LoginPage() {
         {/* Logo + texto */}
         <div className="relative z-10 flex items-center gap-4">
           <div className="bg-white rounded-2xl px-3 py-2 shrink-0">
-            <Image
-              src="/logo-fichar.png"
-              alt="Fich.ar"
-              width={600}
-              height={150}
-              style={{ width: "80px", height: "auto" }}
-              priority
-              unoptimized
-            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-fichar.png" alt="Fich.ar" style={{ width: "80px", height: "auto" }} />
           </div>
           <span className="text-4xl font-black text-white tracking-tight">Fichar</span>
         </div>
@@ -65,7 +57,7 @@ export default function LoginPage() {
           </ul>
         </div>
 
-        {/* Card estadística flotante */}
+        {/* Card estadística */}
         <div className="relative z-10 bg-white/15 backdrop-blur-sm border border-white/20 rounded-2xl p-6 max-w-sm">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-white/20 flex items-center justify-center text-2xl shrink-0">
@@ -95,17 +87,10 @@ export default function LoginPage() {
       <div className="w-full lg:w-2/5 flex flex-col bg-white">
         <div className="flex-1 flex flex-col justify-center px-8 lg:px-12 py-10 max-w-md mx-auto w-full">
 
-          {/* Logo real (fondo blanco → se ve perfecto) */}
+          {/* Logo */}
           <div className="mb-10">
-            <Image
-              src="/logo-fichar.png"
-              alt="Fich.ar"
-              width={600}
-              height={150}
-              style={{ width: "150px", height: "auto" }}
-              priority
-              unoptimized
-            />
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src="/logo-fichar.png" alt="Fich.ar" style={{ width: "150px", height: "auto" }} />
           </div>
 
           <div className="mb-8">
