@@ -41,9 +41,13 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const { email, password } = parsed.data
 
-        const ip = request?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() ?? email
-        const { success } = await rateLimitLogin.limit(ip)
-        if (!success) return null
+        try {
+          const ip = request?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() ?? email
+          const { success } = await rateLimitLogin.limit(ip)
+          if (!success) return null
+        } catch {
+          // Redis no disponible — login sin rate limiting
+        }
 
         const usuario = await prisma.usuario.findUnique({
           where: { email, deleted_at: null },
