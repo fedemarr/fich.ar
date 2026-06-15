@@ -5,8 +5,6 @@ import bcrypt from "bcryptjs"
 import { prisma } from "./prisma"
 import type { RolUsuario } from "@/generated/prisma/client"
 import { authConfig } from "./auth.config"
-import { rateLimitLogin } from "./rate-limit"
-import { registrarAudit } from "./audit"
 
 declare module "next-auth" {
   interface User {
@@ -35,52 +33,20 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
   ...authConfig,
   providers: [
     Credentials({
-      async authorize(credentials, request) {
+      async authorize(credentials) {
         const parsed = loginSchema.safeParse(credentials)
         if (!parsed.success) return null
 
         const { email, password } = parsed.data
-
-        try {
-          const ip = request?.headers?.get("x-forwarded-for")?.split(",")[0]?.trim() ?? email
-          const { success } = await rateLimitLogin.limit(ip)
-          if (!success) return null
-        } catch {
-          // Redis no disponible — login sin rate limiting
-        }
 
         const usuario = await prisma.usuario.findUnique({
           where: { email, deleted_at: null },
           include: { empresa: { select: { slug: true } } },
         })
 
-        if (!usuario || !usuario.activo) {
-          await registrarAudit({
-            rol: "DESCONOCIDO",
-            accion: "LOGIN_FALLIDO",
-            detalle: { email },
-          })
-          return null
-        }
+        if (!usuario || !usuario.activo) return null
         const ok = await bcrypt.compare(password, usuario.password)
-        if (!ok) {
-          await registrarAudit({
-            empresa_id: usuario.empresa_id,
-            usuario_id: usuario.id,
-            rol: usuario.rol,
-            accion: "LOGIN_FALLIDO",
-            detalle: { email },
-          })
-          return null
-        }
-
-        await registrarAudit({
-          empresa_id: usuario.empresa_id,
-          usuario_id: usuario.id,
-          rol: usuario.rol,
-          accion: "LOGIN",
-          detalle: { email },
-        })
+        if (!ok) return null
 
         return {
           id: usuario.id,
