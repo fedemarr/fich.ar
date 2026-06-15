@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { RefreshCw, Search, Shield, LogIn, AlertTriangle, Globe, Monitor, Building2 } from "lucide-react"
+import { RefreshCw, Search, Shield, LogIn, AlertTriangle, Globe, Monitor, Building2, MapPin } from "lucide-react"
 
 interface GeoInfo {
   ciudad: string
@@ -12,6 +12,8 @@ interface GeoInfo {
   pais: string
   bandera: string
   isp: string
+  lat: number
+  lon: number
 }
 
 interface LogRow {
@@ -107,24 +109,12 @@ export default function AuditoriaPage() {
 
     setGeoLoading(true)
     try {
-      const res = await fetch("http://ip-api.com/batch?fields=status,country,countryCode,regionName,city,isp,query", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(pendientes.slice(0, 100)),
-      })
-      const data: Array<{ status: string; query: string; country: string; countryCode: string; regionName: string; city: string; isp: string }> = await res.json()
-      const nuevos: Record<string, GeoInfo> = {}
-      for (const item of data) {
-        if (item.status === "success") {
-          const bandera = item.countryCode
-            ? String.fromCodePoint(...item.countryCode.split("").map((c) => 0x1f1e6 + c.charCodeAt(0) - 65))
-            : "🌐"
-          nuevos[item.query] = { ciudad: item.city, region: item.regionName, pais: item.country, bandera, isp: item.isp }
-        }
-      }
-      setGeoMap((prev) => ({ ...prev, ...nuevos }))
+      const res = await fetch(`/api/admin/geoip?ips=${pendientes.slice(0, 100).join(",")}`)
+      if (!res.ok) return
+      const data: Record<string, GeoInfo> = await res.json()
+      setGeoMap((prev) => ({ ...prev, ...data }))
     } catch {
-      // ip-api no disponible
+      // geoip no disponible
     } finally {
       setGeoLoading(false)
     }
@@ -329,14 +319,25 @@ export default function AuditoriaPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <div className="text-xs">
+                        <div className="text-xs space-y-0.5">
                           <p className="font-mono text-[#111827]">{log.ip ?? "—"}</p>
                           {geo ? (
-                            <p className="text-[#6B7280]">{geo.bandera} {geo.ciudad}, {geo.pais}</p>
+                            <>
+                              <p className="text-[#6B7280]">{geo.bandera} {geo.ciudad}, {geo.pais}</p>
+                              {geo.isp && <p className="text-[#6B7280] truncate max-w-[180px]">{geo.isp}</p>}
+                              <a
+                                href={`https://www.google.com/maps?q=${geo.lat},${geo.lon}`}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="inline-flex items-center gap-1 text-[#E8593C] hover:underline font-medium mt-0.5"
+                              >
+                                <MapPin className="w-3 h-3" />
+                                Ver en Maps
+                              </a>
+                            </>
                           ) : log.ip && log.ip !== "unknown" ? (
                             <p className="text-[#6B7280] italic">localizando…</p>
                           ) : null}
-                          {geo?.isp && <p className="text-[#6B7280] truncate max-w-[180px]">{geo.isp}</p>}
                         </div>
                       </td>
                       <td className="px-4 py-3">
