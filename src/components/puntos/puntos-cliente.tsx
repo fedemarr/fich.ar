@@ -44,7 +44,11 @@ export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
     setLimpiando(true)
     try {
       const res = await fetch("/api/puntos/limpiar", { method: "DELETE" })
-      const data: { eliminados: number } = await res.json()
+      const data: { eliminados?: number; error?: string } = await res.json()
+      if (!res.ok) {
+        toast.error(data.error ?? "Error al limpiar los puntos")
+        return
+      }
       toast.success(`${data.eliminados} puntos eliminados`)
       router.refresh()
     } catch {

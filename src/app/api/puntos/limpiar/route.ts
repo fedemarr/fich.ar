@@ -5,7 +5,7 @@ import { prisma } from "@/lib/prisma"
 const NOMBRES_PROTEGIDOS = ["Ohlimpia Oficina", "Deposito Logistica"]
 
 export async function DELETE(_req: Request) {
-  const { error, session } = await verificarAcceso("ELIMINAR_PUNTO")
+  const { error, session } = await verificarAcceso("EDITAR_PUNTO")
   if (error) return error
 
   const resultado = await prisma.puntoFichaje.updateMany({
