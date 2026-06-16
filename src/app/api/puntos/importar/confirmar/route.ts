@@ -18,8 +18,8 @@ export async function POST(req: Request) {
   }
 
   const empresaId = session.user.empresaId
-  let creados = 0
-  let actualizados = 0
+  const creados: string[] = []
+  const actualizados: string[] = []
 
   for (const p of puntos) {
     const existing = await prisma.puntoFichaje.findFirst({
@@ -36,7 +36,7 @@ export async function POST(req: Request) {
           activo: true,
         },
       })
-      actualizados++
+      actualizados.push(p.nombre)
     } else {
       await prisma.puntoFichaje.create({
         data: {
@@ -47,9 +47,9 @@ export async function POST(req: Request) {
           radio_metros: p.radio_metros,
         },
       })
-      creados++
+      creados.push(p.nombre)
     }
   }
 
-  return Response.json({ creados, actualizados })
+  return Response.json({ creados: creados.length, actualizados: actualizados.length, nombresCreados: creados, nombresActualizados: actualizados })
 }

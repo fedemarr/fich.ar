@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useRef } from "react"
-import { Upload, CheckCircle2, AlertCircle, Loader2 } from "lucide-react"
+import { Upload, CheckCircle2, AlertCircle, Loader2, MapPin } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -19,8 +19,15 @@ interface RowPreview {
   latitud: number | null
   longitud: number | null
   radio_metros: number
-  geocodificado: "pendiente" | "ok" | "error"
+  geocodificado: "pendiente" | "ok" | "fallback" | "error"
   incluir: boolean
+}
+
+interface ResultadoImport {
+  creados: number
+  actualizados: number
+  nombresCreados: string[]
+  nombresActualizados: string[]
 }
 
 type Paso = "upload" | "geocodificando" | "preview" | "importando" | "done"
@@ -31,20 +38,26 @@ interface ImportarPuntosDialogProps {
   onSuccess: () => void
 }
 
-async function geocodificar(direccion: string): Promise<{ lat: number; lon: number } | null> {
+// BA centro como fallback cuando Nominatim no encuentra la dirección
+const BA_LAT = -34.6037
+const BA_LON = -58.3816
+
+async function geocodificar(direccion: string): Promise<{ lat: number; lon: number; fallback: boolean }> {
   try {
     const query = encodeURIComponent(direccion + ", Argentina")
     const url = `https://nominatim.openstreetmap.org/search?q=${query}&format=json&limit=1&countrycodes=ar`
     const res = await fetch(url, {
       headers: { "User-Agent": "FicharApp/1.0 fedenez11@gmail.com" },
     })
-    if (!res.ok) return null
-    const data: Array<{ lat: string; lon: string }> = await res.json()
-    if (data.length > 0) {
-      return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon) }
+    if (res.ok) {
+      const data: Array<{ lat: string; lon: string }> = await res.json()
+      if (data.length > 0) {
+        return { lat: parseFloat(data[0].lat), lon: parseFloat(data[0].lon), fallback: false }
+      }
     }
   } catch {}
-  return null
+  // Fallback: Buenos Aires centro
+  return { lat: BA_LAT, lon: BA_LON, fallback: true }
 }
 
 function delay(ms: number) {
@@ -56,7 +69,8 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
   const [filas, setFilas] = useState<RowPreview[]>([])
   const [progresoActual, setProgresoActual] = useState(0)
   const [progresoTotal, setProgresoTotal] = useState(0)
-  const [resultado, setResultado] = useState({ creados: 0, actualizados: 0 })
+  const [resultado, setResultado] = useState<ResultadoImport>({ creados: 0, actualizados: 0, nombresCreados: [], nombresActualizados: [] })
+  const [mostrarLista, setMostrarLista] = useState(false)
   const abortarRef = useRef(false)
 
   function resetear() {
@@ -64,6 +78,7 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
     setFilas([])
     setProgresoActual(0)
     setProgresoTotal(0)
+    setMostrarLista(false)
     abortarRef.current = false
   }
 
@@ -82,7 +97,7 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
     const { rows }: { rows: RowParsed[] } = await res.json()
 
     if (rows.length === 0) {
-      toast.error("No se encontraron filas válidas. Verificá que el archivo tenga las columnas CLIENTES, CODIGOS, DIRECCION.")
+      toast.error("No se encontraron filas válidas. Verificá que el archivo tenga columnas de Código, Razón Social y Dirección.")
       return
     }
 
@@ -111,9 +126,9 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
         const updated = [...prev]
         updated[i] = {
           ...updated[i],
-          latitud: coords?.lat ?? null,
-          longitud: coords?.lon ?? null,
-          geocodificado: coords ? "ok" : "error",
+          latitud: coords.lat,
+          longitud: coords.lon,
+          geocodificado: coords.fallback ? "fallback" : "ok",
         }
         return updated
       })
@@ -128,11 +143,9 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
   }
 
   async function confirmarImport() {
-    const seleccionadas = filas.filter(
-      (f) => f.incluir && f.latitud !== null && f.longitud !== null
-    )
+    const seleccionadas = filas.filter((f) => f.incluir && f.latitud !== null && f.longitud !== null)
     if (seleccionadas.length === 0) {
-      toast.error("No hay filas válidas para importar")
+      toast.error("No hay filas para importar")
       return
     }
 
@@ -157,7 +170,7 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
       return
     }
 
-    const data: { creados: number; actualizados: number } = await res.json()
+    const data: ResultadoImport = await res.json()
     setResultado(data)
     setPaso("done")
   }
@@ -170,12 +183,10 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
     })
   }
 
-  const filasIncluidas = filas.filter(
-    (f) => f.incluir && f.latitud !== null && f.longitud !== null
-  ).length
-  const filasError = filas.filter((f) => f.geocodificado === "error").length
-  const pctProgreso =
-    progresoTotal > 0 ? Math.round((progresoActual / progresoTotal) * 100) : 0
+  const filasIncluidas = filas.filter((f) => f.incluir && f.latitud !== null && f.longitud !== null).length
+  const filasOk = filas.filter((f) => f.geocodificado === "ok").length
+  const filasFallback = filas.filter((f) => f.geocodificado === "fallback").length
+  const pctProgreso = progresoTotal > 0 ? Math.round((progresoActual / progresoTotal) * 100) : 0
 
   const esGrande = paso === "preview"
 
@@ -209,7 +220,9 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
               Acepta variantes: <em>Código / CODIGOS / Cod</em>,{" "}
               <em>Razón Social / CLIENTES</em>,{" "}
               <em>Dirección / DIRECCION</em>. Las coordenadas se resuelven
-              automáticamente via OpenStreetMap (~1 seg por fila).
+              automáticamente via OpenStreetMap (~1 seg por fila). Si no se
+              puede resolver una dirección, se usa Buenos Aires como punto de
+              referencia.
             </p>
             <label className="block border-2 border-dashed border-gray-200 rounded-xl p-10 text-center cursor-pointer hover:border-[#2563EB] hover:bg-[#EFF6FF] transition-colors">
               <Upload size={28} className="mx-auto text-gray-400 mb-3" />
@@ -253,9 +266,7 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
               variant="outline"
               size="sm"
               className="w-full"
-              onClick={() => {
-                abortarRef.current = true
-              }}
+              onClick={() => { abortarRef.current = true }}
             >
               Detener y ver resultados parciales
             </Button>
@@ -266,13 +277,9 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
           <>
             <div className="flex items-center gap-3 py-2 shrink-0">
               <p className="text-sm text-gray-600 flex-1">
-                <span className="font-semibold text-green-700">
-                  {filasIncluidas} con coordenadas
-                </span>
-                {filasError > 0 && (
-                  <span className="text-amber-600 ml-3">
-                    {filasError} sin coordenadas (editá manualmente)
-                  </span>
+                <span className="font-semibold text-green-700">{filasOk} con coords exactas</span>
+                {filasFallback > 0 && (
+                  <span className="text-amber-600 ml-3">{filasFallback} con coords aproximadas (BA centro)</span>
                 )}
               </p>
               <label className="flex items-center gap-1.5 text-xs text-gray-500 cursor-pointer">
@@ -283,7 +290,7 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
                     setFilas((prev) => prev.map((f) => ({ ...f, incluir: e.target.checked })))
                   }
                 />
-                Seleccionar todas
+                Todas
               </label>
             </div>
 
@@ -302,10 +309,7 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
                 </thead>
                 <tbody className="divide-y divide-gray-50">
                   {filas.map((fila, i) => (
-                    <tr
-                      key={i}
-                      className={!fila.incluir ? "opacity-40 bg-gray-50" : ""}
-                    >
+                    <tr key={i} className={!fila.incluir ? "opacity-40 bg-gray-50" : ""}>
                       <td className="p-2 text-center">
                         <input
                           type="checkbox"
@@ -327,7 +331,7 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
                       </td>
                       <td className="p-2">
                         <Input
-                          className={`h-7 text-xs w-28 ${fila.latitud === null ? "border-amber-300" : ""}`}
+                          className="h-7 text-xs w-28"
                           value={fila.latitud ?? ""}
                           onChange={(e) => {
                             const v = parseFloat(e.target.value)
@@ -338,7 +342,7 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
                       </td>
                       <td className="p-2">
                         <Input
-                          className={`h-7 text-xs w-28 ${fila.longitud === null ? "border-amber-300" : ""}`}
+                          className="h-7 text-xs w-28"
                           value={fila.longitud ?? ""}
                           onChange={(e) => {
                             const v = parseFloat(e.target.value)
@@ -361,8 +365,13 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
                         {fila.geocodificado === "ok" && (
                           <CheckCircle2 size={14} className="text-green-500 mx-auto" />
                         )}
+                        {fila.geocodificado === "fallback" && (
+                          <span title="Coords aproximadas (BA centro)">
+                            <MapPin size={14} className="text-amber-400 mx-auto" />
+                          </span>
+                        )}
                         {fila.geocodificado === "error" && (
-                          <AlertCircle size={14} className="text-amber-500 mx-auto" />
+                          <AlertCircle size={14} className="text-red-400 mx-auto" />
                         )}
                         {fila.geocodificado === "pendiente" && (
                           <span className="text-gray-300">—</span>
@@ -378,10 +387,7 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
               <Button
                 variant="outline"
                 className="flex-1"
-                onClick={() => {
-                  resetear()
-                  onClose()
-                }}
+                onClick={() => { resetear(); onClose() }}
               >
                 Cancelar
               </Button>
@@ -404,28 +410,61 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
         )}
 
         {paso === "done" && (
-          <div className="space-y-4 mt-4 py-6 text-center">
-            <CheckCircle2 size={44} className="mx-auto text-green-500" />
-            <div>
+          <div className="space-y-4 mt-4">
+            <div className="text-center py-4">
+              <CheckCircle2 size={44} className="mx-auto text-green-500 mb-3" />
               <p className="font-semibold text-gray-800 text-base">
                 ¡Importación completada!
               </p>
-              <p className="text-sm text-gray-500 mt-1">
+              <div className="flex justify-center gap-6 mt-3">
                 {resultado.creados > 0 && (
-                  <span>{resultado.creados} puntos creados</span>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-green-600">{resultado.creados}</p>
+                    <p className="text-xs text-gray-500">creados</p>
+                  </div>
                 )}
-                {resultado.creados > 0 && resultado.actualizados > 0 && " · "}
                 {resultado.actualizados > 0 && (
-                  <span>{resultado.actualizados} actualizados</span>
+                  <div className="text-center">
+                    <p className="text-2xl font-bold text-blue-600">{resultado.actualizados}</p>
+                    <p className="text-xs text-gray-500">actualizados</p>
+                  </div>
                 )}
-              </p>
+              </div>
             </div>
+
+            {(resultado.nombresCreados.length > 0 || resultado.nombresActualizados.length > 0) && (
+              <div className="border border-gray-100 rounded-lg overflow-hidden">
+                <button
+                  className="w-full flex items-center justify-between px-4 py-2.5 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100"
+                  onClick={() => setMostrarLista((v) => !v)}
+                >
+                  <span>Ver detalle</span>
+                  <span className="text-gray-400">{mostrarLista ? "▲" : "▼"}</span>
+                </button>
+                {mostrarLista && (
+                  <div className="max-h-48 overflow-y-auto divide-y divide-gray-50">
+                    {resultado.nombresCreados.map((n) => (
+                      <div key={n} className="flex items-center gap-2 px-4 py-1.5 text-xs">
+                        <CheckCircle2 size={11} className="text-green-500 shrink-0" />
+                        <span className="text-gray-700">{n}</span>
+                        <span className="text-gray-400 ml-auto">creado</span>
+                      </div>
+                    ))}
+                    {resultado.nombresActualizados.map((n) => (
+                      <div key={n} className="flex items-center gap-2 px-4 py-1.5 text-xs">
+                        <CheckCircle2 size={11} className="text-blue-500 shrink-0" />
+                        <span className="text-gray-700">{n}</span>
+                        <span className="text-gray-400 ml-auto">actualizado</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
+
             <Button
-              className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-8"
-              onClick={() => {
-                resetear()
-                onSuccess()
-              }}
+              className="w-full bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+              onClick={() => { resetear(); onSuccess() }}
             >
               Listo
             </Button>
