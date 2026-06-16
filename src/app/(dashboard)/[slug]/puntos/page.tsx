@@ -20,7 +20,7 @@ export default async function PuntosPage({ params }: PuntosPageProps) {
   if (!empresa) redirect("/login")
 
   const puntos = await prisma.puntoFichaje.findMany({
-    where: { empresa_id: empresa.id },
+    where: { empresa_id: empresa.id, activo: true },
     include: {
       jornadas: {
         where: { activo: true },
