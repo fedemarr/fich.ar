@@ -1,15 +1,14 @@
 import { auth } from "@/lib/auth"
 import { read, utils } from "xlsx"
 
-interface RowRaw {
-  CLIENTES?: string
-  clientes?: string
-  CODIGOS?: string
-  codigos?: string
-  CODIGO?: string
-  DIRECCION?: string
-  direccion?: string
-  [key: string]: string | undefined
+type RowRaw = Record<string, string | undefined>
+
+function pickCol(row: RowRaw, ...keys: string[]): string {
+  for (const k of keys) {
+    const val = row[k]
+    if (val && val.toString().trim()) return val.toString().trim()
+  }
+  return ""
 }
 
 export async function POST(req: Request) {
@@ -27,9 +26,20 @@ export async function POST(req: Request) {
 
   const parsed = rows
     .map((row) => {
-      const cliente = (row["CLIENTES"] ?? row["clientes"] ?? "").toString().trim()
-      const codigo = (row["CODIGOS"] ?? row["codigos"] ?? row["CODIGO"] ?? "").toString().trim()
-      const direccion = (row["DIRECCION"] ?? row["direccion"] ?? "").toString().trim()
+      // Acepta columnas en español con/sin acentos y en mayúsculas/minúsculas
+      const cliente = pickCol(row,
+        "CLIENTES", "clientes", "Clientes",
+        "RAZON SOCIAL", "Razón Social", "Razon Social", "RAZON_SOCIAL", "razon_social",
+        "CLIENTE", "cliente"
+      )
+      const codigo = pickCol(row,
+        "CODIGOS", "codigos", "Codigo", "Código", "CODIGO",
+        "COD", "cod", "Cod"
+      )
+      const direccion = pickCol(row,
+        "DIRECCION", "direccion", "Dirección", "Direccion", "DIRECCIÓN",
+        "DIR", "dir", "Direc"
+      )
       return { cliente, codigo, direccion }
     })
     .filter(

@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { MapPin, Plus, Pencil, Trash2, QrCode, Users, Upload } from "lucide-react"
+import { MapPin, Plus, Pencil, Trash2, QrCode, Users, Upload, Eraser } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PuntoDialog } from "@/components/puntos/punto-dialog"
@@ -10,6 +10,7 @@ import { QrDialog } from "@/components/puntos/qr-dialog"
 import { JornadasDialog } from "@/components/puntos/jornadas-dialog"
 import { ImportarPuntosDialog } from "@/components/puntos/importar-puntos-dialog"
 import { ImportarServiciosModal } from "@/components/puntos/importar-servicios-modal"
+import { toast } from "sonner"
 import type { PuntoFichaje, Jornada, ColaboradorJornada } from "@/generated/prisma/client"
 
 type JornadaConColabs = Jornada & {
@@ -33,6 +34,25 @@ export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
   const [editando, setEditando] = useState<PuntoConJornadas | null>(null)
   const [verQr, setVerQr] = useState<PuntoConJornadas | null>(null)
   const [verJornadas, setVerJornadas] = useState<PuntoConJornadas | null>(null)
+  const [limpiando, setLimpiando] = useState(false)
+
+  async function limpiarPuntos() {
+    const ok = confirm(
+      "¿Eliminar todos los puntos QR excepto \"Ohlimpia Oficina\" y \"Deposito Logistica\"?\n\nEsta acción no se puede deshacer."
+    )
+    if (!ok) return
+    setLimpiando(true)
+    try {
+      const res = await fetch("/api/puntos/limpiar", { method: "DELETE" })
+      const data: { eliminados: number } = await res.json()
+      toast.success(`${data.eliminados} puntos eliminados`)
+      router.refresh()
+    } catch {
+      toast.error("Error al limpiar los puntos")
+    } finally {
+      setLimpiando(false)
+    }
+  }
 
   return (
     <div className="space-y-4">
@@ -40,14 +60,23 @@ export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
         <MapPin size={20} className="text-[#2563EB]" />
         <h1 className="text-xl font-semibold text-gray-900">Puntos QR</h1>
         <span className="text-sm text-gray-400 ml-1">{puntos.length} configurados</span>
-        <div className="ml-auto flex gap-2">
+        <div className="ml-auto flex flex-wrap gap-2">
+          <Button
+            variant="outline"
+            className="h-9 gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
+            onClick={limpiarPuntos}
+            disabled={limpiando}
+          >
+            <Eraser size={15} />
+            {limpiando ? "Limpiando..." : "Limpiar puntos"}
+          </Button>
           <Button
             variant="outline"
             className="h-9 gap-1.5 text-gray-600 border-gray-200 hover:bg-gray-50"
             onClick={() => setImportarServiciosAbierto(true)}
           >
             <Upload size={15} />
-            Importar servicios Excel
+            Importar servicios
           </Button>
           <Button
             variant="outline"

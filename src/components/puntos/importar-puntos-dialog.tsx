@@ -204,11 +204,12 @@ export function ImportarPuntosDialog({ open, onClose, onSuccess }: ImportarPunto
         {paso === "upload" && (
           <div className="space-y-4 mt-2">
             <p className="text-sm text-gray-500">
-              El archivo debe tener las columnas{" "}
-              <strong>CLIENTES</strong>, <strong>CODIGOS</strong>,{" "}
-              <strong>DIRECCION</strong>. Las filas sin dirección se omiten
-              automáticamente. Las coordenadas se obtienen de Google Maps
-              (Nominatim/OSM).
+              El archivo debe tener columnas de <strong>código</strong>,{" "}
+              <strong>cliente/razón social</strong> y <strong>dirección</strong>.
+              Acepta variantes: <em>Código / CODIGOS / Cod</em>,{" "}
+              <em>Razón Social / CLIENTES</em>,{" "}
+              <em>Dirección / DIRECCION</em>. Las coordenadas se resuelven
+              automáticamente via OpenStreetMap (~1 seg por fila).
             </p>
             <label className="block border-2 border-dashed border-gray-200 rounded-xl p-10 text-center cursor-pointer hover:border-[#2563EB] hover:bg-[#EFF6FF] transition-colors">
               <Upload size={28} className="mx-auto text-gray-400 mb-3" />
