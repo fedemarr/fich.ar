@@ -139,7 +139,7 @@ export function CompararAsistencias({ asignaciones, mes, anio }: Props) {
               <table className="text-xs w-full">
                 <thead className="bg-white border-b border-gray-100">
                   <tr>
-                    <th className="text-left px-3 py-2 font-medium text-gray-400 whitespace-nowrap">Empleado</th>
+                    <th className="text-left px-3 py-2 font-medium text-gray-400 whitespace-nowrap">Colaborador</th>
                     {Array.from({ length: diaActual }, (_, i) => i + 1).map((d) => (
                       <th
                         key={d}

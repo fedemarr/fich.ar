@@ -217,7 +217,7 @@ export function ImportarExcelModal({ open, mes, anio, puntos, onClose, onSuccess
         {step === "preview" && preview && (
           <div className="space-y-4 mt-1">
             <p className="text-sm text-gray-500">
-              {preview.total_servicios} servicios · {preview.total_empleados} empleados únicos
+              {preview.total_servicios} servicios · {preview.total_empleados} colaboradores únicos
             </p>
 
             <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
@@ -243,7 +243,7 @@ export function ImportarExcelModal({ open, mes, anio, puntos, onClose, onSuccess
                         )}
                         <span className="font-medium text-gray-800 truncate">{s.servicio}</span>
                         <span className="text-xs text-gray-400 shrink-0">
-                          {s.empleados} emp.{s.nuevos > 0 && ` · ${s.nuevos} nuevos`}
+                          {s.empleados} col.{s.nuevos > 0 && ` · ${s.nuevos} nuevos`}
                         </span>
                       </div>
                     </div>

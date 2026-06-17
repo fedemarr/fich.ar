@@ -61,7 +61,7 @@ export default function LoginPage() {
             </div>
             <div>
               <p className="text-white font-bold text-2xl leading-tight">500+</p>
-              <p className="text-blue-100 text-sm">empleados gestionados en tiempo real</p>
+              <p className="text-blue-100 text-sm">colaboradores gestionados en tiempo real</p>
             </div>
           </div>
           <div className="mt-4 grid grid-cols-3 gap-4 pt-4 border-t border-white/20">

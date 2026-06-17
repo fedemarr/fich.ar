@@ -125,7 +125,7 @@ function TablaEmpleados({ asignaciones, mes, anio }: { asignaciones: AsignacionM
       <table className="text-xs w-full">
         <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
           <tr>
-            <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Empleado</th>
+            <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Colaborador</th>
             <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Servicios</th>
             {Array.from({ length: dias }, (_, i) => i + 1).map((d) => (
               <th
@@ -262,7 +262,7 @@ export function ProyeccionCliente({ slug, mes, anio, proyeccion, puntos }: Props
               </strong>
             </span>
             <span>
-              <strong className="text-gray-700">{proyeccion.asignaciones.length}</strong> empleados
+              <strong className="text-gray-700">{proyeccion.asignaciones.length}</strong> colaboradores
             </span>
             <span>
               <strong className="text-gray-700">{porServicio.size}</strong> servicios
@@ -276,7 +276,7 @@ export function ProyeccionCliente({ slug, mes, anio, proyeccion, puntos }: Props
             <TabsList>
               <TabsTrigger value="resumen">Resumen</TabsTrigger>
               <TabsTrigger value="por-servicio">Por servicio</TabsTrigger>
-              <TabsTrigger value="por-empleado">Por empleado</TabsTrigger>
+              <TabsTrigger value="por-empleado">Por colaborador</TabsTrigger>
               <TabsTrigger value="comparar">Comparar</TabsTrigger>
             </TabsList>
 
@@ -287,7 +287,7 @@ export function ProyeccionCliente({ slug, mes, anio, proyeccion, puntos }: Props
                   <thead className="bg-gray-50 border-b border-gray-200">
                     <tr>
                       <th className="text-left px-4 py-3 font-medium text-gray-500">Servicio</th>
-                      <th className="text-right px-4 py-3 font-medium text-gray-500">Empleados</th>
+                      <th className="text-right px-4 py-3 font-medium text-gray-500">Colaboradores</th>
                       <th className="text-right px-4 py-3 font-medium text-gray-500">Hs proyectadas</th>
                       <th className="text-left px-4 py-3 font-medium text-gray-500">Punto QR</th>
                     </tr>

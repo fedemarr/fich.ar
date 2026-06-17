@@ -32,7 +32,7 @@ export async function POST(req: Request): Promise<Response> {
 
   if (planilla.hojas.length === 0) {
     return NextResponse.json(
-      { error: "No se encontraron hojas válidas. Verificá que el archivo tenga hojas con datos de empleados." },
+      { error: "No se encontraron hojas válidas. Verificá que el archivo tenga hojas con datos de colaboradores." },
       { status: 400 }
     )
   }

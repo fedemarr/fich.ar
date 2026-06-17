@@ -568,7 +568,7 @@ function PreviewStep({
         {sinColaborador.length > 0 && (
           <div className="flex items-center gap-3 text-sm text-amber-700 bg-amber-50 rounded-lg px-3 py-2.5">
             <AlertCircle size={15} className="text-amber-500 shrink-0" />
-            <span><strong>{sinColaborador.length}</strong> empleados no encontrados en el sistema</span>
+            <span><strong>{sinColaborador.length}</strong> colaboradores no encontrados en el sistema</span>
           </div>
         )}
         {sinPunto.length > 0 && (

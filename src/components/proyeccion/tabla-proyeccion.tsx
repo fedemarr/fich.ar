@@ -87,7 +87,7 @@ export function TablaProyeccion({ asignaciones, mes, anio }: Props) {
           <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
             <tr>
               <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Legajo</th>
-              <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Empleado</th>
+              <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Colaborador</th>
               <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Servicio</th>
               <th className="text-left px-3 py-2 font-medium text-gray-500 whitespace-nowrap">Cat.</th>
               {Array.from({ length: dias }, (_, i) => i + 1).map((d) => (
