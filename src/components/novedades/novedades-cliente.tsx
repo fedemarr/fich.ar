@@ -18,6 +18,7 @@ interface NovedadesClienteProps {
   colaboradores: Colaborador[]
   novedadesMes: NovedadConColaborador[]
   inasistencias: InasistenciaDetectada[]
+  presenciasMes: Set<string>
   tabInicial: string
   mesInicial: number
   anioInicial: number
@@ -61,6 +62,7 @@ export function NovedadesCliente({
   colaboradores,
   novedadesMes,
   inasistencias: inasistenciasIniciales,
+  presenciasMes,
   tabInicial,
   mesInicial,
   anioInicial,
@@ -328,6 +330,7 @@ export function NovedadesCliente({
         <CalendarioNovedades
           colaboradores={colaboradores}
           novedadesMes={novedadesMes}
+          presenciasMes={presenciasMes}
           mes={mes}
           anio={anio}
           onCambiarMes={cambiarMes}

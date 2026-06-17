@@ -41,7 +41,7 @@ export default async function NovedadesPage({
   const desdeCalendario = new Date(anioActual, mesActual - 1, 1)
   const hastaCalendario = new Date(anioActual, mesActual, 0, 23, 59, 59)
 
-  const [colaboradores, fichadasRecientes, novedadesRecientes, novedadesMes] = await Promise.all([
+  const [colaboradores, fichadasRecientes, novedadesRecientes, novedadesMes, fichadasMesRaw] = await Promise.all([
     prisma.colaborador.findMany({
       where: { empresa_id: empresaId, deleted_at: null, estado: "ACTIVO" },
       orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
@@ -64,6 +64,15 @@ export default async function NovedadesPage({
       },
       include: { colaborador: true },
       orderBy: { fecha: "asc" },
+    }),
+    prisma.fichada.findMany({
+      where: {
+        empresa_id: empresaId,
+        tipo: "ENTRADA",
+        timestamp: { gte: desdeCalendario, lte: hastaCalendario },
+        es_valida: true,
+      },
+      select: { colaborador_id: true, timestamp: true },
     }),
   ])
 
@@ -117,12 +126,23 @@ export default async function NovedadesPage({
     return a.colaborador.apellido.localeCompare(b.colaborador.apellido)
   })
 
+  // Set "colaborador_id|dia" para el calendario del mes
+  const presenciasMes = new Set<string>()
+  for (const f of fichadasMesRaw) {
+    const dia = new Date(f.timestamp).toLocaleString("es-AR", {
+      timeZone: "America/Argentina/Buenos_Aires",
+      day: "numeric",
+    })
+    presenciasMes.add(`${f.colaborador_id}|${dia}`)
+  }
+
   return (
     <NovedadesCliente
       slug={slug}
       colaboradores={colaboradores}
       novedadesMes={novedadesMes}
       inasistencias={inasistencias}
+      presenciasMes={presenciasMes}
       tabInicial={tab}
       mesInicial={mesActual}
       anioInicial={anioActual}

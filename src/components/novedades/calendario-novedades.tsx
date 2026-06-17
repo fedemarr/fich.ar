@@ -12,6 +12,7 @@ type NovedadConColaborador = Novedad & { colaborador: Colaborador }
 interface CalendarioNovedadesProps {
   colaboradores: Colaborador[]
   novedadesMes: NovedadConColaborador[]
+  presenciasMes: Set<string>
   mes: number
   anio: number
   onCambiarMes: (mes: number, anio: number) => void
@@ -83,6 +84,7 @@ function exportarExcel(
 export function CalendarioNovedades({
   colaboradores,
   novedadesMes,
+  presenciasMes,
   mes,
   anio,
   onCambiarMes,
@@ -178,6 +180,12 @@ export function CalendarioNovedades({
       {mostrarRefs && (
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center justify-center w-8 h-6 rounded text-xs font-bold bg-green-50 text-green-600 border border-green-200">
+                P
+              </span>
+              <span className="text-xs text-gray-600">Presente (fichada)</span>
+            </div>
             {(Object.entries(ETIQUETAS_NOVEDAD) as [TipoNovedad, string][]).map(([k, v]) => (
               <div key={k} className="flex items-center gap-1.5">
                 <span className={`inline-flex items-center justify-center w-8 h-6 rounded text-xs font-bold ${COLORES_BG[k]}`}>
@@ -239,6 +247,7 @@ export function CalendarioNovedades({
                     </td>
                     {Array.from({ length: dias }, (_, i) => i + 1).map((dia) => {
                       const tipo = mapa[c.id]?.[dia]
+                      const presente = presenciasMes.has(`${c.id}|${dia}`)
                       return (
                         <td key={dia} className="p-0.5">
                           {tipo ? (
@@ -251,13 +260,20 @@ export function CalendarioNovedades({
                             </button>
                           ) : esFuturo(dia) ? (
                             <div className="w-full h-7 rounded bg-gray-50" />
+                          ) : presente ? (
+                            <button
+                              onClick={() => onCeldaClick(c, dia)}
+                              className="w-full h-7 rounded bg-green-50 hover:bg-green-100 transition-colors border border-green-200"
+                              title="Presente — click para agregar novedad"
+                            >
+                              <span className="text-xs font-bold text-green-600">P</span>
+                            </button>
                           ) : (
                             <button
                               onClick={() => onCeldaClick(c, dia)}
                               className="w-full h-7 rounded bg-white hover:bg-[#EFF6FF] transition-colors relative overflow-hidden border border-gray-100"
                               title="Agregar novedad"
                             >
-                              {/* Yellow corner indicator */}
                               <span
                                 className="absolute bottom-0 right-0 w-0 h-0"
                                 style={{
