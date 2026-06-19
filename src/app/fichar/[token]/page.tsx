@@ -261,6 +261,10 @@ export default function FicharPage() {
       error?: string
       distancia?: number
       radio?: number
+      punto_lat?: number
+      punto_lon?: number
+      usuario_lat?: number
+      usuario_lon?: number
       colaborador?: ColaboradorInfo
     }
 
@@ -319,7 +323,7 @@ export default function FicharPage() {
     }
 
     if (res.status === 400 && data.distancia != null) {
-      setErrorGps({ distancia: data.distancia, radio: data.radio!, punto_lat: data.punto_lat, punto_lon: data.punto_lon, usuario_lat: data.usuario_lat, usuario_lon: data.usuario_lon })
+      setErrorGps({ distancia: data.distancia, radio: data.radio!, punto_lat: data.punto_lat, punto_lon: data.punto_lon, usuario_lat: data.usuario_lat, usuario_lon: data.usuario_lon  })
       setEstado("error-gps")
       return
     }
