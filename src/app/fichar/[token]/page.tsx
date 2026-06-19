@@ -46,13 +46,19 @@ export default function FicharPage() {
   const [punto, setPunto] = useState<PuntoInfo | null>(null)
   const [colaborador, setColaborador] = useState<ColaboradorInfo | null>(null)
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null)
+  const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null)
   const [dni, setDni] = useState("")
   const [dniError, setDniError] = useState("")
   const [fichada, setFichada] = useState<FichadaOk | null>(null)
   const [errorGps, setErrorGps] = useState<{ distancia: number; radio: number } | null>(null)
   const [errorMsg, setErrorMsg] = useState("")
   const [horaActual, setHoraActual] = useState("")
+
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const watchRef = useRef<number | null>(null)
+  const bestAccuracyRef = useRef(Infinity)
+  // Ref para pasar coords actuales a funciones sin depender del estado
+  const coordsRef = useRef<{ lat: number; lon: number } | null>(null)
 
   // Reloj en vivo
   useEffect(() => {
@@ -70,6 +76,11 @@ export default function FicharPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [])
 
+  // Cleanup GPS al desmontar
+  useEffect(() => {
+    return () => { detenerGPS() }
+  }, [])
+
   // Cargar datos del punto
   useEffect(() => {
     if (!token) return
@@ -78,8 +89,6 @@ export default function FicharPage() {
       .then((data: { punto?: PuntoInfo; error?: string }) => {
         if (!data.punto) { setEstado("token-invalido"); return }
         setPunto(data.punto)
-
-        // Intentar recuperar colaborador guardado
         const savedId = localStorage.getItem(STORAGE_ID)
         const savedNombre = localStorage.getItem(STORAGE_NOMBRE)
         const savedApellido = localStorage.getItem(STORAGE_APELLIDO)
@@ -91,28 +100,78 @@ export default function FicharPage() {
       .catch(() => setEstado("token-invalido"))
   }, [token])
 
-  function pedirUbicacion() {
+  function detenerGPS() {
+    if (watchRef.current !== null) {
+      navigator.geolocation.clearWatch(watchRef.current)
+      watchRef.current = null
+    }
+  }
+
+  function pedirUbicacion(hasColaborador: boolean) {
     if (!navigator.geolocation) {
       setErrorMsg("Tu navegador no soporta GPS.")
       setEstado("error-generico")
       return
     }
     setEstado("obteniendo-gps")
-    navigator.geolocation.getCurrentPosition(
+    detenerGPS()
+    bestAccuracyRef.current = Infinity
+    coordsRef.current = null
+
+    let proceeded = false
+    let softTimeout: ReturnType<typeof setTimeout> | null = null
+
+    const hardTimeout = setTimeout(() => {
+      if (proceeded) return
+      proceeded = true
+      clearTimeout(softTimeout!)
+      detenerGPS()
+      setErrorMsg("No pudimos obtener tu ubicación. Habilitá el GPS e intentá de nuevo.")
+      setEstado("error-generico")
+    }, 15000)
+
+    function proceed() {
+      if (proceeded) return
+      proceeded = true
+      clearTimeout(hardTimeout)
+      if (softTimeout) clearTimeout(softTimeout)
+      // No detenemos el watch: sigue mejorando la precisión mientras el usuario lee la pantalla
+      if (hasColaborador) setEstado("eligiendo")
+      else setEstado("pedir-dni")
+    }
+
+    watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
-        setCoords({ lat: pos.coords.latitude, lon: pos.coords.longitude })
-        // Si ya tenemos colaborador, ir directo a elegir
-        if (colaborador) {
-          setEstado("eligiendo")
-        } else {
-          setEstado("pedir-dni")
+        const { latitude: lat, longitude: lon, accuracy } = pos.coords
+
+        // Actualizamos solo si la nueva lectura es más precisa
+        if (accuracy < bestAccuracyRef.current) {
+          bestAccuracyRef.current = accuracy
+          const newCoords = { lat, lon }
+          setCoords(newCoords)
+          coordsRef.current = newCoords
+          setGpsAccuracy(Math.round(accuracy))
+        }
+
+        if (proceeded) return
+
+        if (accuracy <= 25) {
+          // Precisión excelente: avanzar de inmediato
+          proceed()
+        } else if (!softTimeout) {
+          // Primera lectura recibida (aunque sea imprecisa): esperar 5s por si mejora
+          softTimeout = setTimeout(proceed, 5000)
         }
       },
       () => {
-        setErrorMsg("No pudimos obtener tu ubicación. Habilitá el GPS y volvé a intentar.")
+        clearTimeout(hardTimeout)
+        if (softTimeout) clearTimeout(softTimeout)
+        detenerGPS()
+        setErrorMsg("No pudimos obtener tu ubicación. Habilitá el GPS e intentá de nuevo.")
         setEstado("error-generico")
       },
-      { enableHighAccuracy: true, timeout: 15000 }
+      // maximumAge: 0 es CRÍTICO — obliga al dispositivo a obtener posición fresca, nunca cacheada
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
     )
   }
 
@@ -124,14 +183,20 @@ export default function FicharPage() {
     }
     setDniError("")
 
+    const c = coordsRef.current
+    if (!c) {
+      setDniError("Perdimos la ubicación GPS. Volvé a intentar.")
+      return
+    }
+
     const res = await fetch("/api/fichar/qr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         qr_token: token,
         dni: dniLimpio,
-        latitud: coords!.lat,
-        longitud: coords!.lon,
+        latitud: c.lat,
+        longitud: c.lon,
         solo_identificar: true,
       }),
     })
@@ -145,6 +210,7 @@ export default function FicharPage() {
     }
 
     if (res.status === 400 && data.distancia) {
+      detenerGPS()
       setErrorGps({ distancia: data.distancia, radio: data.radio! })
       setEstado("error-gps")
       return
@@ -163,7 +229,17 @@ export default function FicharPage() {
   }
 
   async function registrarFichada(tipo: "ENTRADA" | "SALIDA") {
+    // Detenemos el watch y usamos las mejores coords acumuladas hasta ahora
+    detenerGPS()
     setEstado("fichando")
+
+    const c = coordsRef.current
+    if (!c) {
+      setErrorMsg("Perdimos la ubicación GPS. Volvé a escanear el QR.")
+      setEstado("error-generico")
+      return
+    }
+
     const res = await fetch("/api/fichar/qr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -171,8 +247,8 @@ export default function FicharPage() {
         qr_token: token,
         colaborador_id: colaborador!.id,
         tipo,
-        latitud: coords!.lat,
-        longitud: coords!.lon,
+        latitud: c.lat,
+        longitud: c.lon,
       }),
     })
     const data = await res.json() as {
@@ -200,17 +276,25 @@ export default function FicharPage() {
   }
 
   function reintentar() {
+    detenerGPS()
     setCoords(null)
+    coordsRef.current = null
+    setGpsAccuracy(null)
+    bestAccuracyRef.current = Infinity
     setErrorGps(null)
     setEstado("pedir-ubicacion")
   }
 
   function olvidarIdentidad() {
+    detenerGPS()
     localStorage.removeItem(STORAGE_ID)
     localStorage.removeItem(STORAGE_NOMBRE)
     localStorage.removeItem(STORAGE_APELLIDO)
     setColaborador(null)
     setCoords(null)
+    coordsRef.current = null
+    setGpsAccuracy(null)
+    bestAccuracyRef.current = Infinity
     setEstado("pedir-ubicacion")
   }
 
@@ -220,6 +304,12 @@ export default function FicharPage() {
     month: "long",
     timeZone: "America/Argentina/Buenos_Aires",
   })
+
+  const gpsLabel =
+    gpsAccuracy === null ? null
+    : gpsAccuracy <= 25 ? { text: `GPS preciso (±${gpsAccuracy}m)`, color: "text-green-600" }
+    : gpsAccuracy <= 80 ? { text: `GPS aceptable (±${gpsAccuracy}m)`, color: "text-amber-600" }
+    : { text: `GPS impreciso (±${gpsAccuracy}m) — movete al exterior`, color: "text-red-500" }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col">
@@ -244,14 +334,20 @@ export default function FicharPage() {
       <div className="flex-1 flex items-start justify-center px-5 py-8">
         <div className="w-full max-w-sm space-y-4">
 
-          {/* ── CARGANDO ── */}
+          {/* ── CARGANDO / OBTENIENDO GPS ── */}
           {(estado === "cargando" || estado === "obteniendo-gps") && (
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
               <Loader2 size={36} className="text-blue-600 animate-spin mx-auto mb-4" />
               <p className="text-gray-600 font-medium">
-                {estado === "cargando" ? "Verificando punto..." : "Obteniendo ubicación..."}
+                {estado === "cargando" ? "Verificando punto..." : "Obteniendo ubicación GPS..."}
               </p>
-              <p className="text-gray-400 text-sm mt-1">Un momento</p>
+              {estado === "obteniendo-gps" && (
+                <p className="text-gray-400 text-sm mt-2">
+                  {gpsAccuracy !== null
+                    ? `Precisión actual: ±${gpsAccuracy}m — mejorando...`
+                    : "Buscando señal satelital, un momento"}
+                </p>
+              )}
             </div>
           )}
 
@@ -280,7 +376,7 @@ export default function FicharPage() {
               </div>
               <Button
                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white font-semibold rounded-xl"
-                onClick={pedirUbicacion}
+                onClick={() => pedirUbicacion(!!colaborador)}
               >
                 <MapPin size={18} className="mr-2" />
                 Permitir ubicación
@@ -294,7 +390,7 @@ export default function FicharPage() {
                 </button>
               )}
               <p className="text-xs text-gray-400">
-                Tu ubicación solo se usa para verificar que estás en el punto de trabajo
+                Tu ubicación se verifica en tiempo real para confirmar que estás en el trabajo
               </p>
             </div>
           )}
@@ -309,6 +405,11 @@ export default function FicharPage() {
                 <p className="text-gray-800 font-semibold text-lg">¿Quién sos?</p>
                 <p className="text-gray-400 text-sm mt-1">Ingresá tu DNI para identificarte</p>
               </div>
+              {gpsLabel && (
+                <p className={`text-xs text-center font-medium ${gpsLabel.color}`}>
+                  {gpsLabel.text}
+                </p>
+              )}
               <div className="space-y-2">
                 <input
                   type="number"
@@ -342,6 +443,11 @@ export default function FicharPage() {
                 <p className="text-gray-800 font-semibold mt-1">
                   {colaborador.apellido} {colaborador.nombre}
                 </p>
+                {gpsLabel && (
+                  <p className={`text-xs mt-1 font-medium ${gpsLabel.color}`}>
+                    {gpsLabel.text}
+                  </p>
+                )}
               </div>
 
               <div className="grid grid-cols-2 gap-3">
@@ -413,16 +519,16 @@ export default function FicharPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-8 text-center space-y-4">
               <XCircle size={48} className="text-red-400 mx-auto" />
               <div>
-                <p className="text-gray-800 font-semibold text-lg">Ubicación muy lejana</p>
+                <p className="text-gray-800 font-semibold text-lg">No estás en el lugar de trabajo</p>
                 <p className="text-gray-500 mt-2">
-                  Estás a <strong>{errorGps.distancia}m</strong> del punto de fichaje.
+                  Tu ubicación está a <strong>{errorGps.distancia}m</strong> del punto de fichaje.
                 </p>
                 <p className="text-gray-400 text-sm mt-1">
-                  Máximo permitido: {errorGps.radio}m
+                  Radio permitido: {errorGps.radio}m
                 </p>
               </div>
               <p className="text-gray-400 text-sm">
-                Asegurate de estar en el lugar de trabajo con el GPS activado
+                Tenés que estar físicamente en el lugar de trabajo para fichar
               </p>
               <Button
                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
