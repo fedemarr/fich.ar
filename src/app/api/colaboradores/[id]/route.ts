@@ -9,6 +9,7 @@ const schema = z.object({
   nombre: z.string().min(1),
   apellido: z.string().min(1),
   celular: z.string().min(10),
+  identificacion: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   legajo: z.string().optional(),
   sector: z.string().optional(),
@@ -27,7 +28,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
 
   const empresaId = session.user.empresaId
-  const { jornada_id, email, legajo, sector, domicilio, ...rest } = parsed.data
+  const { jornada_id, email, legajo, sector, domicilio, identificacion, ...rest } = parsed.data
 
   const colaborador = await prisma.colaborador.findFirst({
     where: { id, empresa_id: empresaId, deleted_at: null },
@@ -43,6 +44,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       legajo: legajo || null,
       sector: sector || null,
       domicilio: domicilio || null,
+      identificacion: identificacion || null,
     },
   })
 

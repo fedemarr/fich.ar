@@ -16,6 +16,7 @@ const schema = z.object({
   nombre: z.string().min(1, "Requerido"),
   apellido: z.string().min(1, "Requerido"),
   celular: z.string().min(10, "Ingresá el celular con código de país (+54...)"),
+  identificacion: z.string().optional(),
   email: z.string().email("Email inválido").optional().or(z.literal("")),
   legajo: z.string().optional(),
   sector: z.string().optional(),
@@ -64,6 +65,7 @@ export function ColaboradorDialog({
         nombre: colaborador.nombre,
         apellido: colaborador.apellido,
         celular: colaborador.celular,
+        identificacion: colaborador.identificacion ?? "",
         email: colaborador.email ?? "",
         legajo: colaborador.legajo ?? "",
         sector: colaborador.sector ?? "",
@@ -72,7 +74,7 @@ export function ColaboradorDialog({
         jornada_id: colaborador.jornadas[0]?.jornada_id ?? "",
       })
     } else {
-      reset({ estado: "ACTIVO", nombre: "", apellido: "", celular: "" })
+      reset({ estado: "ACTIVO", nombre: "", apellido: "", celular: "", identificacion: "" })
     }
   }, [colaborador, reset])
 
@@ -116,10 +118,16 @@ export function ColaboradorDialog({
             </div>
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Celular (con código de país)</Label>
-            <Input placeholder="+5491112345678" {...register("celular")} />
-            {errors.celular && <p className="text-xs text-red-500">{errors.celular.message}</p>}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Celular (con código de país)</Label>
+              <Input placeholder="+5491112345678" {...register("celular")} />
+              {errors.celular && <p className="text-xs text-red-500">{errors.celular.message}</p>}
+            </div>
+            <div className="space-y-1.5">
+              <Label>DNI <span className="text-[#2563EB] text-xs font-medium">— para fichar por QR</span></Label>
+              <Input placeholder="Sin puntos" inputMode="numeric" {...register("identificacion")} />
+            </div>
           </div>
 
           <div className="grid grid-cols-2 gap-3">
