@@ -73,7 +73,7 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
       box-shadow: 0 4px 24px rgba(0,0,0,0.08);
     }
     .header {
-      background: #E8593C;
+      background: #2563EB;
       padding: 28px 32px 24px;
       text-align: center;
     }
@@ -107,7 +107,7 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
     }
     .titulo em {
       font-style: normal;
-      color: #E8593C;
+      color: #2563EB;
     }
     .qr-wrap {
       background: white;
@@ -151,7 +151,7 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
     .paso-num {
       width: 24px;
       height: 24px;
-      background: #E8593C;
+      background: #2563EB;
       color: white;
       border-radius: 50%;
       display: flex;
@@ -182,7 +182,7 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
       color: #9CA3AF;
     }
     .footer strong {
-      color: #E8593C;
+      color: #2563EB;
       font-weight: 700;
     }
     @media print {
@@ -277,7 +277,7 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
               PNG
             </Button>
             <Button
-              className="flex-1 gap-2 bg-[#E8593C] hover:bg-[#D04828] text-white"
+              className="flex-1 gap-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
               onClick={imprimirFicha}
             >
               <Printer size={15} />
