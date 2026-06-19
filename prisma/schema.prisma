@@ -40,6 +40,7 @@ enum TipoFichada {
 
 enum MetodoFichada {
   QR_WHATSAPP
+  QR_WEB
   MANUAL
 }
 

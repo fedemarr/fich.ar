@@ -14,9 +14,8 @@ interface QrDialogProps {
 
 export function QrDialog({ punto, onClose }: QrDialogProps) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const waNumber = process.env.NEXT_PUBLIC_META_WA_NUMBER ?? ""
-  const texto = encodeURIComponent(`FICHAR ${punto.qr_token}`)
-  const url = `https://wa.me/${waNumber}?text=${texto}`
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://fich-ar.vercel.app"
+  const url = `${appUrl}/fichar/${punto.qr_token}`
 
   function descargar() {
     const svg = svgRef.current
