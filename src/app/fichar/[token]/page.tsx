@@ -51,7 +51,14 @@ export default function FicharPage() {
   const [dni, setDni] = useState("")
   const [dniError, setDniError] = useState("")
   const [fichada, setFichada] = useState<FichadaOk | null>(null)
-  const [errorGps, setErrorGps] = useState<{ distancia: number; radio: number } | null>(null)
+  const [errorGps, setErrorGps] = useState<{
+    distancia: number
+    radio: number
+    punto_lat?: number
+    punto_lon?: number
+    usuario_lat?: number
+    usuario_lon?: number
+  } | null>(null)
   const [errorMsg, setErrorMsg] = useState("")
   const [horaActual, setHoraActual] = useState("")
 
@@ -154,12 +161,16 @@ export default function FicharPage() {
           ok?: boolean
           distancia?: number
           radio?: number
+          punto_lat?: number
+          punto_lon?: number
+          usuario_lat?: number
+          usuario_lon?: number
           error?: string
         }
 
         if (res.status === 400 && data.distancia != null) {
           detenerGPS()
-          setErrorGps({ distancia: data.distancia, radio: data.radio! })
+          setErrorGps({ distancia: data.distancia, radio: data.radio!, punto_lat: data.punto_lat, punto_lon: data.punto_lon, usuario_lat: data.usuario_lat, usuario_lon: data.usuario_lon })
           setEstado("error-gps")
           return
         }
@@ -255,7 +266,7 @@ export default function FicharPage() {
 
     if (res.status === 400 && data.distancia != null) {
       detenerGPS()
-      setErrorGps({ distancia: data.distancia, radio: data.radio! })
+      setErrorGps({ distancia: data.distancia, radio: data.radio!, punto_lat: data.punto_lat, punto_lon: data.punto_lon, usuario_lat: data.usuario_lat, usuario_lon: data.usuario_lon })
       setEstado("error-gps")
       return
     }
@@ -299,12 +310,16 @@ export default function FicharPage() {
       error?: string
       distancia?: number
       radio?: number
+      punto_lat?: number
+      punto_lon?: number
+      usuario_lat?: number
+      usuario_lon?: number
       fichada?: FichadaOk
       colaborador?: ColaboradorInfo
     }
 
     if (res.status === 400 && data.distancia != null) {
-      setErrorGps({ distancia: data.distancia, radio: data.radio! })
+      setErrorGps({ distancia: data.distancia, radio: data.radio!, punto_lat: data.punto_lat, punto_lon: data.punto_lon, usuario_lat: data.usuario_lat, usuario_lon: data.usuario_lon })
       setEstado("error-gps")
       return
     }
@@ -562,12 +577,47 @@ export default function FicharPage() {
                     ? `${(errorGps.distancia / 1000).toFixed(2)} km`
                     : `${errorGps.distancia} m`}
                 </p>
-                <p className="text-gray-400 text-sm mt-1">de distancia al punto de fichaje</p>
-                <p className="text-gray-300 text-xs mt-1">Radio permitido: {errorGps.radio}m</p>
+                <p className="text-gray-500 text-sm mt-1">de distancia al punto de fichaje</p>
+                <p className="text-gray-300 text-xs">Radio permitido: {errorGps.radio}m</p>
+                {gpsAccuracy !== null && (
+                  <p className="text-gray-300 text-xs">Precisión GPS: ±{gpsAccuracy}m</p>
+                )}
               </div>
-              <p className="text-gray-400 text-sm">
-                Tenés que estar físicamente en el lugar de trabajo para poder fichar
-              </p>
+
+              {/* Links para verificar ubicaciones */}
+              {errorGps.punto_lat && errorGps.usuario_lat && (
+                <div className="bg-gray-50 rounded-xl p-3 space-y-2 text-left">
+                  <p className="text-xs text-gray-500 font-medium text-center">Verificar ubicaciones</p>
+                  <a
+                    href={`https://www.google.com/maps?q=${errorGps.punto_lat},${errorGps.punto_lon}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    <MapPin size={14} className="shrink-0" />
+                    Ver dónde está registrado el punto
+                  </a>
+                  <a
+                    href={`https://www.google.com/maps?q=${errorGps.usuario_lat},${errorGps.usuario_lon}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    <MapPin size={14} className="shrink-0" />
+                    Ver dónde me detectó el GPS
+                  </a>
+                  <a
+                    href={`https://www.google.com/maps/dir/${errorGps.usuario_lat},${errorGps.usuario_lon}/${errorGps.punto_lat},${errorGps.punto_lon}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-2 text-sm text-blue-600 hover:text-blue-800"
+                  >
+                    <MapPin size={14} className="shrink-0" />
+                    Ver ruta yo → punto
+                  </a>
+                </div>
+              )}
+
               <Button
                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
                 onClick={reintentar}

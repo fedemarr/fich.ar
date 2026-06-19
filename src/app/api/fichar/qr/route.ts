@@ -55,7 +55,15 @@ export async function POST(req: Request) {
   const distancia = calcularDistanciaMetros(latitud, longitud, punto.latitud, punto.longitud)
   if (distancia > punto.radio_metros) {
     return NextResponse.json(
-      { error: "Ubicación fuera de rango", distancia: Math.round(distancia), radio: punto.radio_metros },
+      {
+        error: "Ubicación fuera de rango",
+        distancia: Math.round(distancia),
+        radio: punto.radio_metros,
+        punto_lat: punto.latitud,
+        punto_lon: punto.longitud,
+        usuario_lat: latitud,
+        usuario_lon: longitud,
+      },
       { status: 400 }
     )
   }
