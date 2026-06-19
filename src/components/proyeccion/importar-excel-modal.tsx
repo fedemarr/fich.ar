@@ -23,10 +23,18 @@ interface MatchServicio {
   punto_nombre: string | null
 }
 
+interface FilaHoja {
+  nroSocio: string
+  apellido: string
+  nombre: string
+  categoria: string
+  totalHoras: number | null
+}
+
 interface HojaParaConfirmar {
   servicio: string
   punto_id: string | null
-  filas: unknown[]
+  filas: FilaHoja[]
 }
 
 interface PreviewData {
@@ -64,6 +72,7 @@ export function ImportarExcelModal({ open, mes, anio, puntos, onClose, onSuccess
   // Overrides manuales: servicio → punto_id elegido por el usuario
   const [overrides, setOverrides] = useState<Map<string, string | null>>(new Map())
   const [resultado, setResultado] = useState<{ asignaciones: number; creadosColab: number } | null>(null)
+  const [expandido, setExpandido] = useState<string | null>(null)
   const inputRef = useRef<HTMLInputElement>(null)
 
   function reset() {
@@ -72,6 +81,7 @@ export function ImportarExcelModal({ open, mes, anio, puntos, onClose, onSuccess
     setPreview(null)
     setOverrides(new Map())
     setResultado(null)
+    setExpandido(null)
   }
 
   function handleClose() {
@@ -162,7 +172,7 @@ export function ImportarExcelModal({ open, mes, anio, puntos, onClose, onSuccess
 
   return (
     <Dialog open={open} onOpenChange={(v) => !v && handleClose()}>
-      <DialogContent className="max-w-xl">
+      <DialogContent className={step === "preview" && expandido ? "max-w-2xl max-h-[88vh] flex flex-col overflow-hidden" : "max-w-xl"}>
         <DialogHeader>
           <DialogTitle>
             Importar planilla — {MESES[mes - 1]} {anio}
@@ -215,26 +225,31 @@ export function ImportarExcelModal({ open, mes, anio, puntos, onClose, onSuccess
         )}
 
         {step === "preview" && preview && (
-          <div className="space-y-4 mt-1">
-            <p className="text-sm text-gray-500">
+          <div className="space-y-4 mt-1 flex flex-col min-h-0">
+            <p className="text-sm text-gray-500 shrink-0">
               {preview.total_servicios} servicios · {preview.total_empleados} colaboradores únicos
             </p>
 
-            <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            <div className="space-y-2 overflow-y-auto pr-1 flex-1 min-h-0" style={{ maxHeight: expandido ? "none" : "18rem" }}>
               {preview.servicios.map((s) => {
                 const puntoActual = overrides.has(s.servicio)
                   ? overrides.get(s.servicio)
                   : s.punto_id
                 const tieneMatch = !!puntoActual
+                const hojaData = preview._hojas.find((h) => h.servicio === s.servicio)
+                const estaExpandido = expandido === s.servicio
 
                 return (
                   <div
                     key={s.servicio}
-                    className={`rounded-lg border px-3 py-2.5 text-sm ${
+                    className={`rounded-lg border text-sm ${
                       tieneMatch ? "border-green-200 bg-green-50" : "border-amber-200 bg-amber-50"
                     }`}
                   >
-                    <div className="flex items-center gap-2 justify-between">
+                    <div
+                      className="px-3 py-2.5 flex items-center gap-2 justify-between cursor-pointer"
+                      onClick={() => setExpandido(estaExpandido ? null : s.servicio)}
+                    >
                       <div className="flex items-center gap-2 min-w-0">
                         {tieneMatch ? (
                           <CheckCircle2 size={14} className="text-green-500 shrink-0" />
@@ -246,13 +261,14 @@ export function ImportarExcelModal({ open, mes, anio, puntos, onClose, onSuccess
                           {s.empleados} col.{s.nuevos > 0 && ` · ${s.nuevos} nuevos`}
                         </span>
                       </div>
+                      <span className="text-xs text-gray-400 shrink-0">{estaExpandido ? "▲" : "▼"}</span>
                     </div>
                     {tieneMatch ? (
-                      <p className="text-xs text-green-700 mt-1 ml-5">
+                      <p className="text-xs text-green-700 px-3 pb-2 ml-5">
                         → {puntos.find((p) => p.id === puntoActual)?.nombre ?? s.punto_nombre}
                       </p>
                     ) : (
-                      <div className="mt-1.5 ml-5">
+                      <div className="px-3 pb-2.5 ml-5">
                         <Select
                           value={overrides.get(s.servicio) ?? ""}
                           onValueChange={(v) => setOverride(s.servicio, v || null)}
@@ -266,6 +282,30 @@ export function ImportarExcelModal({ open, mes, anio, puntos, onClose, onSuccess
                             ))}
                           </SelectContent>
                         </Select>
+                      </div>
+                    )}
+                    {estaExpandido && hojaData && hojaData.filas.length > 0 && (
+                      <div className="border-t border-current/10 mx-3 mb-2">
+                        <table className="w-full text-xs mt-2">
+                          <thead>
+                            <tr className="text-gray-400">
+                              <th className="text-left pb-1 font-medium w-16">Legajo</th>
+                              <th className="text-left pb-1 font-medium">Nombre y Apellido</th>
+                              <th className="text-left pb-1 font-medium w-24">Categoría</th>
+                              <th className="text-right pb-1 font-medium w-16">Total Hs</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-current/5">
+                            {hojaData.filas.map((f, i) => (
+                              <tr key={i}>
+                                <td className="py-1 font-mono text-gray-400">{f.nroSocio}</td>
+                                <td className="py-1 text-gray-700">{f.apellido} {f.nombre}</td>
+                                <td className="py-1 text-gray-400 truncate max-w-[100px]">{f.categoria || "—"}</td>
+                                <td className="py-1 text-right text-gray-500">{f.totalHoras ?? "—"}</td>
+                              </tr>
+                            ))}
+                          </tbody>
+                        </table>
                       </div>
                     )}
                   </div>

@@ -14,7 +14,7 @@ interface AsignacionMensual {
 interface FichadaReal {
   colaborador_id: string
   punto_fichaje_id: string | null
-  dia: number
+  timestamp: string
   tipo: "ENTRADA" | "SALIDA"
   analisis: string | null
 }
@@ -66,8 +66,8 @@ export function CompararAsistencias({ asignaciones, mes, anio }: Props) {
     const fin = new Date(anio, mes, 0, 23, 59, 59).toISOString()
     fetch(`/api/fichadas?desde=${inicio}&hasta=${fin}&tipo=ENTRADA`)
       .then((r) => r.json())
-      .then((data: { fichadas?: FichadaReal[] }) => {
-        setFichadas(data.fichadas ?? [])
+      .then((data: FichadaReal[]) => {
+        setFichadas(Array.isArray(data) ? data : [])
       })
       .catch(() => setFichadas([]))
       .finally(() => setLoading(false))
@@ -86,8 +86,12 @@ export function CompararAsistencias({ asignaciones, mes, anio }: Props) {
     const fichada = fichadas?.find(
       (f) =>
         f.colaborador_id === asignacion.colaborador_id &&
-        (asignacion.punto_fichaje_id === null || f.punto_fichaje_id === asignacion.punto_fichaje_id) &&
-        f.dia === dia
+        new Date(f.timestamp).getDate() === dia &&
+        (
+          asignacion.punto_fichaje_id === null ||
+          f.punto_fichaje_id === null ||
+          f.punto_fichaje_id === asignacion.punto_fichaje_id
+        )
     )
 
     if (!fichada) return "AUSENTE"

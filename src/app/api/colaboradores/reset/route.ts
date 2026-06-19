@@ -23,6 +23,7 @@ export async function POST(): Promise<Response> {
   await prisma.colaboradorJornada.deleteMany({ where: { colaborador_id: { in: ids } } })
   await prisma.novedad.deleteMany({ where: { colaborador_id: { in: ids } } })
   await prisma.notificacion.deleteMany({ where: { colaborador_id: { in: ids } } })
+  await prisma.asignacionMensual.deleteMany({ where: { colaborador_id: { in: ids } } })
 
   await prisma.colaborador.updateMany({
     where: { id: { in: ids } },

@@ -45,11 +45,12 @@ function diasEnMes(mes: number, anio: number) {
 function exportarExcel(
   colaboradores: Colaborador[],
   novedadesMes: NovedadConColaborador[],
+  presenciasMes: Set<string>,
   mes: number,
   anio: number
 ) {
   const dias = diasEnMes(mes, anio)
-  // Build map
+  // Build map de novedades
   const mapa: Record<string, Record<number, TipoNovedad>> = {}
   for (const n of novedadesMes) {
     const dia = new Date(n.fecha).getUTCDate()
@@ -57,12 +58,23 @@ function exportarExcel(
     mapa[n.colaborador_id][dia] = n.tipo
   }
 
-  const headers = ["Colaborador", "Legajo", ...Array.from({ length: dias }, (_, i) => String(i + 1))]
+  const headers = ["Colaborador", "Legajo", ...Array.from({ length: dias }, (_, i) => String(i + 1)), "P", "AU"]
   const rows = colaboradores.map((c) => {
     const fila: string[] = [`${c.apellido}, ${c.nombre}`, c.legajo ?? "N/A"]
+    let totalP = 0, totalAU = 0
     for (let d = 1; d <= dias; d++) {
-      fila.push(mapa[c.id]?.[d] ?? "")
+      const novedad = mapa[c.id]?.[d]
+      if (novedad) {
+        fila.push(novedad)
+        if (novedad === "AU") totalAU++
+      } else if (presenciasMes.has(`${c.id}|${d}`)) {
+        fila.push("P")
+        totalP++
+      } else {
+        fila.push("")
+      }
     }
+    fila.push(String(totalP), String(totalAU))
     return fila
   })
 
@@ -301,7 +313,7 @@ export function CalendarioNovedades({
           variant="outline"
           size="sm"
           className="gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
-          onClick={() => exportarExcel(colaboradores, novedadesMes, mes, anio)}
+          onClick={() => exportarExcel(colaboradores, novedadesMes, presenciasMes, mes, anio)}
         >
           <Download size={14} />
           Exportar reporte a Excel

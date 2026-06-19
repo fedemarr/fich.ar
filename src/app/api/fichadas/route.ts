@@ -74,17 +74,28 @@ export async function GET(req: Request) {
 
   const { searchParams } = new URL(req.url)
   const fecha = searchParams.get("fecha")
+  const desdeParam = searchParams.get("desde")
+  const hastaParam = searchParams.get("hasta")
+  const tipoParam = searchParams.get("tipo") as "ENTRADA" | "SALIDA" | null
   const empresaId = session.user.empresaId
 
-  const desde = fecha ? new Date(fecha) : new Date()
-  desde.setHours(0, 0, 0, 0)
-  const hasta = new Date(desde)
-  hasta.setHours(23, 59, 59, 999)
+  let desde: Date, hasta: Date
+  if (desdeParam) {
+    desde = new Date(desdeParam)
+    hasta = hastaParam ? new Date(hastaParam) : new Date(desde)
+    if (!hastaParam) hasta.setHours(23, 59, 59, 999)
+  } else {
+    desde = fecha ? new Date(fecha) : new Date()
+    desde.setHours(0, 0, 0, 0)
+    hasta = new Date(desde)
+    hasta.setHours(23, 59, 59, 999)
+  }
 
   const fichadas = await prisma.fichada.findMany({
     where: {
       empresa_id: empresaId,
       timestamp: { gte: desde, lte: hasta },
+      ...(tipoParam ? { tipo: tipoParam } : {}),
     },
     include: { colaborador: true, punto_fichaje: true },
     orderBy: { timestamp: "asc" },
