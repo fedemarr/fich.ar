@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect } from "react"
+import { useEffect, useState } from "react"
 import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
@@ -9,6 +9,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { MapPin, Crosshair, ExternalLink } from "lucide-react"
 import type { PuntoFichaje } from "@/generated/prisma/client"
 
 const schema = z.object({
@@ -30,12 +31,16 @@ interface PuntoDialogProps {
 
 export function PuntoDialog({ open, punto, onSuccess, onClose }: PuntoDialogProps) {
   const esEdicion = !!punto
+  const [obteniendoGps, setObteniendoGps] = useState(false)
 
-  const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
+  const { register, handleSubmit, reset, setValue, watch, formState: { errors, isSubmitting } } =
     useForm<FormData>({
       resolver: zodResolver(schema) as Resolver<FormData>,
       defaultValues: { radio_metros: 200 },
     })
+
+  const latActual = watch("latitud")
+  const lonActual = watch("longitud")
 
   useEffect(() => {
     if (punto) {
@@ -49,6 +54,21 @@ export function PuntoDialog({ open, punto, onSuccess, onClose }: PuntoDialogProp
       reset({ radio_metros: 200 })
     }
   }, [punto, reset])
+
+  function usarMiUbicacion() {
+    if (!navigator.geolocation) { toast.error("GPS no disponible"); return }
+    setObteniendoGps(true)
+    navigator.geolocation.getCurrentPosition(
+      (pos) => {
+        setValue("latitud", parseFloat(pos.coords.latitude.toFixed(6)))
+        setValue("longitud", parseFloat(pos.coords.longitude.toFixed(6)))
+        setObteniendoGps(false)
+        toast.success(`GPS: ±${Math.round(pos.coords.accuracy)}m de precisión`)
+      },
+      () => { toast.error("No se pudo obtener la ubicación"); setObteniendoGps(false) },
+      { enableHighAccuracy: true, maximumAge: 0, timeout: 10000 }
+    )
+  }
 
   async function onSubmit(data: FormData) {
     const url = esEdicion ? `/api/puntos/${punto.id}` : "/api/puntos"
@@ -75,17 +95,52 @@ export function PuntoDialog({ open, punto, onSuccess, onClose }: PuntoDialogProp
             <Input placeholder="Ej: Oficina Central" {...register("nombre")} />
             {errors.nombre && <p className="text-xs text-red-500">{errors.nombre.message}</p>}
           </div>
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>Latitud</Label>
-              <Input placeholder="-34.5724" {...register("latitud")} />
-              {errors.latitud && <p className="text-xs text-red-500">{errors.latitud.message}</p>}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <Label>Coordenadas GPS</Label>
+              <div className="flex gap-2">
+                {latActual && lonActual && (
+                  <a
+                    href={`https://www.google.com/maps?q=${latActual},${lonActual}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1 text-xs text-blue-600 hover:text-blue-800"
+                  >
+                    <ExternalLink size={11} />
+                    Ver en mapa
+                  </a>
+                )}
+              </div>
             </div>
-            <div className="space-y-1.5">
-              <Label>Longitud</Label>
-              <Input placeholder="-58.4506" {...register("longitud")} />
-              {errors.longitud && <p className="text-xs text-red-500">{errors.longitud.message}</p>}
+            <Button
+              type="button"
+              variant="outline"
+              size="sm"
+              className="w-full h-9 gap-2 text-sm border-dashed"
+              onClick={usarMiUbicacion}
+              disabled={obteniendoGps}
+            >
+              <Crosshair size={15} className={obteniendoGps ? "animate-spin" : ""} />
+              {obteniendoGps ? "Obteniendo GPS..." : "Usar mi ubicación actual"}
+            </Button>
+            <div className="grid grid-cols-2 gap-3">
+              <div className="space-y-1">
+                <p className="text-xs text-gray-400">Latitud</p>
+                <Input placeholder="-34.5724" {...register("latitud")} />
+                {errors.latitud && <p className="text-xs text-red-500">{errors.latitud.message}</p>}
+              </div>
+              <div className="space-y-1">
+                <p className="text-xs text-gray-400">Longitud</p>
+                <Input placeholder="-58.4506" {...register("longitud")} />
+                {errors.longitud && <p className="text-xs text-red-500">{errors.longitud.message}</p>}
+              </div>
             </div>
+            {latActual && lonActual && (
+              <p className="text-xs text-gray-400 flex items-center gap-1">
+                <MapPin size={11} />
+                {latActual}, {lonActual}
+              </p>
+            )}
           </div>
           <div className="space-y-1.5">
             <Label>Radio permitido (metros)</Label>
