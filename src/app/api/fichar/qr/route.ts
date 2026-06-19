@@ -16,9 +16,10 @@ export async function POST(req: Request) {
     tipo?: "ENTRADA" | "SALIDA"
     latitud: number
     longitud: number
+    solo_identificar?: boolean
   }
 
-  const { qr_token, colaborador_id, dni, tipo, latitud, longitud } = body
+  const { qr_token, colaborador_id, dni, tipo, latitud, longitud, solo_identificar } = body
 
   if (!qr_token || latitud == null || longitud == null) {
     return NextResponse.json({ error: "Datos incompletos" }, { status: 400 })
@@ -57,6 +58,14 @@ export async function POST(req: Request) {
       { error: "Ubicación fuera de rango", distancia: Math.round(distancia), radio: punto.radio_metros },
       { status: 400 }
     )
+  }
+
+  // 3b. Modo solo identificar: validar GPS + devolver colaborador sin registrar fichada
+  if (solo_identificar) {
+    return NextResponse.json({
+      ok: true,
+      colaborador: { id: colaborador.id, nombre: colaborador.nombre, apellido: colaborador.apellido },
+    })
   }
 
   // 4. Determinar tipo si no viene

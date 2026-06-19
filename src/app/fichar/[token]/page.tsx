@@ -127,7 +127,13 @@ export default function FicharPage() {
     const res = await fetch("/api/fichar/qr", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ qr_token: token, dni: dniLimpio, latitud: coords!.lat, longitud: coords!.lon }),
+      body: JSON.stringify({
+        qr_token: token,
+        dni: dniLimpio,
+        latitud: coords!.lat,
+        longitud: coords!.lon,
+        solo_identificar: true,
+      }),
     })
     const data = await res.json() as {
       ok?: boolean
@@ -136,8 +142,6 @@ export default function FicharPage() {
       distancia?: number
       radio?: number
       colaborador?: ColaboradorInfo
-      fichada?: FichadaOk
-      punto?: { nombre: string }
     }
 
     if (res.status === 400 && data.distancia) {
@@ -145,18 +149,16 @@ export default function FicharPage() {
       setEstado("error-gps")
       return
     }
-    if (res.status === 404 && data.needsDni) {
+    if (res.status === 404) {
       setDniError("DNI no encontrado en el sistema")
       return
     }
-    if (data.ok && data.colaborador && data.fichada) {
-      // Guardamos el colaborador para la próxima vez
+    if (data.ok && data.colaborador) {
       localStorage.setItem(STORAGE_ID, data.colaborador.id)
       localStorage.setItem(STORAGE_NOMBRE, data.colaborador.nombre)
       localStorage.setItem(STORAGE_APELLIDO, data.colaborador.apellido)
       setColaborador(data.colaborador)
-      setFichada(data.fichada)
-      setEstado("confirmado")
+      setEstado("eligiendo")
     }
   }
 
