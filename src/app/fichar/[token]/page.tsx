@@ -557,10 +557,13 @@ export default function FicharPage() {
               <XCircle size={48} className="text-red-400 mx-auto" />
               <div>
                 <p className="text-gray-800 font-semibold text-lg">No estás en el lugar de trabajo</p>
-                <p className="text-gray-500 mt-2">
-                  Tu ubicación está a <strong>{errorGps.distancia}m</strong> del punto de fichaje.
+                <p className="text-4xl font-black text-red-500 mt-3">
+                  {errorGps.distancia >= 1000
+                    ? `${(errorGps.distancia / 1000).toFixed(2)} km`
+                    : `${errorGps.distancia} m`}
                 </p>
-                <p className="text-gray-400 text-sm mt-1">Radio permitido: {errorGps.radio}m</p>
+                <p className="text-gray-400 text-sm mt-1">de distancia al punto de fichaje</p>
+                <p className="text-gray-300 text-xs mt-1">Radio permitido: {errorGps.radio}m</p>
               </div>
               <p className="text-gray-400 text-sm">
                 Tenés que estar físicamente en el lugar de trabajo para poder fichar
