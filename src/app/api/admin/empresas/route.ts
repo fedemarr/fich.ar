@@ -25,10 +25,10 @@ export async function GET() {
 }
 
 const crearSchema = z.object({
-  nombre: z.string().min(2),
-  slug: z.string().min(2).regex(/^[a-z0-9-]+$/, "Solo letras minúsculas, números y guiones"),
-  emailAdmin: z.string().email().optional(),
-  passwordAdmin: z.string().min(6).optional(),
+  nombre: z.string().min(2, "El nombre debe tener al menos 2 caracteres"),
+  slug: z.string().min(2, "El slug debe tener al menos 2 caracteres").regex(/^[a-z0-9-]+$/, "El slug solo puede tener letras minúsculas, números y guiones"),
+  emailAdmin: z.string().email("El email del admin no es válido").optional(),
+  passwordAdmin: z.string().min(6, "La contraseña debe tener al menos 6 caracteres").optional(),
 })
 
 export async function POST(req: Request) {

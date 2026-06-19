@@ -60,7 +60,11 @@ export default function EmpresasPage() {
 
   async function crear() {
     setError("")
-    if (!nombre || !slug) { setError("Nombre y slug son obligatorios"); return }
+    if (!nombre || nombre.length < 2) { setError("El nombre debe tener al menos 2 caracteres"); return }
+    if (!slug || slug.length < 2) { setError("El slug debe tener al menos 2 caracteres"); return }
+    if (emailAdmin && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(emailAdmin)) { setError("El email del admin no es válido"); return }
+    if (passwordAdmin && passwordAdmin.length < 6) { setError("La contraseña debe tener al menos 6 caracteres"); return }
+    if (emailAdmin && !passwordAdmin) { setError("Si ingresás email de admin, la contraseña es obligatoria"); return }
     setGuardando(true)
     try {
       const res = await fetch("/api/admin/empresas", {
@@ -69,7 +73,13 @@ export default function EmpresasPage() {
         body: JSON.stringify({ nombre, slug, emailAdmin: emailAdmin || undefined, passwordAdmin: passwordAdmin || undefined }),
       })
       const data = await res.json()
-      if (!res.ok) { setError(data.error ?? "Error al crear"); return }
+      if (!res.ok) {
+        const msg = Array.isArray(data.issues) && data.issues.length > 0
+          ? data.issues.map((i: { message: string }) => i.message).join(" · ")
+          : (data.error ?? "Error al crear")
+        setError(msg)
+        return
+      }
       setAbrirDialog(false)
       setNombre(""); setSlug(""); setEmailAdmin(""); setPasswordAdmin("")
       cargar()
