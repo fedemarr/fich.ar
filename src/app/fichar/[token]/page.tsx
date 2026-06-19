@@ -47,6 +47,7 @@ export default function FicharPage() {
   const [colaborador, setColaborador] = useState<ColaboradorInfo | null>(null)
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null)
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null)
+  const [gpsStatus, setGpsStatus] = useState("")
   const [dni, setDni] = useState("")
   const [dniError, setDniError] = useState("")
   const [fichada, setFichada] = useState<FichadaOk | null>(null)
@@ -57,10 +58,8 @@ export default function FicharPage() {
   const timerRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const watchRef = useRef<number | null>(null)
   const bestAccuracyRef = useRef(Infinity)
-  // Ref para pasar coords actuales a funciones sin depender del estado
   const coordsRef = useRef<{ lat: number; lon: number } | null>(null)
 
-  // Reloj en vivo
   useEffect(() => {
     function tick() {
       setHoraActual(
@@ -76,12 +75,10 @@ export default function FicharPage() {
     return () => { if (timerRef.current) clearInterval(timerRef.current) }
   }, [])
 
-  // Cleanup GPS al desmontar
   useEffect(() => {
     return () => { detenerGPS() }
   }, [])
 
-  // Cargar datos del punto
   useEffect(() => {
     if (!token) return
     fetch(`/api/fichar/qr/${token}`)
@@ -114,6 +111,7 @@ export default function FicharPage() {
       return
     }
     setEstado("obteniendo-gps")
+    setGpsStatus("Buscando señal GPS...")
     detenerGPS()
     bestAccuracyRef.current = Infinity
     coordsRef.current = null
@@ -124,42 +122,89 @@ export default function FicharPage() {
     const hardTimeout = setTimeout(() => {
       if (proceeded) return
       proceeded = true
-      clearTimeout(softTimeout!)
+      if (softTimeout) clearTimeout(softTimeout)
       detenerGPS()
       setErrorMsg("No pudimos obtener tu ubicación. Habilitá el GPS e intentá de nuevo.")
       setEstado("error-generico")
     }, 15000)
+
+    // Una vez que tenemos coords aceptables, validar en el servidor si hay colaborador guardado
+    const validarYAvanzar = async (c: { lat: number; lon: number }) => {
+      if (!hasColaborador) {
+        setEstado("pedir-dni")
+        return
+      }
+
+      // Para colaboradores guardados: validar GPS contra el servidor ANTES de mostrar eligiendo
+      setGpsStatus("Verificando ubicación en el servidor...")
+      try {
+        const storedId = localStorage.getItem(STORAGE_ID)
+        const res = await fetch("/api/fichar/qr", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            qr_token: token,
+            colaborador_id: storedId,
+            latitud: c.lat,
+            longitud: c.lon,
+            solo_identificar: true,
+          }),
+        })
+        const data = await res.json() as {
+          ok?: boolean
+          distancia?: number
+          radio?: number
+          error?: string
+        }
+
+        if (res.status === 400 && data.distancia != null) {
+          detenerGPS()
+          setErrorGps({ distancia: data.distancia, radio: data.radio! })
+          setEstado("error-gps")
+          return
+        }
+        if (!data.ok) {
+          detenerGPS()
+          setErrorMsg(data.error ?? "No pudimos verificar tu ubicación")
+          setEstado("error-generico")
+          return
+        }
+        // GPS validado en el servidor → recién ahora mostramos la pantalla
+        setEstado("eligiendo")
+      } catch {
+        detenerGPS()
+        setErrorMsg("Error de red al verificar ubicación. Intentá de nuevo.")
+        setEstado("error-generico")
+      }
+    }
 
     function proceed() {
       if (proceeded) return
       proceeded = true
       clearTimeout(hardTimeout)
       if (softTimeout) clearTimeout(softTimeout)
-      // No detenemos el watch: sigue mejorando la precisión mientras el usuario lee la pantalla
-      if (hasColaborador) setEstado("eligiendo")
-      else setEstado("pedir-dni")
+      void validarYAvanzar(coordsRef.current!)
     }
 
     watchRef.current = navigator.geolocation.watchPosition(
       (pos) => {
         const { latitude: lat, longitude: lon, accuracy } = pos.coords
 
-        // Actualizamos solo si la nueva lectura es más precisa
         if (accuracy < bestAccuracyRef.current) {
           bestAccuracyRef.current = accuracy
           const newCoords = { lat, lon }
           setCoords(newCoords)
           coordsRef.current = newCoords
           setGpsAccuracy(Math.round(accuracy))
+          setGpsStatus(`GPS: precisión ±${Math.round(accuracy)}m`)
         }
 
         if (proceeded) return
 
         if (accuracy <= 25) {
-          // Precisión excelente: avanzar de inmediato
           proceed()
         } else if (!softTimeout) {
-          // Primera lectura recibida (aunque sea imprecisa): esperar 5s por si mejora
+          // Primera lectura recibida: esperar hasta 5s por si mejora
           softTimeout = setTimeout(proceed, 5000)
         }
       },
@@ -170,7 +215,7 @@ export default function FicharPage() {
         setErrorMsg("No pudimos obtener tu ubicación. Habilitá el GPS e intentá de nuevo.")
         setEstado("error-generico")
       },
-      // maximumAge: 0 es CRÍTICO — obliga al dispositivo a obtener posición fresca, nunca cacheada
+      // maximumAge: 0 — NUNCA usar posición cacheada, siempre fresca del satélite
       { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
     )
   }
@@ -185,7 +230,7 @@ export default function FicharPage() {
 
     const c = coordsRef.current
     if (!c) {
-      setDniError("Perdimos la ubicación GPS. Volvé a intentar.")
+      setDniError("Perdimos la señal GPS. Volvé a intentar desde el inicio.")
       return
     }
 
@@ -203,13 +248,12 @@ export default function FicharPage() {
     const data = await res.json() as {
       ok?: boolean
       error?: string
-      needsDni?: boolean
       distancia?: number
       radio?: number
       colaborador?: ColaboradorInfo
     }
 
-    if (res.status === 400 && data.distancia) {
+    if (res.status === 400 && data.distancia != null) {
       detenerGPS()
       setErrorGps({ distancia: data.distancia, radio: data.radio! })
       setEstado("error-gps")
@@ -229,13 +273,12 @@ export default function FicharPage() {
   }
 
   async function registrarFichada(tipo: "ENTRADA" | "SALIDA") {
-    // Detenemos el watch y usamos las mejores coords acumuladas hasta ahora
     detenerGPS()
     setEstado("fichando")
 
     const c = coordsRef.current
     if (!c) {
-      setErrorMsg("Perdimos la ubicación GPS. Volvé a escanear el QR.")
+      setErrorMsg("Perdimos la señal GPS. Escaneá el QR de nuevo.")
       setEstado("error-generico")
       return
     }
@@ -260,7 +303,7 @@ export default function FicharPage() {
       colaborador?: ColaboradorInfo
     }
 
-    if (res.status === 400 && data.distancia) {
+    if (res.status === 400 && data.distancia != null) {
       setErrorGps({ distancia: data.distancia, radio: data.radio! })
       setEstado("error-gps")
       return
@@ -307,14 +350,13 @@ export default function FicharPage() {
 
   const gpsLabel =
     gpsAccuracy === null ? null
-    : gpsAccuracy <= 25 ? { text: `GPS preciso (±${gpsAccuracy}m)`, color: "text-green-600" }
-    : gpsAccuracy <= 80 ? { text: `GPS aceptable (±${gpsAccuracy}m)`, color: "text-amber-600" }
-    : { text: `GPS impreciso (±${gpsAccuracy}m) — movete al exterior`, color: "text-red-500" }
+    : gpsAccuracy <= 25 ? { text: `GPS preciso ±${gpsAccuracy}m`, color: "text-green-600" }
+    : gpsAccuracy <= 80 ? { text: `GPS aceptable ±${gpsAccuracy}m`, color: "text-amber-600" }
+    : { text: `GPS impreciso ±${gpsAccuracy}m`, color: "text-red-500" }
 
   return (
     <div className="min-h-screen bg-[#F8FAFC] flex flex-col">
 
-      {/* Header azul */}
       <div style={{ background: "linear-gradient(135deg, #1D4ED8 0%, #3B82F6 100%)" }}
         className="px-6 pt-10 pb-8 text-white text-center">
         <div className="mb-1">
@@ -330,7 +372,6 @@ export default function FicharPage() {
         <p className="text-blue-100 text-xs mt-2 capitalize">{fechaHoy} · {horaActual}</p>
       </div>
 
-      {/* Contenido */}
       <div className="flex-1 flex items-start justify-center px-5 py-8">
         <div className="w-full max-w-sm space-y-4">
 
@@ -339,13 +380,11 @@ export default function FicharPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-10 text-center">
               <Loader2 size={36} className="text-blue-600 animate-spin mx-auto mb-4" />
               <p className="text-gray-600 font-medium">
-                {estado === "cargando" ? "Verificando punto..." : "Obteniendo ubicación GPS..."}
+                {estado === "cargando" ? "Verificando punto..." : gpsStatus || "Obteniendo GPS..."}
               </p>
-              {estado === "obteniendo-gps" && (
-                <p className="text-gray-400 text-sm mt-2">
-                  {gpsAccuracy !== null
-                    ? `Precisión actual: ±${gpsAccuracy}m — mejorando...`
-                    : "Buscando señal satelital, un momento"}
+              {estado === "obteniendo-gps" && gpsAccuracy !== null && (
+                <p className={`text-sm mt-2 font-medium ${gpsLabel?.color ?? "text-gray-400"}`}>
+                  Precisión: ±{gpsAccuracy}m — mejorando...
                 </p>
               )}
             </div>
@@ -371,7 +410,7 @@ export default function FicharPage() {
                   {colaborador ? `Hola, ${colaborador.nombre} 👋` : "Para fichar necesitamos tu ubicación"}
                 </p>
                 <p className="text-gray-400 text-sm mt-1">
-                  Verificamos que estés en el lugar de trabajo
+                  Verificamos que estés físicamente en el trabajo
                 </p>
               </div>
               <Button
@@ -379,7 +418,7 @@ export default function FicharPage() {
                 onClick={() => pedirUbicacion(!!colaborador)}
               >
                 <MapPin size={18} className="mr-2" />
-                Permitir ubicación
+                Verificar ubicación
               </Button>
               {colaborador && (
                 <button
@@ -390,7 +429,7 @@ export default function FicharPage() {
                 </button>
               )}
               <p className="text-xs text-gray-400">
-                Tu ubicación se verifica en tiempo real para confirmar que estás en el trabajo
+                Tu ubicación GPS se compara con la del punto de fichaje. No se guarda.
               </p>
             </div>
           )}
@@ -435,18 +474,16 @@ export default function FicharPage() {
           {/* ── ELIGIENDO ENTRADA/SALIDA ── */}
           {estado === "eligiendo" && colaborador && (
             <div className="space-y-4">
-              <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 text-center">
+              <div className="bg-white rounded-2xl shadow-sm border border-green-100 p-6 text-center">
                 <div className="w-12 h-12 rounded-full bg-green-50 border-2 border-green-200 flex items-center justify-center mx-auto mb-3">
                   <MapPin size={20} className="text-green-600" />
                 </div>
-                <p className="text-gray-500 text-sm">Ubicación verificada ✓</p>
+                <p className="text-green-700 text-sm font-medium">Ubicación confirmada ✓</p>
                 <p className="text-gray-800 font-semibold mt-1">
                   {colaborador.apellido} {colaborador.nombre}
                 </p>
                 {gpsLabel && (
-                  <p className={`text-xs mt-1 font-medium ${gpsLabel.color}`}>
-                    {gpsLabel.text}
-                  </p>
+                  <p className={`text-xs mt-1 ${gpsLabel.color}`}>{gpsLabel.text}</p>
                 )}
               </div>
 
@@ -523,12 +560,10 @@ export default function FicharPage() {
                 <p className="text-gray-500 mt-2">
                   Tu ubicación está a <strong>{errorGps.distancia}m</strong> del punto de fichaje.
                 </p>
-                <p className="text-gray-400 text-sm mt-1">
-                  Radio permitido: {errorGps.radio}m
-                </p>
+                <p className="text-gray-400 text-sm mt-1">Radio permitido: {errorGps.radio}m</p>
               </div>
               <p className="text-gray-400 text-sm">
-                Tenés que estar físicamente en el lugar de trabajo para fichar
+                Tenés que estar físicamente en el lugar de trabajo para poder fichar
               </p>
               <Button
                 className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
@@ -544,11 +579,7 @@ export default function FicharPage() {
             <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-8 text-center space-y-4">
               <XCircle size={48} className="text-red-400 mx-auto" />
               <p className="text-gray-800 font-semibold">{errorMsg || "Ocurrió un error"}</p>
-              <Button
-                variant="outline"
-                className="w-full h-12 rounded-xl"
-                onClick={reintentar}
-              >
+              <Button variant="outline" className="w-full h-12 rounded-xl" onClick={reintentar}>
                 Reintentar
               </Button>
             </div>
