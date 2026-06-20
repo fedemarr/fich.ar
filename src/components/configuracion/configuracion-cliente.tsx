@@ -1,12 +1,12 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useRef } from "react"
 import { useRouter } from "next/navigation"
 import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { Settings, Building2, User, Users, Plus, Trash2, Shield } from "lucide-react"
+import { Settings, Building2, User, Users, Plus, Trash2, Shield, Upload, X } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -98,13 +98,31 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
   const [mostrarNuevoUsuario, setMostrarNuevoUsuario] = useState(false)
 
   // --- Empresa form ---
-  const { register: regEmp, handleSubmit: submitEmp, watch: watchEmp, formState: { isSubmitting: loadEmp } } =
+  const [logoPreview, setLogoPreview] = useState<string>(empresa.logo_url ?? "")
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const { register: regEmp, handleSubmit: submitEmp, setValue: setEmpVal, formState: { isSubmitting: loadEmp } } =
     useForm<FormEmpresa>({
       resolver: zodResolver(schemaEmpresa) as Resolver<FormEmpresa>,
       defaultValues: { nombre: empresa.nombre, logo_url: empresa.logo_url ?? "" },
     })
 
-  const logoUrlPreview = watchEmp("logo_url")
+  function handleLogoFile(file: File) {
+    if (!file.type.startsWith("image/")) { toast.error("Solo se permiten imágenes"); return }
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const base64 = e.target?.result as string
+      setLogoPreview(base64)
+      setEmpVal("logo_url", base64)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  function quitarLogo() {
+    setLogoPreview("")
+    setEmpVal("logo_url", "")
+    if (fileInputRef.current) fileInputRef.current.value = ""
+  }
 
   async function guardarEmpresa(data: FormEmpresa) {
     const res = await fetch("/api/empresa", {
@@ -222,27 +240,39 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
               <Input value={empresa.slug} disabled className="max-w-sm bg-gray-50 text-gray-400" />
               <p className="text-xs text-gray-400">No se puede cambiar sin afectar los links</p>
             </div>
-            <div className="space-y-1.5">
-              <Label>Logo de la empresa (URL)</Label>
-              <Input
-                {...regEmp("logo_url")}
-                className="max-w-sm"
-                placeholder="https://ejemplo.com/logo.png"
-                type="url"
+            <div className="space-y-2">
+              <Label>Logo de la empresa</Label>
+              <input type="hidden" {...regEmp("logo_url")} />
+              {logoPreview ? (
+                <div className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200 max-w-sm">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={logoPreview} alt="Logo" className="h-12 max-w-[140px] object-contain" />
+                  <button
+                    type="button"
+                    onClick={quitarLogo}
+                    className="ml-auto text-gray-400 hover:text-red-500 transition-colors"
+                  >
+                    <X size={16} />
+                  </button>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="flex items-center gap-2 px-4 py-3 border-2 border-dashed border-gray-200 rounded-lg text-sm text-gray-400 hover:border-[#2563EB] hover:text-[#2563EB] transition-colors max-w-sm w-full"
+                >
+                  <Upload size={16} />
+                  Subir logo (PNG, JPG, SVG)
+                </button>
+              )}
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                className="hidden"
+                onChange={(e) => { const f = e.target.files?.[0]; if (f) handleLogoFile(f) }}
               />
               <p className="text-xs text-gray-400">Se muestra en el sidebar y en las fichas QR imprimibles</p>
-              {logoUrlPreview && (
-                <div className="mt-2 p-3 bg-gray-50 rounded-lg inline-flex items-center gap-3 border border-gray-200">
-                  {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img
-                    src={logoUrlPreview}
-                    alt="Preview logo"
-                    className="h-10 max-w-[120px] object-contain"
-                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
-                  />
-                  <span className="text-xs text-gray-400">Preview</span>
-                </div>
-              )}
             </div>
             <Button type="submit" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={loadEmp}>
               {loadEmp ? "Guardando..." : "Guardar cambios"}
