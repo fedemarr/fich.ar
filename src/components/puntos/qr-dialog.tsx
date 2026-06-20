@@ -76,7 +76,7 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
     const nombrePunto = punto.nombre
 
     const logoHtml = logoBase64
-      ? `<img src="${logoBase64}" alt="${empresaNombre}" class="empresa-logo" />`
+      ? `<div class="logo-wrapper"><img src="${logoBase64}" alt="${empresaNombre}" class="empresa-logo" /></div>`
       : `<span class="empresa-nombre-text">${empresaNombre}</span>`
 
     const html = `<!DOCTYPE html>
@@ -113,11 +113,18 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
       align-items: center;
       gap: 10px;
     }
+    .logo-wrapper {
+      background: white;
+      border-radius: 10px;
+      padding: 8px 16px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
     .empresa-logo {
-      height: 52px;
-      max-width: 180px;
+      height: 44px;
+      max-width: 160px;
       object-fit: contain;
-      filter: brightness(0) invert(1);
     }
     .empresa-nombre-text {
       font-size: 20px;
