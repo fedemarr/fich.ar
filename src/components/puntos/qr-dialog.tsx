@@ -1,6 +1,6 @@
 "use client"
 
-import { useRef } from "react"
+import { useRef, useEffect, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -9,13 +9,39 @@ import type { PuntoFichaje } from "@/generated/prisma/client"
 
 interface QrDialogProps {
   punto: PuntoFichaje
+  empresaNombre: string
+  empresaLogoUrl: string | null
   onClose: () => void
 }
 
-export function QrDialog({ punto, onClose }: QrDialogProps) {
+// Convierte una URL de imagen a base64 data URL (resuelve CORS con canvas)
+function cargarImagenBase64(url: string): Promise<string> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.crossOrigin = "anonymous"
+    img.onload = () => {
+      const canvas = document.createElement("canvas")
+      canvas.width = img.naturalWidth
+      canvas.height = img.naturalHeight
+      canvas.getContext("2d")!.drawImage(img, 0, 0)
+      resolve(canvas.toDataURL("image/png"))
+    }
+    img.onerror = () => resolve("")
+    img.src = url
+  })
+}
+
+export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDialogProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://fich-ar.vercel.app"
   const url = `${appUrl}/fichar/${punto.qr_token}`
+
+  const [logoBase64, setLogoBase64] = useState<string>("")
+
+  useEffect(() => {
+    if (!empresaLogoUrl) return
+    cargarImagenBase64(empresaLogoUrl).then(setLogoBase64)
+  }, [empresaLogoUrl])
 
   function svgToPngDataUrl(size: number): Promise<string> {
     return new Promise((resolve) => {
@@ -47,6 +73,11 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
   async function imprimirFicha() {
     const qrDataUrl = await svgToPngDataUrl(600)
     const nombrePunto = punto.nombre
+
+    const logoHtml = logoBase64
+      ? `<img src="${logoBase64}" alt="${empresaNombre}" class="empresa-logo" />`
+      : `<span class="empresa-nombre-text">${empresaNombre}</span>`
+
     const html = `<!DOCTYPE html>
 <html lang="es">
 <head>
@@ -74,32 +105,48 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
     }
     .header {
       background: #2563EB;
-      padding: 28px 32px 24px;
+      padding: 24px 32px 20px;
       text-align: center;
-    }
-    .logo {
-      font-size: 22px;
-      font-weight: 900;
-      color: white;
-      letter-spacing: -0.5px;
-      margin-bottom: 6px;
-    }
-    .logo span { opacity: 0.7; font-weight: 400; }
-    .punto-nombre {
-      font-size: 17px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.95);
-      margin-top: 4px;
-    }
-    .cuerpo {
-      padding: 32px 40px 28px;
       display: flex;
       flex-direction: column;
       align-items: center;
-      gap: 24px;
+      gap: 10px;
+    }
+    .empresa-logo {
+      height: 52px;
+      max-width: 180px;
+      object-fit: contain;
+      filter: brightness(0) invert(1);
+    }
+    .empresa-nombre-text {
+      font-size: 20px;
+      font-weight: 800;
+      color: white;
+      letter-spacing: -0.3px;
+    }
+    .logo-fichar {
+      font-size: 12px;
+      font-weight: 500;
+      color: rgba(255,255,255,0.6);
+      letter-spacing: 0.05em;
+    }
+    .punto-nombre {
+      font-size: 15px;
+      font-weight: 600;
+      color: rgba(255,255,255,0.9);
+      background: rgba(255,255,255,0.15);
+      border-radius: 20px;
+      padding: 4px 14px;
+    }
+    .cuerpo {
+      padding: 28px 40px 24px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 20px;
     }
     .titulo {
-      font-size: 20px;
+      font-size: 19px;
       font-weight: 700;
       color: #111827;
       text-align: center;
@@ -113,25 +160,25 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
       background: white;
       border: 3px solid #F3F4F6;
       border-radius: 16px;
-      padding: 16px;
+      padding: 14px;
     }
     .qr-wrap img {
       display: block;
-      width: 220px;
-      height: 220px;
+      width: 210px;
+      height: 210px;
     }
     .url {
       font-size: 10px;
       color: #9CA3AF;
       text-align: center;
       word-break: break-all;
-      margin-top: -8px;
+      margin-top: -6px;
     }
     .pasos {
       width: 100%;
       background: #F9FAFB;
       border-radius: 12px;
-      padding: 18px 22px;
+      padding: 16px 20px;
     }
     .pasos-titulo {
       font-size: 11px;
@@ -139,18 +186,18 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
       color: #6B7280;
       text-transform: uppercase;
       letter-spacing: 0.08em;
-      margin-bottom: 12px;
+      margin-bottom: 11px;
     }
     .paso {
       display: flex;
       align-items: center;
-      gap: 12px;
-      margin-bottom: 10px;
+      gap: 10px;
+      margin-bottom: 9px;
     }
     .paso:last-child { margin-bottom: 0; }
     .paso-num {
-      width: 24px;
-      height: 24px;
+      width: 22px;
+      height: 22px;
       background: #2563EB;
       color: white;
       border-radius: 50%;
@@ -174,17 +221,14 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
     .footer {
       background: #F9FAFB;
       border-top: 1px solid #E5E7EB;
-      padding: 14px 32px;
+      padding: 12px 32px;
       text-align: center;
     }
     .footer p {
       font-size: 11px;
       color: #9CA3AF;
     }
-    .footer strong {
-      color: #2563EB;
-      font-weight: 700;
-    }
+    .footer strong { color: #2563EB; font-weight: 700; }
     @media print {
       body { padding: 0; min-height: unset; }
       .ficha { box-shadow: none; border: 1.5px solid #E5E7EB; }
@@ -194,8 +238,9 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
 <body>
   <div class="ficha">
     <div class="header">
-      <div class="logo">Fich<span>.ar</span></div>
-      <div class="punto-nombre">📍 ${nombrePunto}</div>
+      ${logoHtml}
+      <span class="logo-fichar">powered by Fich.ar</span>
+      <span class="punto-nombre">📍 ${nombrePunto}</span>
     </div>
     <div class="cuerpo">
       <p class="titulo">Fichá tu asistencia<br/>escaneando el <em>código QR</em></p>
@@ -249,6 +294,8 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
     ventana.document.close()
   }
 
+  const logoSize = 48
+
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
       <DialogContent className="max-w-sm">
@@ -263,16 +310,21 @@ export function QrDialog({ punto, onClose }: QrDialogProps) {
               size={248}
               bgColor="#ffffff"
               fgColor="#000000"
-              level="M"
+              level="H"
+              imageSettings={logoBase64 ? {
+                src: logoBase64,
+                height: logoSize,
+                width: logoSize,
+                excavate: true,
+              } : undefined}
             />
           </div>
+          {logoBase64 && (
+            <p className="text-xs text-gray-400 -mt-2">Logo de {empresaNombre} en el centro del QR</p>
+          )}
           <p className="text-xs text-gray-400 text-center break-all">{url}</p>
           <div className="flex gap-2 w-full">
-            <Button
-              variant="outline"
-              className="flex-1 gap-2"
-              onClick={descargar}
-            >
+            <Button variant="outline" className="flex-1 gap-2" onClick={descargar}>
               <Download size={15} />
               PNG
             </Button>

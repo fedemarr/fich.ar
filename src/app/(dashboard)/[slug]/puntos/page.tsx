@@ -15,7 +15,7 @@ export default async function PuntosPage({ params }: PuntosPageProps) {
 
   const empresa = await prisma.empresa.findUnique({
     where: { slug },
-    select: { id: true },
+    select: { id: true, nombre: true, logo_url: true },
   })
   if (!empresa) redirect("/login")
 
@@ -34,5 +34,12 @@ export default async function PuntosPage({ params }: PuntosPageProps) {
     orderBy: { created_at: "asc" },
   })
 
-  return <PuntosCliente puntos={puntos} empresaId={empresa.id} />
+  return (
+    <PuntosCliente
+      puntos={puntos}
+      empresaId={empresa.id}
+      empresaNombre={empresa.nombre}
+      empresaLogoUrl={empresa.logo_url ?? null}
+    />
+  )
 }

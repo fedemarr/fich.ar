@@ -3,7 +3,10 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
-const schema = z.object({ nombre: z.string().min(1) })
+const schema = z.object({
+  nombre: z.string().min(1),
+  logo_url: z.string().optional().nullable(),
+})
 
 export async function PUT(req: Request) {
   const session = await auth()
@@ -15,7 +18,10 @@ export async function PUT(req: Request) {
 
   await prisma.empresa.update({
     where: { id: session.user.empresaId },
-    data: { nombre: parsed.data.nombre },
+    data: {
+      nombre: parsed.data.nombre,
+      logo_url: parsed.data.logo_url ?? null,
+    },
   })
 
   return NextResponse.json({ ok: true })

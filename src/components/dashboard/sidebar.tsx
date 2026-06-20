@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils"
 interface SidebarProps {
   slug: string
   rol?: string
+  empresaLogoUrl?: string | null
 }
 
 const navMain = [
@@ -59,11 +60,19 @@ function NavLink({ href, label, icon: Icon, slug }: { href: string; label: strin
   )
 }
 
-export function Sidebar({ slug, rol }: SidebarProps) {
+export function Sidebar({ slug, rol, empresaLogoUrl }: SidebarProps) {
   return (
     <aside className="w-60 min-h-screen bg-white border-r border-gray-200 flex flex-col">
       <div className="px-6 py-5 border-b border-gray-100">
-        <span className="text-2xl font-bold text-[#2563EB] tracking-tight">Fich.ar</span>
+        {empresaLogoUrl ? (
+          <div className="flex flex-col gap-1">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={empresaLogoUrl} alt="Logo empresa" className="h-9 max-w-[140px] object-contain" />
+            <span className="text-[10px] text-gray-400 tracking-wide">powered by Fich.ar</span>
+          </div>
+        ) : (
+          <span className="text-2xl font-bold text-[#2563EB] tracking-tight">Fich.ar</span>
+        )}
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">

@@ -34,7 +34,10 @@ interface ConfiguracionClienteProps {
   usuarios: (UsuarioBasico & { activo: boolean })[]
 }
 
-const schemaEmpresa = z.object({ nombre: z.string().min(1, "Requerido") })
+const schemaEmpresa = z.object({
+  nombre: z.string().min(1, "Requerido"),
+  logo_url: z.string().optional(),
+})
 const schemaCuenta = z.object({
   nombre: z.string().min(1, "Requerido"),
   email: z.string().email("Email inválido"),
@@ -95,11 +98,13 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
   const [mostrarNuevoUsuario, setMostrarNuevoUsuario] = useState(false)
 
   // --- Empresa form ---
-  const { register: regEmp, handleSubmit: submitEmp, formState: { isSubmitting: loadEmp } } =
+  const { register: regEmp, handleSubmit: submitEmp, watch: watchEmp, formState: { isSubmitting: loadEmp } } =
     useForm<FormEmpresa>({
       resolver: zodResolver(schemaEmpresa) as Resolver<FormEmpresa>,
-      defaultValues: { nombre: empresa.nombre },
+      defaultValues: { nombre: empresa.nombre, logo_url: empresa.logo_url ?? "" },
     })
+
+  const logoUrlPreview = watchEmp("logo_url")
 
   async function guardarEmpresa(data: FormEmpresa) {
     const res = await fetch("/api/empresa", {
@@ -216,6 +221,28 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
               <Label className="text-gray-400">Slug (identificador URL)</Label>
               <Input value={empresa.slug} disabled className="max-w-sm bg-gray-50 text-gray-400" />
               <p className="text-xs text-gray-400">No se puede cambiar sin afectar los links</p>
+            </div>
+            <div className="space-y-1.5">
+              <Label>Logo de la empresa (URL)</Label>
+              <Input
+                {...regEmp("logo_url")}
+                className="max-w-sm"
+                placeholder="https://ejemplo.com/logo.png"
+                type="url"
+              />
+              <p className="text-xs text-gray-400">Se muestra en el sidebar y en las fichas QR imprimibles</p>
+              {logoUrlPreview && (
+                <div className="mt-2 p-3 bg-gray-50 rounded-lg inline-flex items-center gap-3 border border-gray-200">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={logoUrlPreview}
+                    alt="Preview logo"
+                    className="h-10 max-w-[120px] object-contain"
+                    onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+                  />
+                  <span className="text-xs text-gray-400">Preview</span>
+                </div>
+              )}
             </div>
             <Button type="submit" className="bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={loadEmp}>
               {loadEmp ? "Guardando..." : "Guardar cambios"}

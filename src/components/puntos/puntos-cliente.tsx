@@ -24,9 +24,11 @@ type PuntoConJornadas = PuntoFichaje & {
 interface PuntosClienteProps {
   puntos: PuntoConJornadas[]
   empresaId: string
+  empresaNombre: string
+  empresaLogoUrl: string | null
 }
 
-export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
+export function PuntosCliente({ puntos, empresaId, empresaNombre, empresaLogoUrl }: PuntosClienteProps) {
   const router = useRouter()
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   const [importarAbierto, setImportarAbierto] = useState(false)
@@ -201,7 +203,12 @@ export function PuntosCliente({ puntos, empresaId }: PuntosClienteProps) {
       />
 
       {verQr && (
-        <QrDialog punto={verQr} onClose={() => setVerQr(null)} />
+        <QrDialog
+          punto={verQr}
+          empresaNombre={empresaNombre}
+          empresaLogoUrl={empresaLogoUrl}
+          onClose={() => setVerQr(null)}
+        />
       )}
 
       {verJornadas && (
