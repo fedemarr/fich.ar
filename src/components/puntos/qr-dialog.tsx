@@ -75,8 +75,9 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
     const qrDataUrl = await svgToPngDataUrl(600)
     const nombrePunto = punto.nombre
 
+    // El logo se pasa por referencia al window del popup para evitar embeber base64 enorme en el HTML
     const logoHtml = logoBase64
-      ? `<div class="logo-wrapper"><img src="${logoBase64}" alt="${empresaNombre}" class="empresa-logo" /></div>`
+      ? `<div class="logo-wrapper"><img id="__logo__" class="empresa-logo" /></div>`
       : `<span class="empresa-nombre-text">${empresaNombre}</span>`
 
     const html = `<!DOCTYPE html>
@@ -292,12 +293,20 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
       <p>Sistema de control de asistencia <strong>Fich.ar</strong></p>
     </div>
   </div>
-  <script>window.onload = () => window.print()</script>
+  <script>
+    var img = document.getElementById('__logo__');
+    if (img && window.__logo) img.src = window.__logo;
+    window.onload = function() { window.print(); };
+  </script>
 </body>
 </html>`
 
     const ventana = window.open("", "_blank", "width=700,height=900")
     if (!ventana) { alert("Permitir ventanas emergentes para imprimir"); return }
+    // Exponer el logo en el window del popup antes de escribir el HTML
+    if (logoBase64) {
+      (ventana as Window & { __logo: string }).__logo = logoBase64
+    }
     ventana.document.write(html)
     ventana.document.close()
   }
