@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { useState } from "react"
 import {
   LayoutDashboard,
   ClipboardList,
@@ -61,13 +62,20 @@ function NavLink({ href, label, icon: Icon, slug }: { href: string; label: strin
 }
 
 export function Sidebar({ slug, rol, empresaLogoUrl }: SidebarProps) {
+  const [logoError, setLogoError] = useState(false)
+
   return (
     <aside className="w-60 min-h-screen bg-white border-r border-gray-200 flex flex-col">
       <div className="px-6 py-5 border-b border-gray-100">
-        {empresaLogoUrl ? (
+        {empresaLogoUrl && !logoError ? (
           <div className="flex flex-col gap-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={empresaLogoUrl} alt="Logo empresa" className="h-9 max-w-[140px] object-contain" />
+            <img
+              src={empresaLogoUrl}
+              alt="Logo empresa"
+              className="h-9 max-w-[140px] object-contain"
+              onError={() => setLogoError(true)}
+            />
             <span className="text-[10px] text-gray-400 tracking-wide">powered by Fich.ar</span>
           </div>
         ) : (
