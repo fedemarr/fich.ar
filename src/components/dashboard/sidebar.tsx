@@ -73,7 +73,7 @@ export function Sidebar({ slug, rol, empresaLogoUrl }: SidebarProps) {
             <img
               src={empresaLogoUrl}
               alt="Logo empresa"
-              className="h-9 max-w-[140px] object-contain"
+              className="h-12 max-w-[160px] object-contain"
               onError={() => setLogoError(true)}
             />
             <span className="text-[10px] text-gray-400 tracking-wide">powered by Fich.ar</span>

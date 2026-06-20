@@ -14,8 +14,9 @@ interface QrDialogProps {
   onClose: () => void
 }
 
-// Convierte una URL de imagen a base64 data URL (resuelve CORS con canvas)
+// Si ya es data URL la devuelve directamente; si es URL externa la convierte via canvas
 function cargarImagenBase64(url: string): Promise<string> {
+  if (url.startsWith("data:")) return Promise.resolve(url)
   return new Promise((resolve) => {
     const img = new Image()
     img.crossOrigin = "anonymous"
