@@ -216,9 +216,9 @@ async function previewAsociados(
   let sinCambios = 0
 
   for (const [clave, fila] of excelMap) {
-    // Buscar por legajo si existe, sino por DNI
+    // Buscar por legajo si existe, con fallback a DNI (cubre el caso de importaciones previas sin legajo)
     const existente = fila.legajo
-      ? enDB.find((c) => c.legajo === fila.legajo)
+      ? (enDB.find((c) => c.legajo === fila.legajo) ?? (fila.identificacion ? enDB.find((c) => c.identificacion === fila.identificacion) : undefined))
       : (fila.identificacion ? enDB.find((c) => c.identificacion === fila.identificacion) : undefined)
 
     if (!existente) {

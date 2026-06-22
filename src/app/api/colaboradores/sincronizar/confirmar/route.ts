@@ -97,7 +97,7 @@ async function confirmarAsociados(
 
   for (const fila of data.actualizados) {
     const id = fila.legajo
-      ? mapaIdPorLegajo.get(fila.legajo)
+      ? (mapaIdPorLegajo.get(fila.legajo) ?? (fila.identificacion ? mapaIdPorDni.get(fila.identificacion) : undefined))
       : (fila.identificacion ? mapaIdPorDni.get(fila.identificacion) : undefined)
     if (!id) continue
     await prisma.colaborador.update({
