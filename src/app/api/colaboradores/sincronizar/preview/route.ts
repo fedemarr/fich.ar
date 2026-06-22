@@ -171,22 +171,28 @@ async function previewAsociados(
 ): Promise<Response> {
   const excelMap = new Map<string, FilaAsociado>()
   for (const row of rows) {
-    // Soporta formato clásico (NRO SOC / NOMBRE) y formato Olimpia (Soc. N° / Apellido)
-    const legajo = col(row, "NRO SOC", "NRO_SOC", "Soc. N°", "Soc N°", "SOC N", "Soc Nro", "N° Soc")
-    const nombreCompleto = col(row, "Apellido", "APELLIDO", "NOMBRE", "nombre", "Nombre Completo")
-    if (!legajo || !nombreCompleto) continue
-
-    const { apellido, nombre } = splitNombre(nombreCompleto)
+    // Soporta: formato clásico (NRO SOC/NOMBRE), formato Olimpia (Soc. N°/Apellido), formulario Google (Nombre y Apellido/DNI)
+    const legajo = col(row, "NRO SOC", "NRO_SOC", "Soc. N°", "Soc N°", "SOC N", "Soc Nro", "N° Soc", "Legajo")
+    const nombreCompleto = col(row, "Nombre y Apellido", "Apellido", "APELLIDO", "NOMBRE", "nombre", "Nombre Completo")
     const identificacion = col(row, "DNI", "dni").replace(/\./g, "").trim()
+
+    // Necesitamos al menos nombre o DNI para importar
+    if (!nombreCompleto && !identificacion) continue
+
+    // Clave única: legajo si existe, sino DNI
+    const clave = legajo || (identificacion ? `__dni__${identificacion}` : null)
+    if (!clave) continue
+
+    const { apellido, nombre } = splitNombre(nombreCompleto || identificacion)
     const domicilio = col(row, "DOMICILIO", "domicilio")
-    const celularRaw = col(row, "CONTACTO", "contacto", "CELULAR", "celular", "Celular", "Telefono", "TELEFONO")
+    const celularRaw = col(row, "CONTACTO", "contacto", "N° de teléfono personal", "N° de teléfono", "CELULAR", "celular", "Celular", "Telefono")
     const celular = normalizarCelular(celularRaw)
-    const email = col(row, "MAIL Principal", "MAIL", "mail", "Email", "EMAIL", "e-mail", "Correo")
-    const sector = col(row, "Sector", "SECTOR", "sector")
+    const email = col(row, "MAIL Principal", "MAIL", "mail", "Email", "EMAIL", "Correo", "casilla", "¿Qué casilla")
+    const sector = col(row, "Sector de Trabajo", "Sector", "SECTOR", "sector")
     const fechaRaw = row["Fecha de Ingreso"] ?? row["FECHA DE INGRESO"] ?? row["fecha_ingreso"] ?? row["Fecha Ingreso"] ?? ""
     const fecha_ingreso = parsearFecha(fechaRaw as string | number)
 
-    excelMap.set(legajo, { legajo, apellido, nombre, identificacion, domicilio, celular, email, sector, fecha_ingreso })
+    excelMap.set(clave, { legajo, apellido, nombre, identificacion, domicilio, celular, email, sector, fecha_ingreso })
   }
 
   if (excelMap.size === 0) {
@@ -198,7 +204,7 @@ async function previewAsociados(
   }
 
   const enDB = await prisma.colaborador.findMany({
-    where: { empresa_id: empresaId, deleted_at: null, legajo: { not: null } },
+    where: { empresa_id: empresaId, deleted_at: null },
     select: { id: true, legajo: true, nombre: true, apellido: true, identificacion: true, domicilio: true, celular: true, email: true, sector: true, estado: true },
   })
 
@@ -206,8 +212,12 @@ async function previewAsociados(
   const actualizados: FilaAsociado[] = []
   let sinCambios = 0
 
-  for (const [legajo, fila] of excelMap) {
-    const existente = enDB.find((c) => c.legajo === legajo)
+  for (const [clave, fila] of excelMap) {
+    // Buscar por legajo si existe, sino por DNI
+    const existente = fila.legajo
+      ? enDB.find((c) => c.legajo === fila.legajo)
+      : (fila.identificacion ? enDB.find((c) => c.identificacion === fila.identificacion) : undefined)
+
     if (!existente) {
       creados.push(fila)
       continue

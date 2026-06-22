@@ -65,10 +65,11 @@ async function confirmarAsociados(
 
   // Pre-cargar todos para no hacer N queries individuales
   const existentes = await prisma.colaborador.findMany({
-    where: { empresa_id: empresaId, deleted_at: null, legajo: { not: null } },
-    select: { id: true, legajo: true },
+    where: { empresa_id: empresaId, deleted_at: null },
+    select: { id: true, legajo: true, identificacion: true },
   })
-  const mapaId = new Map(existentes.map((c) => [c.legajo!, c.id]))
+  const mapaIdPorLegajo = new Map(existentes.filter(c => c.legajo).map((c) => [c.legajo!, c.id]))
+  const mapaIdPorDni = new Map(existentes.filter(c => c.identificacion).map((c) => [c.identificacion!, c.id]))
 
   for (const fila of data.creados) {
     const colab = await prisma.colaborador.create({
@@ -95,7 +96,9 @@ async function confirmarAsociados(
   }
 
   for (const fila of data.actualizados) {
-    const id = mapaId.get(fila.legajo)
+    const id = fila.legajo
+      ? mapaIdPorLegajo.get(fila.legajo)
+      : (fila.identificacion ? mapaIdPorDni.get(fila.identificacion) : undefined)
     if (!id) continue
     await prisma.colaborador.update({
       where: { id },
