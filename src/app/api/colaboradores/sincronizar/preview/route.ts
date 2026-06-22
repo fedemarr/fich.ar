@@ -176,11 +176,12 @@ async function previewAsociados(
     const nombreCompleto = col(row, "Nombre y Apellido", "Apellido", "APELLIDO", "NOMBRE", "nombre", "Nombre Completo")
     const identificacion = col(row, "DNI", "dni").replace(/\./g, "").trim()
 
-    // Necesitamos al menos nombre o DNI para importar
-    if (!nombreCompleto && !identificacion) continue
+    // Necesitamos al menos nombre para importar
+    if (!nombreCompleto) continue
 
-    // Clave única: legajo si existe, sino DNI
-    const clave = legajo || (identificacion ? `__dni__${identificacion}` : null)
+    // Clave única: legajo si existe, sino DNI, sino nombre normalizado
+    const claveBase = legajo || identificacion || nombreCompleto.toLowerCase().replace(/\s+/g, "_")
+    const clave = legajo ? legajo : (identificacion ? `__dni__${identificacion}` : `__nom__${claveBase}`)
     if (!clave) continue
 
     const { apellido, nombre } = splitNombre(nombreCompleto || identificacion)
@@ -188,7 +189,9 @@ async function previewAsociados(
     const celularRaw = col(row, "CONTACTO", "contacto", "N° de teléfono personal", "N° de teléfono", "CELULAR", "celular", "Celular", "Telefono")
     const celular = normalizarCelular(celularRaw)
     const email = col(row, "MAIL Principal", "MAIL", "mail", "Email", "EMAIL", "Correo", "casilla", "¿Qué casilla")
-    const sector = col(row, "Sector de Trabajo", "Sector", "SECTOR", "sector")
+    const sectorRaw = col(row, "Sector de Trabajo", "Sector", "SECTOR", "sector")
+    const puesto = col(row, "Puesto de Trabajo", "Puesto", "PUESTO", "puesto", "Cargo", "CARGO")
+    const sector = sectorRaw && puesto ? `${sectorRaw} — ${puesto}` : sectorRaw || puesto
     const fechaRaw = row["Fecha de Ingreso"] ?? row["FECHA DE INGRESO"] ?? row["fecha_ingreso"] ?? row["Fecha Ingreso"] ?? ""
     const fecha_ingreso = parsearFecha(fechaRaw as string | number)
 

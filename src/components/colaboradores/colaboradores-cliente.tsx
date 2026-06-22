@@ -76,7 +76,7 @@ function TablaColaboradores({
           <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Legajo</th>
           <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Celular</th>
           <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">DNI / Domicilio</th>
-          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Empresa</th>
+          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Sector / Puesto</th>
           <th className="px-4 py-3 w-20" />
         </tr>
       </thead>
@@ -85,6 +85,9 @@ function TablaColaboradores({
           const jornadaActual = c.jornadas[0]?.jornada
           const puntoNombre = jornadaActual?.punto_fichaje.nombre ?? null
           const empresa = puntoNombre ?? c.sector ?? null
+          const [sectorLabel, puestoLabel] = empresa?.includes(" — ")
+            ? empresa.split(" — ")
+            : [empresa, null]
 
           return (
             <tr key={c.id} className="hover:bg-gray-50/60 transition-colors">
@@ -106,8 +109,13 @@ function TablaColaboradores({
                   </div>
                 )}
               </td>
-              <td className="px-4 py-3.5 text-gray-400 text-sm">
-                {empresa ?? "No especificado"}
+              <td className="px-4 py-3.5 text-sm">
+                {empresa ? (
+                  <div>
+                    <div className="text-gray-600">{sectorLabel}</div>
+                    {puestoLabel && <div className="text-xs text-gray-400 mt-0.5">{puestoLabel}</div>}
+                  </div>
+                ) : <span className="text-gray-300">—</span>}
               </td>
               <td className="px-4 py-3.5">
                 <div className="flex items-center gap-2.5 justify-end">
