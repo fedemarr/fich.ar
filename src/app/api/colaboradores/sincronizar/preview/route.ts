@@ -128,10 +128,35 @@ export async function POST(req: Request): Promise<Response> {
     sheetNameParam && workbook.Sheets[sheetNameParam] ? sheetNameParam : sheets[0]
 
   const sheet = workbook.Sheets[sheetToUse]
-  const rows = utils.sheet_to_json<RowRaw>(sheet, { defval: "" })
+
+  // Parsear como arrays para detectar la fila de headers (maneja títulos o filas vacías al principio)
+  const rawRows = utils.sheet_to_json<(string | number | boolean | null)[]>(sheet, { header: 1, defval: "" })
+
+  if (rawRows.length === 0) {
+    return Response.json({ error: "El archivo no tiene filas válidas en la hoja seleccionada" }, { status: 400 })
+  }
+
+  // Encontrar la fila que contiene los headers reales (busca hasta la fila 10)
+  let headerRowIndex = 0
+  for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
+    const rowStr = rawRows[i].join(" ").toLowerCase()
+    if (rowStr.includes("apellido") || rowStr.includes("nombre") || rowStr.includes("soc") || rowStr.includes("dni")) {
+      headerRowIndex = i
+      break
+    }
+  }
+
+  const headers = rawRows[headerRowIndex].map((h) => (h ?? "").toString().trim())
+  const rows: RowRaw[] = rawRows.slice(headerRowIndex + 1)
+    .map((row) => {
+      const obj: RowRaw = {}
+      headers.forEach((h, i) => { if (h) obj[h] = row[i] ?? "" })
+      return obj
+    })
+    .filter((row) => Object.values(row).some((v) => v !== "" && v !== null && v !== undefined))
 
   if (rows.length === 0) {
-    return Response.json({ error: "El archivo no tiene filas válidas en la hoja seleccionada" }, { status: 400 })
+    return Response.json({ error: "El archivo no tiene filas de datos válidas" }, { status: 400 })
   }
 
   if (tipo === "asociados") return previewAsociados(rows, empresaId, sheets, sheetToUse)
