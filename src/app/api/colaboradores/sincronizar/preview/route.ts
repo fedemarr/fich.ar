@@ -5,10 +5,20 @@ import { read, utils } from "xlsx"
 type RowRaw = Record<string, string | number | boolean | null | undefined>
 
 function col(row: RowRaw, ...keys: string[]): string {
+  const rowKeys = Object.keys(row)
   for (const k of keys) {
     const variants = [k, k.toLowerCase(), k.toUpperCase(), k.replace(/\s/g, "_"), k.replace(/\s/g, "")]
     for (const v of variants) {
       const val = row[v]
+      if (val !== undefined && val !== null && val !== "") return val.toString().trim()
+    }
+    // Fallback: coincidencia parcial en claves del row
+    const match = rowKeys.find(rk =>
+      rk.toLowerCase().replace(/[^a-z0-9]/g, "").includes(k.toLowerCase().replace(/[^a-z0-9]/g, "")) ||
+      k.toLowerCase().replace(/[^a-z0-9]/g, "").includes(rk.toLowerCase().replace(/[^a-z0-9]/g, ""))
+    )
+    if (match) {
+      const val = row[match]
       if (val !== undefined && val !== null && val !== "") return val.toString().trim()
     }
   }
@@ -24,12 +34,41 @@ function splitNombre(nombreCompleto: string): { apellido: string; nombre: string
   return { apellido: partes.slice(0, 2).join(" "), nombre: partes.slice(2).join(" ") }
 }
 
+function normalizarCelular(raw: string): string {
+  if (!raw) return ""
+  const solo = raw.replace(/\D/g, "")
+  if (!solo) return ""
+  if (raw.startsWith("+")) return raw
+  if (solo.startsWith("549")) return `+${solo}`
+  if (solo.startsWith("54")) return `+${solo}`
+  if (solo.startsWith("0")) return `+549${solo.slice(1)}`
+  return `+549${solo}`
+}
+
+function parsearFecha(raw: string | number): string {
+  if (!raw) return ""
+  if (typeof raw === "number") {
+    // Serial date de Excel
+    const date = new Date((raw - 25569) * 86400 * 1000)
+    return date.toISOString().split("T")[0]
+  }
+  const str = raw.toString().trim()
+  // DD/MM/YYYY
+  const m = str.match(/^(\d{1,2})\/(\d{1,2})\/(\d{4})$/)
+  if (m) return `${m[3]}-${m[2].padStart(2, "0")}-${m[1].padStart(2, "0")}`
+  return str
+}
+
 export interface FilaAsociado {
   legajo: string
   apellido: string
   nombre: string
   identificacion: string
   domicilio: string
+  celular: string
+  email: string
+  sector: string
+  fecha_ingreso: string
 }
 
 export interface ColabDesactivado {
@@ -107,27 +146,34 @@ async function previewAsociados(
 ): Promise<Response> {
   const excelMap = new Map<string, FilaAsociado>()
   for (const row of rows) {
-    const legajo = col(row, "NRO SOC", "NRO_SOC", "NROSOC", "nro soc")
-    const nombreCompleto = col(row, "NOMBRE", "nombre")
+    // Soporta formato clásico (NRO SOC / NOMBRE) y formato Olimpia (Soc. N° / Apellido)
+    const legajo = col(row, "NRO SOC", "NRO_SOC", "Soc. N°", "Soc N°", "SOC N", "Soc Nro", "N° Soc")
+    const nombreCompleto = col(row, "Apellido", "APELLIDO", "NOMBRE", "nombre", "Nombre Completo")
     if (!legajo || !nombreCompleto) continue
 
     const { apellido, nombre } = splitNombre(nombreCompleto)
     const identificacion = col(row, "DNI", "dni").replace(/\./g, "").trim()
     const domicilio = col(row, "DOMICILIO", "domicilio")
+    const celularRaw = col(row, "CONTACTO", "contacto", "CELULAR", "celular", "Celular", "Telefono", "TELEFONO")
+    const celular = normalizarCelular(celularRaw)
+    const email = col(row, "MAIL Principal", "MAIL", "mail", "Email", "EMAIL", "e-mail", "Correo")
+    const sector = col(row, "Sector", "SECTOR", "sector")
+    const fechaRaw = row["Fecha de Ingreso"] ?? row["FECHA DE INGRESO"] ?? row["fecha_ingreso"] ?? row["Fecha Ingreso"] ?? ""
+    const fecha_ingreso = parsearFecha(fechaRaw as string | number)
 
-    excelMap.set(legajo, { legajo, apellido, nombre, identificacion, domicilio })
+    excelMap.set(legajo, { legajo, apellido, nombre, identificacion, domicilio, celular, email, sector, fecha_ingreso })
   }
 
   if (excelMap.size === 0) {
     return Response.json(
-      { error: "No se encontraron filas con NRO SOC y NOMBRE. Verificá las columnas del archivo." },
+      { error: "No se encontraron filas válidas. Verificá que el archivo tenga columnas de Soc/Legajo y Apellido/Nombre." },
       { status: 400 }
     )
   }
 
   const enDB = await prisma.colaborador.findMany({
     where: { empresa_id: empresaId, deleted_at: null, legajo: { not: null } },
-    select: { id: true, legajo: true, nombre: true, apellido: true, identificacion: true, domicilio: true, estado: true },
+    select: { id: true, legajo: true, nombre: true, apellido: true, identificacion: true, domicilio: true, celular: true, email: true, sector: true, estado: true },
   })
 
   const creados: FilaAsociado[] = []
@@ -145,10 +191,12 @@ async function previewAsociados(
       fila.apellido.toLowerCase() !== existente.apellido.toLowerCase() ||
       fila.nombre.toLowerCase() !== existente.nombre.toLowerCase()
     const cambioDNI = fila.identificacion && fila.identificacion !== (existente.identificacion ?? "")
-    const cambioDomicilio = fila.domicilio && fila.domicilio !== (existente.domicilio ?? "")
+    const cambioCelular = fila.celular && fila.celular !== (existente.celular ?? "")
+    const cambioEmail = fila.email && fila.email !== (existente.email ?? "")
+    const cambioSector = fila.sector && fila.sector !== (existente.sector ?? "")
     const estabaDesactivado = existente.estado === "DESACTIVADO"
 
-    if (cambioNombre || cambioDNI || cambioDomicilio || estabaDesactivado) {
+    if (cambioNombre || cambioDNI || cambioCelular || cambioEmail || cambioSector || estabaDesactivado) {
       actualizados.push(fila)
     } else {
       sinCambios++

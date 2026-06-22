@@ -8,6 +8,10 @@ const FilaAsociadoSchema = z.object({
   nombre: z.string(),
   identificacion: z.string(),
   domicilio: z.string(),
+  celular: z.string().optional().default(""),
+  email: z.string().optional().default(""),
+  sector: z.string().optional().default(""),
+  fecha_ingreso: z.string().optional().default(""),
 })
 
 const FilaServicioSchema = z.object({
@@ -73,9 +77,12 @@ async function confirmarAsociados(
         legajo: fila.legajo,
         apellido: fila.apellido,
         nombre: fila.nombre || fila.apellido,
-        celular: `SIN_CEL_${fila.legajo}`,
+        celular: fila.celular || `SIN_CEL_${fila.legajo}`,
         identificacion: fila.identificacion || null,
         domicilio: fila.domicilio || null,
+        email: fila.email || null,
+        sector: fila.sector || null,
+        fecha_ingreso: fila.fecha_ingreso ? new Date(fila.fecha_ingreso) : null,
         estado: "ACTIVO",
       },
     })
@@ -97,6 +104,10 @@ async function confirmarAsociados(
         nombre: fila.nombre || fila.apellido,
         ...(fila.identificacion && { identificacion: fila.identificacion }),
         ...(fila.domicilio && { domicilio: fila.domicilio }),
+        ...(fila.celular && { celular: fila.celular }),
+        ...(fila.email && { email: fila.email }),
+        ...(fila.sector && { sector: fila.sector }),
+        ...(fila.fecha_ingreso && { fecha_ingreso: new Date(fila.fecha_ingreso) }),
         estado: "ACTIVO",
         deleted_at: null,
       },

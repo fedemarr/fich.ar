@@ -18,6 +18,10 @@ interface FilaAsociado {
   nombre: string
   identificacion: string
   domicilio: string
+  celular: string
+  email: string
+  sector: string
+  fecha_ingreso: string
 }
 
 interface ColabDesactivado {
@@ -190,7 +194,7 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas
                         {t === "asociados" ? "Lista de asociados" : "Servicios por operario"}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {t === "asociados" ? "Columnas: NRO SOC, NOMBRE, DNI, DOMICILIO" : "Columnas: NRO SOC, NOMBRE, OBJETIVO"}
+                        {t === "asociados" ? "Columnas: Soc. N°, Apellido, DNI, CONTACTO, Sector..." : "Columnas: NRO SOC, NOMBRE, OBJETIVO"}
                       </p>
                     </div>
                   </label>
@@ -367,12 +371,12 @@ function PreviewAsociadosStep({
             <table className="w-full text-xs min-w-[600px]">
               <thead className="sticky top-0 bg-gray-50 border-b border-gray-100 z-10">
                 <tr>
-                  <th className="px-3 py-2 text-left text-gray-400 font-medium w-20">Legajo</th>
-                  <th className="px-3 py-2 text-left text-gray-400 font-medium">Apellido</th>
-                  <th className="px-3 py-2 text-left text-gray-400 font-medium">Nombre</th>
+                  <th className="px-3 py-2 text-left text-gray-400 font-medium w-16">Legajo</th>
+                  <th className="px-3 py-2 text-left text-gray-400 font-medium">Nombre completo</th>
                   {tabActiva !== "desactivados" && <>
-                    <th className="px-3 py-2 text-left text-gray-400 font-medium w-28">DNI</th>
-                    <th className="px-3 py-2 text-left text-gray-400 font-medium">Domicilio</th>
+                    <th className="px-3 py-2 text-left text-gray-400 font-medium w-24">DNI</th>
+                    <th className="px-3 py-2 text-left text-gray-400 font-medium w-32">Celular</th>
+                    <th className="px-3 py-2 text-left text-gray-400 font-medium">Sector</th>
                   </>}
                 </tr>
               </thead>
@@ -380,12 +384,12 @@ function PreviewAsociadosStep({
                 {filasMostradas.map((f, i) => (
                   <tr key={i} className="hover:bg-gray-50/50">
                     <td className="px-3 py-1.5 font-mono text-gray-400">{f.legajo || "—"}</td>
-                    <td className="px-3 py-1.5 text-gray-700 font-medium">{f.apellido}</td>
-                    <td className="px-3 py-1.5 text-gray-600">{f.nombre}</td>
+                    <td className="px-3 py-1.5 text-gray-700 font-medium">{f.apellido} {f.nombre}</td>
                     {tabActiva !== "desactivados" && <>
                       <td className="px-3 py-1.5 text-gray-500">{(f as FilaAsociado).identificacion || "—"}</td>
-                      <td className="px-3 py-1.5 text-gray-400 max-w-[200px] truncate" title={(f as FilaAsociado).domicilio}>
-                        {(f as FilaAsociado).domicilio || "—"}
+                      <td className="px-3 py-1.5 text-gray-400 text-xs">{(f as FilaAsociado).celular || "—"}</td>
+                      <td className="px-3 py-1.5 text-gray-400 max-w-[160px] truncate" title={(f as FilaAsociado).sector}>
+                        {(f as FilaAsociado).sector || "—"}
                       </td>
                     </>}
                   </tr>
