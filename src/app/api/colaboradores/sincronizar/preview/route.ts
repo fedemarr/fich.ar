@@ -165,8 +165,9 @@ async function previewAsociados(
   }
 
   if (excelMap.size === 0) {
+    const headersEncontrados = rows[0] ? Object.keys(rows[0]).join(" | ") : "sin filas"
     return Response.json(
-      { error: "No se encontraron filas válidas. Verificá que el archivo tenga columnas de Soc/Legajo y Apellido/Nombre." },
+      { error: `No se encontraron filas válidas. Columnas detectadas: ${headersEncontrados}` },
       { status: 400 }
     )
   }
