@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { FichadaManualDialog } from "@/components/listado/fichada-manual-dialog"
 import { SelectorFecha } from "@/components/listado/selector-fecha"
 import { exportarListadoExcel } from "@/lib/export"
+import { hoyARG, formatHoraARG } from "@/lib/utils"
 import type { Colaborador, Fichada, PuntoFichaje, ColaboradorJornada, Jornada } from "@/generated/prisma/client"
 
 type ColaboradorConJornada = Colaborador & {
@@ -56,7 +57,7 @@ function getAnalisisSalida(salida: FichadaConRelaciones | null): string | null {
 
 function formatHora(fecha: Date | string | null): string {
   if (!fecha) return "—"
-  return new Date(fecha).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
+  return formatHoraARG(new Date(fecha))
 }
 
 export function ListadoCliente({
@@ -70,9 +71,9 @@ export function ListadoCliente({
   const [busqueda, setBusqueda] = useState("")
   const [modalFichada, setModalFichada] = useState(false)
 
-  // Auto-refresh cada 30s solo si estamos viendo hoy
+  // Auto-refresh cada 30s solo si estamos viendo hoy en hora ARG
   useEffect(() => {
-    if (fechaInicial !== new Date().toISOString().split("T")[0]) return
+    if (fechaInicial !== hoyARG()) return
     const id = setInterval(() => router.refresh(), 30_000)
     return () => clearInterval(id)
   }, [fechaInicial, router])

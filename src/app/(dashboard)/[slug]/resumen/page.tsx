@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { LayoutDashboard } from "lucide-react"
 import { GraficoFichadas } from "@/components/resumen/grafico-fichadas"
+import { hoyARG, inicioDiaARG, finDiaARG, horaARG, formatHoraARG } from "@/lib/utils"
 import type { DatoGrafico } from "@/types"
 
 export default async function ResumenPage({
@@ -21,9 +22,10 @@ export default async function ResumenPage({
   })
   if (!empresa) redirect("/login")
 
-  const hoy = new Date()
-  const inicioDia = new Date(hoy.getFullYear(), hoy.getMonth(), hoy.getDate())
-  const finDia = new Date(inicioDia.getTime() + 24 * 60 * 60 * 1000)
+  // Rango del día en hora Argentina
+  const hoyStr = hoyARG()
+  const inicioDia = inicioDiaARG(hoyStr)
+  const finDia = finDiaARG(hoyStr)
 
   const [totalColaboradores, fichadasHoy] = await Promise.all([
     prisma.colaborador.count({
@@ -32,10 +34,16 @@ export default async function ResumenPage({
     prisma.fichada.findMany({
       where: {
         empresa_id: empresa.id,
-        timestamp: { gte: inicioDia, lt: finDia },
+        timestamp: { gte: inicioDia, lte: finDia },
         es_valida: true,
       },
-      include: { colaborador: { select: { id: true, nombre: true, apellido: true } } },
+      select: {
+        id: true,
+        tipo: true,
+        timestamp: true,
+        colaborador_id: true,
+        colaborador: { select: { id: true, nombre: true, apellido: true } },
+      },
       orderBy: { timestamp: "asc" },
     }),
   ])
@@ -46,13 +54,13 @@ export default async function ResumenPage({
     fichadasHoy.filter((f) => f.tipo === "ENTRADA").map((f) => f.colaborador_id)
   ).size
 
-  // Build hourly chart data (7am to 8pm)
-  const horasRange = Array.from({ length: 14 }, (_, i) => i + 7) // 7 to 20
+  // Gráfico por hora en hora Argentina (7am a 8pm)
+  const horasRange = Array.from({ length: 14 }, (_, i) => i + 7)
   const conteoHoras: Record<number, { ingresos: number; salidas: number }> = {}
   for (const h of horasRange) conteoHoras[h] = { ingresos: 0, salidas: 0 }
 
   for (const f of fichadasHoy) {
-    const hora = new Date(f.timestamp).getHours()
+    const hora = horaARG(f.timestamp)
     if (hora >= 7 && hora <= 20) {
       if (f.tipo === "ENTRADA") conteoHoras[hora].ingresos++
       else conteoHoras[hora].salidas++
@@ -65,11 +73,12 @@ export default async function ResumenPage({
     salidas: conteoHoras[h].salidas,
   }))
 
-  const fechaFormateada = hoy.toLocaleDateString("es-AR", {
+  const fechaFormateada = new Date(hoyStr + "T12:00:00").toLocaleDateString("es-AR", {
     weekday: "long",
     year: "numeric",
     month: "long",
     day: "numeric",
+    timeZone: "America/Argentina/Buenos_Aires",
   })
 
   return (
@@ -128,10 +137,7 @@ export default async function ResumenPage({
                   </span>
                 </div>
                 <span className="text-xs text-gray-500">
-                  {new Date(f.timestamp).toLocaleTimeString("es-AR", {
-                    hour: "2-digit",
-                    minute: "2-digit",
-                  })}
+                  {formatHoraARG(f.timestamp)}
                 </span>
               </div>
             ))}

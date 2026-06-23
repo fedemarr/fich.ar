@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { NovedadesCliente } from "@/components/novedades/novedades-cliente"
+import { hoyARG, fechaARG, inicioDiaARG } from "@/lib/utils"
 import type { TipoNovedad, Colaborador } from "@/generated/prisma/client"
 
 export interface InasistenciaDetectada {
@@ -11,6 +12,8 @@ export interface InasistenciaDetectada {
   novedadTipo: TipoNovedad | null
   aprobada: boolean
 }
+
+export type AnalisisDia = { tarde: boolean; anticipada: boolean }
 
 export default async function NovedadesPage({
   params,
@@ -26,20 +29,30 @@ export default async function NovedadesPage({
   const sp = await searchParams
   const tab = sp.tab ?? "inasistencias"
 
-  const hoy = new Date()
-  const mesActual = sp.mes ? parseInt(sp.mes) : hoy.getMonth() + 1
-  const anioActual = sp.anio ? parseInt(sp.anio) : hoy.getFullYear()
+  const hoyStr = hoyARG()
+  const [anioHoy, mesHoy] = hoyStr.split("-").map(Number)
+  const mesActual = sp.mes ? parseInt(sp.mes) : mesHoy
+  const anioActual = sp.anio ? parseInt(sp.anio) : anioHoy
 
   const empresaId = session.user.empresaId
 
-  // Last 14 calendar days (covers ~10 weekdays)
-  const hace14Dias = new Date()
-  hace14Dias.setDate(hace14Dias.getDate() - 14)
-  hace14Dias.setHours(0, 0, 0, 0)
+  // Últimos 14 días calendario en hora ARG (cubre ~10 días hábiles)
+  const hace14Str = (() => {
+    const d = new Date(hoyStr + "T12:00:00Z")
+    d.setDate(d.getDate() - 14)
+    return fechaARG(d)
+  })()
+  const hace14 = inicioDiaARG(hace14Str)
 
-  // Calendar month range for Reporte tab
-  const desdeCalendario = new Date(anioActual, mesActual - 1, 1)
-  const hastaCalendario = new Date(anioActual, mesActual, 0, 23, 59, 59)
+  // Rango del mes para el calendario — usamos UTC boundaries del mes
+  const desdeCalendario = new Date(`${anioActual}-${String(mesActual).padStart(2,"0")}-01T03:00:00.000Z`)
+  const diasMes = new Date(anioActual, mesActual, 0).getDate()
+  const hastaCalendario = new Date(`${anioActual}-${String(mesActual).padStart(2,"0")}-${String(diasMes).padStart(2,"0")}T02:59:59.999Z`)
+  // fin del último día del mes en ARG = siguiente mes día 1 03:00 UTC - 1ms
+  const hastaCalendarioReal = new Date(
+    `${anioActual}-${String(mesActual).padStart(2,"0")}-${String(diasMes).padStart(2,"0")}T03:00:00.000Z`
+  )
+  hastaCalendarioReal.setTime(hastaCalendarioReal.getTime() + 24 * 60 * 60 * 1000 - 1)
 
   const [colaboradores, fichadasRecientes, novedadesRecientes, novedadesMes, fichadasMesRaw] = await Promise.all([
     prisma.colaborador.findMany({
@@ -50,68 +63,71 @@ export default async function NovedadesPage({
       where: {
         empresa_id: empresaId,
         tipo: "ENTRADA",
-        timestamp: { gte: hace14Dias },
+        timestamp: { gte: hace14 },
       },
       select: { colaborador_id: true, timestamp: true },
     }),
     prisma.novedad.findMany({
-      where: { empresa_id: empresaId, fecha: { gte: hace14Dias } },
+      where: { empresa_id: empresaId, fecha: { gte: hace14 } },
+      select: { id: true, colaborador_id: true, fecha: true, tipo: true, aprobada: true },
     }),
     prisma.novedad.findMany({
       where: {
         empresa_id: empresaId,
-        fecha: { gte: desdeCalendario, lte: hastaCalendario },
+        fecha: { gte: desdeCalendario, lte: hastaCalendarioReal },
       },
-      include: { colaborador: true },
+      select: {
+        id: true, empresa_id: true, colaborador_id: true, fecha: true,
+        tipo: true, observacion: true, aprobada: true, created_at: true, updated_at: true,
+        colaborador: true,
+      },
       orderBy: { fecha: "asc" },
     }),
+    // Traemos ENTRADA + SALIDA con analisis para el calendario
     prisma.fichada.findMany({
       where: {
         empresa_id: empresaId,
-        tipo: "ENTRADA",
-        timestamp: { gte: desdeCalendario, lte: hastaCalendario },
+        timestamp: { gte: desdeCalendario, lte: hastaCalendarioReal },
         es_valida: true,
       },
-      select: { colaborador_id: true, timestamp: true },
+      select: { colaborador_id: true, timestamp: true, tipo: true, analisis: true },
     }),
   ])
 
-  // Build presence set: "colaborador_id|YYYY-MM-DD"
+  // Presencias recientes: "colaborador_id|YYYY-MM-DD" en hora ARG
   const presencias = new Set<string>()
   for (const f of fichadasRecientes) {
-    const fecha = f.timestamp.toISOString().split("T")[0]
-    presencias.add(`${f.colaborador_id}|${fecha}`)
+    presencias.add(`${f.colaborador_id}|${fechaARG(f.timestamp)}`)
   }
 
-  // Build novedad map: "colaborador_id|YYYY-MM-DD"
+  // Mapa de novedades recientes: "colaborador_id|YYYY-MM-DD"
   const novedadesMap = new Map<string, { id: string; tipo: TipoNovedad; aprobada: boolean }>()
   for (const n of novedadesRecientes) {
-    const fecha = new Date(n.fecha).toISOString().split("T")[0]
-    novedadesMap.set(`${n.colaborador_id}|${fecha}`, {
+    const fechaStr = fechaARG(new Date(n.fecha))
+    novedadesMap.set(`${n.colaborador_id}|${fechaStr}`, {
       id: n.id,
       tipo: n.tipo,
       aprobada: n.aprobada,
     })
   }
 
-  // Compute inasistencias for last 14 weekdays
+  // Inasistencias: últimos 14 días hábiles en hora ARG
   const inasistencias: InasistenciaDetectada[] = []
   for (let i = 1; i <= 14; i++) {
-    const dia = new Date()
-    dia.setDate(dia.getDate() - i)
-    dia.setHours(0, 0, 0, 0)
-    const dow = dia.getDay()
-    if (dow === 0 || dow === 6) continue // skip weekends
-
-    const fechaStr = dia.toISOString().split("T")[0]
+    const d = new Date(hoyStr + "T12:00:00Z")
+    d.setDate(d.getDate() - i)
+    const diaStr = fechaARG(d)
+    // Día de la semana en ARG
+    const dow = new Date(diaStr + "T12:00:00Z").getUTCDay()
+    if (dow === 0 || dow === 6) continue
 
     for (const colab of colaboradores) {
-      const key = `${colab.id}|${fechaStr}`
+      const key = `${colab.id}|${diaStr}`
       if (!presencias.has(key)) {
         const novedad = novedadesMap.get(key)
         inasistencias.push({
           colaborador: colab,
-          fecha: fechaStr,
+          fecha: diaStr,
           novedadId: novedad?.id ?? null,
           novedadTipo: novedad?.tipo ?? null,
           aprobada: novedad?.aprobada ?? false,
@@ -120,20 +136,29 @@ export default async function NovedadesPage({
     }
   }
 
-  // Sort: date desc, then name asc
   inasistencias.sort((a, b) => {
     if (a.fecha !== b.fecha) return b.fecha.localeCompare(a.fecha)
     return a.colaborador.apellido.localeCompare(b.colaborador.apellido)
   })
 
-  // Set "colaborador_id|dia" para el calendario del mes
+  // Presencias del mes: "colaborador_id|dia_num" en hora ARG
   const presenciasMes = new Set<string>()
+  // Analisis del mes: clave = "colaborador_id|dia_num"
+  const analisisMesObj: Record<string, AnalisisDia> = {}
+
   for (const f of fichadasMesRaw) {
-    const dia = new Date(f.timestamp).toLocaleString("es-AR", {
-      timeZone: "America/Argentina/Buenos_Aires",
-      day: "numeric",
-    })
-    presenciasMes.add(`${f.colaborador_id}|${dia}`)
+    const fechaStr = fechaARG(f.timestamp)
+    const dia = parseInt(fechaStr.split("-")[2])
+    const key = `${f.colaborador_id}|${dia}`
+
+    if (f.tipo === "ENTRADA") {
+      presenciasMes.add(key)
+      if (f.analisis === "LLEGADA_TARDE") {
+        analisisMesObj[key] = { ...(analisisMesObj[key] ?? { tarde: false, anticipada: false }), tarde: true }
+      }
+    } else if (f.tipo === "SALIDA" && f.analisis === "SALIDA_ANTICIPADA") {
+      analisisMesObj[key] = { ...(analisisMesObj[key] ?? { tarde: false, anticipada: false }), anticipada: true }
+    }
   }
 
   return (
@@ -143,6 +168,7 @@ export default async function NovedadesPage({
       novedadesMes={novedadesMes}
       inasistencias={inasistencias}
       presenciasMes={presenciasMes}
+      analisisMes={analisisMesObj}
       tabInicial={tab}
       mesInicial={mesActual}
       anioInicial={anioActual}

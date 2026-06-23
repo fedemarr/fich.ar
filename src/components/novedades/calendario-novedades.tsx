@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { ETIQUETAS_NOVEDAD } from "@/types"
 import { toast } from "sonner"
 import type { Colaborador, Novedad, TipoNovedad } from "@/generated/prisma/client"
+import type { AnalisisDia } from "@/app/(dashboard)/[slug]/novedades/page"
 
 type NovedadConColaborador = Novedad & { colaborador: Colaborador }
 
@@ -13,24 +14,34 @@ interface CalendarioNovedadesProps {
   colaboradores: Colaborador[]
   novedadesMes: NovedadConColaborador[]
   presenciasMes: Set<string>
+  analisisMes: Record<string, AnalisisDia>
   mes: number
   anio: number
   onCambiarMes: (mes: number, anio: number) => void
   onCeldaClick: (colaborador: Colaborador, dia: number) => void
 }
 
+// Colores por tipo de novedad — paleta similar a Qontact
 const COLORES_BG: Record<TipoNovedad, string> = {
-  P:   "bg-white text-gray-700",
-  PT:  "bg-amber-100 text-amber-800",
-  AU:  "bg-red-500 text-white",
-  VAC: "bg-blue-400 text-white",
+  P:   "bg-white text-gray-600 border border-gray-200",
+  PT:  "bg-orange-50 text-orange-600 border border-orange-200",
+  AU:  "bg-red-700 text-white",
+  VAC: "bg-amber-300 text-amber-900",
   EN:  "bg-orange-400 text-white",
-  FR:  "bg-sky-300 text-sky-900",
-  FE:  "bg-gray-300 text-gray-700",
+  FR:  "bg-rose-200 text-rose-700",
+  FE:  "bg-violet-100 text-violet-600",
   HDO: "bg-green-500 text-white",
   C:   "bg-cyan-400 text-white",
-  DES: "bg-slate-300 text-slate-800",
-  VIR: "bg-purple-300 text-purple-900",
+  DES: "bg-slate-200 text-slate-600",
+  VIR: "bg-purple-100 text-purple-600 border border-purple-200",
+}
+
+// Etiqueta visible en la celda (más corta para el grid)
+const LABEL_CELDA: Partial<Record<TipoNovedad, string>> = {
+  PT: "P-T",
+  VIR: "VIR",
+  HDO: "HDO",
+  DES: "DES",
 }
 
 const NOMBRES_MES = [
@@ -42,15 +53,27 @@ function diasEnMes(mes: number, anio: number) {
   return new Date(anio, mes, 0).getDate()
 }
 
+// Devuelve el label y la clase CSS para una celda presente según análisis
+function badgePresente(analisis?: AnalisisDia): { label: string; cls: string } {
+  if (!analisis) return { label: "P", cls: "bg-green-50 text-green-600 border border-green-200" }
+  if (analisis.tarde && analisis.anticipada)
+    return { label: "P-T/ST", cls: "bg-orange-100 text-orange-700 border border-orange-300" }
+  if (analisis.tarde)
+    return { label: "P-T", cls: "bg-orange-50 text-orange-600 border border-orange-200" }
+  if (analisis.anticipada)
+    return { label: "P-ST", cls: "bg-yellow-50 text-yellow-600 border border-yellow-200" }
+  return { label: "P", cls: "bg-green-50 text-green-600 border border-green-200" }
+}
+
 function exportarExcel(
   colaboradores: Colaborador[],
   novedadesMes: NovedadConColaborador[],
   presenciasMes: Set<string>,
+  analisisMes: Record<string, AnalisisDia>,
   mes: number,
   anio: number
 ) {
   const dias = diasEnMes(mes, anio)
-  // Build map de novedades
   const mapa: Record<string, Record<number, TipoNovedad>> = {}
   for (const n of novedadesMes) {
     const dia = new Date(n.fecha).getUTCDate()
@@ -58,27 +81,31 @@ function exportarExcel(
     mapa[n.colaborador_id][dia] = n.tipo
   }
 
-  const headers = ["Colaborador", "Legajo", ...Array.from({ length: dias }, (_, i) => String(i + 1)), "P", "AU"]
+  const headers = ["Colaborador", "Legajo", ...Array.from({ length: dias }, (_, i) => String(i + 1)), "P", "P-T", "P-ST", "AU"]
   const rows = colaboradores.map((c) => {
     const fila: string[] = [`${c.apellido}, ${c.nombre}`, c.legajo ?? "N/A"]
-    let totalP = 0, totalAU = 0
+    let totalP = 0, totalPT = 0, totalPST = 0, totalAU = 0
     for (let d = 1; d <= dias; d++) {
       const novedad = mapa[c.id]?.[d]
+      const key = `${c.id}|${d}`
+      const analisis = analisisMes[key]
       if (novedad) {
-        fila.push(novedad)
+        fila.push(LABEL_CELDA[novedad] ?? novedad)
         if (novedad === "AU") totalAU++
-      } else if (presenciasMes.has(`${c.id}|${d}`)) {
-        fila.push("P")
-        totalP++
+      } else if (presenciasMes.has(key)) {
+        const badge = badgePresente(analisis)
+        fila.push(badge.label)
+        if (analisis?.tarde) totalPT++
+        else if (analisis?.anticipada) totalPST++
+        else totalP++
       } else {
         fila.push("")
       }
     }
-    fila.push(String(totalP), String(totalAU))
+    fila.push(String(totalP), String(totalPT), String(totalPST), String(totalAU))
     return fila
   })
 
-  // Create CSV
   const csvContent = [headers, ...rows]
     .map((row) => row.map((cell) => `"${cell}"`).join(","))
     .join("\n")
@@ -97,6 +124,7 @@ export function CalendarioNovedades({
   colaboradores,
   novedadesMes,
   presenciasMes,
+  analisisMes,
   mes,
   anio,
   onCambiarMes,
@@ -112,7 +140,7 @@ export function CalendarioNovedades({
     dia === hoy.getDate() && mes === hoy.getMonth() + 1 && anio === hoy.getFullYear()
   const esFuturo = (dia: number) => new Date(anio, mes - 1, dia) > hoy
 
-  // Build lookup map: colaborador_id -> { dia: tipo }
+  // Lookup: colaborador_id -> { dia: tipo }
   const mapa: Record<string, Record<number, TipoNovedad>> = {}
   for (const n of novedadesMes) {
     const dia = new Date(n.fecha).getUTCDate()
@@ -193,15 +221,21 @@ export function CalendarioNovedades({
         <div className="bg-white rounded-xl border border-gray-200 p-4">
           <div className="flex flex-wrap gap-2">
             <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center justify-center w-8 h-6 rounded text-xs font-bold bg-green-50 text-green-600 border border-green-200">
-                P
-              </span>
-              <span className="text-xs text-gray-600">Presente (fichada)</span>
+              <span className="inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold bg-green-50 text-green-600 border border-green-200">P</span>
+              <span className="text-xs text-gray-600">Presente</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold bg-orange-50 text-orange-600 border border-orange-200">P-T</span>
+              <span className="text-xs text-gray-600">Llegada tarde</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold bg-yellow-50 text-yellow-600 border border-yellow-200">P-ST</span>
+              <span className="text-xs text-gray-600">Salida temprana</span>
             </div>
             {(Object.entries(ETIQUETAS_NOVEDAD) as [TipoNovedad, string][]).map(([k, v]) => (
               <div key={k} className="flex items-center gap-1.5">
-                <span className={`inline-flex items-center justify-center w-8 h-6 rounded text-xs font-bold ${COLORES_BG[k]}`}>
-                  {k}
+                <span className={`inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold ${COLORES_BG[k]}`}>
+                  {LABEL_CELDA[k] ?? k}
                 </span>
                 <span className="text-xs text-gray-600">{v}</span>
               </div>
@@ -213,19 +247,19 @@ export function CalendarioNovedades({
       {/* Calendario */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         <div className="overflow-x-auto">
-          <table className="w-full border-collapse" style={{ minWidth: `${200 + dias * 36}px` }}>
+          <table className="w-full border-collapse" style={{ minWidth: `${200 + dias * 38}px` }}>
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
                 <th className="sticky left-0 z-10 bg-gray-50 text-left text-xs font-medium text-gray-500 px-4 py-2.5 min-w-[200px] border-r border-gray-200">
                   Colaborador
                 </th>
-                <th className="text-xs font-medium text-gray-500 px-2 py-2.5 min-w-[60px] border-r border-gray-200">
+                <th className="text-xs font-medium text-gray-500 px-2 py-2.5 min-w-[52px] border-r border-gray-200">
                   Legajo
                 </th>
                 {Array.from({ length: dias }, (_, i) => i + 1).map((dia) => (
                   <th
                     key={dia}
-                    className={`text-xs font-medium px-1 py-2.5 w-9 text-center ${
+                    className={`text-xs font-medium px-0 py-2.5 w-9 text-center ${
                       esHoy(dia) ? "text-[#2563EB] bg-[#EFF6FF]" : "text-gray-500"
                     }`}
                   >
@@ -243,8 +277,8 @@ export function CalendarioNovedades({
                 </tr>
               ) : (
                 colaboradoresFiltrados.map((c) => (
-                  <tr key={c.id} className="hover:bg-gray-50/50">
-                    <td className="sticky left-0 z-10 bg-white px-4 py-1.5 border-r border-gray-200">
+                  <tr key={c.id} className="hover:bg-gray-50/40">
+                    <td className="sticky left-0 z-10 bg-white px-4 py-1 border-r border-gray-200">
                       <div className="flex items-center gap-2">
                         <div className="w-6 h-6 rounded-full bg-gray-100 flex items-center justify-center text-xs font-medium text-gray-600 shrink-0">
                           {(c.nombre[0] ?? "") + (c.apellido[0] ?? "")}
@@ -254,32 +288,41 @@ export function CalendarioNovedades({
                         </span>
                       </div>
                     </td>
-                    <td className="text-xs text-gray-400 px-2 py-1.5 text-center border-r border-gray-200">
-                      {c.legajo ?? "N/A"}
+                    <td className="text-xs text-gray-400 px-2 py-1 text-center border-r border-gray-200">
+                      {c.legajo ?? "—"}
                     </td>
                     {Array.from({ length: dias }, (_, i) => i + 1).map((dia) => {
                       const tipo = mapa[c.id]?.[dia]
-                      const presente = presenciasMes.has(`${c.id}|${dia}`)
+                      const key = `${c.id}|${dia}`
+                      const presente = presenciasMes.has(key)
+                      const analisis = analisisMes[key]
+
                       return (
                         <td key={dia} className="p-0.5">
                           {tipo ? (
                             <button
                               onClick={() => onCeldaClick(c, dia)}
-                              className={`w-full h-7 rounded text-xs font-bold transition-opacity hover:opacity-80 ${COLORES_BG[tipo]}`}
+                              className={`w-full h-7 rounded text-xs font-bold transition-opacity hover:opacity-75 ${COLORES_BG[tipo]}`}
                               title={ETIQUETAS_NOVEDAD[tipo]}
                             >
-                              {tipo}
+                              {LABEL_CELDA[tipo] ?? tipo}
                             </button>
                           ) : esFuturo(dia) ? (
                             <div className="w-full h-7 rounded bg-gray-50" />
                           ) : presente ? (
-                            <button
-                              onClick={() => onCeldaClick(c, dia)}
-                              className="w-full h-7 rounded bg-green-50 hover:bg-green-100 transition-colors border border-green-200"
-                              title="Presente — click para agregar novedad"
-                            >
-                              <span className="text-xs font-bold text-green-600">P</span>
-                            </button>
+                            (() => {
+                              const badge = badgePresente(analisis)
+                              return (
+                                <button
+                                  onClick={() => onCeldaClick(c, dia)}
+                                  className={`w-full h-7 rounded font-bold transition-opacity hover:opacity-75 ${badge.cls}`}
+                                  style={{ fontSize: badge.label.length > 3 ? "9px" : "11px" }}
+                                  title={badge.label}
+                                >
+                                  {badge.label}
+                                </button>
+                              )
+                            })()
                           ) : (
                             <button
                               onClick={() => onCeldaClick(c, dia)}
@@ -290,7 +333,7 @@ export function CalendarioNovedades({
                                 className="absolute bottom-0 right-0 w-0 h-0"
                                 style={{
                                   borderStyle: "solid",
-                                  borderWidth: "0 0 8px 8px",
+                                  borderWidth: "0 0 7px 7px",
                                   borderColor: "transparent transparent #F59E0B transparent",
                                 }}
                               />
@@ -313,7 +356,7 @@ export function CalendarioNovedades({
           variant="outline"
           size="sm"
           className="gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
-          onClick={() => exportarExcel(colaboradores, novedadesMes, presenciasMes, mes, anio)}
+          onClick={() => exportarExcel(colaboradores, novedadesMes, presenciasMes, analisisMes, mes, anio)}
         >
           <Download size={14} />
           Exportar reporte a Excel

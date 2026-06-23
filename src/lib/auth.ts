@@ -10,6 +10,7 @@ declare module "next-auth" {
   interface User {
     empresaId: string
     empresaSlug: string
+    empresaNombre: string
     rol: RolUsuario
   }
   interface Session {
@@ -19,6 +20,7 @@ declare module "next-auth" {
       name: string
       empresaId: string
       empresaSlug: string
+      empresaNombre: string
       rol: RolUsuario
     }
   }
@@ -41,7 +43,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const usuario = await prisma.usuario.findFirst({
           where: { email, deleted_at: null },
-          include: { empresa: { select: { slug: true } } },
+          include: { empresa: { select: { slug: true, nombre: true } } },
         })
 
         if (!usuario || !usuario.activo) return null
@@ -54,6 +56,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           name: usuario.nombre,
           empresaId: usuario.empresa_id,
           empresaSlug: usuario.empresa.slug,
+          empresaNombre: usuario.empresa.nombre,
           rol: usuario.rol,
         }
       },
@@ -66,6 +69,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.id = user.id
         token.empresaId = user.empresaId
         token.empresaSlug = user.empresaSlug
+        token.empresaNombre = user.empresaNombre
         token.rol = user.rol as string
       }
       return token
@@ -78,6 +82,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           id: token.id as string,
           empresaId: token.empresaId as string,
           empresaSlug: token.empresaSlug as string,
+          empresaNombre: token.empresaNombre as string,
           rol: token.rol as RolUsuario,
         },
       }

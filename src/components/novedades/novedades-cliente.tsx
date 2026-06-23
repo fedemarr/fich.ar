@@ -9,7 +9,7 @@ import { NovedadDialog } from "@/components/novedades/novedad-dialog"
 import { ETIQUETAS_NOVEDAD } from "@/types"
 import { toast } from "sonner"
 import type { Colaborador, Novedad, TipoNovedad } from "@/generated/prisma/client"
-import type { InasistenciaDetectada } from "@/app/(dashboard)/[slug]/novedades/page"
+import type { InasistenciaDetectada, AnalisisDia } from "@/app/(dashboard)/[slug]/novedades/page"
 
 type NovedadConColaborador = Novedad & { colaborador: Colaborador }
 
@@ -19,6 +19,7 @@ interface NovedadesClienteProps {
   novedadesMes: NovedadConColaborador[]
   inasistencias: InasistenciaDetectada[]
   presenciasMes: Set<string>
+  analisisMes: Record<string, AnalisisDia>
   tabInicial: string
   mesInicial: number
   anioInicial: number
@@ -63,6 +64,7 @@ export function NovedadesCliente({
   novedadesMes,
   inasistencias: inasistenciasIniciales,
   presenciasMes,
+  analisisMes,
   tabInicial,
   mesInicial,
   anioInicial,
@@ -331,6 +333,7 @@ export function NovedadesCliente({
           colaboradores={colaboradores}
           novedadesMes={novedadesMes}
           presenciasMes={presenciasMes}
+          analisisMes={analisisMes}
           mes={mes}
           anio={anio}
           onCambiarMes={cambiarMes}

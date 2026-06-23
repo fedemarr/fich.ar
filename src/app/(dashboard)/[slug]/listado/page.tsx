@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { ListadoCliente } from "@/components/listado/listado-cliente"
+import { hoyARG, inicioDiaARG, finDiaARG } from "@/lib/utils"
 
 interface ListadoPageProps {
   params: Promise<{ slug: string }>
@@ -21,11 +22,11 @@ export default async function ListadoPage({ params, searchParams }: ListadoPageP
   })
   if (!empresa) redirect("/login")
 
-  const fechaDesde = fecha ? new Date(fecha) : new Date()
-  fechaDesde.setHours(0, 0, 0, 0)
+  const fechaStr = fecha ?? hoyARG()
+  const hastaStr = hasta ?? fechaStr
 
-  const fechaHasta = hasta ? new Date(hasta) : new Date(fechaDesde)
-  fechaHasta.setHours(23, 59, 59, 999)
+  const fechaDesde = inicioDiaARG(fechaStr)
+  const fechaHasta = finDiaARG(hastaStr)
 
   const [colaboradores, fichadas] = await Promise.all([
     prisma.colaborador.findMany({
@@ -63,7 +64,7 @@ export default async function ListadoPage({ params, searchParams }: ListadoPageP
       colaboradores={colaboradores}
       fichadas={fichadas}
       empresaId={empresa.id}
-      fechaInicial={fechaDesde.toISOString().split("T")[0]}
+      fechaInicial={fechaStr}
       hastaInicial={hasta ?? null}
     />
   )
