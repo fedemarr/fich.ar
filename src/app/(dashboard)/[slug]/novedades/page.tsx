@@ -13,7 +13,7 @@ export interface InasistenciaDetectada {
   aprobada: boolean
 }
 
-export type AnalisisDia = { tarde: boolean; anticipada: boolean }
+export type AnalisisDia = { tarde: boolean; anticipada: boolean; salidaTarde?: boolean }
 
 export default async function NovedadesPage({
   params,
@@ -156,8 +156,12 @@ export default async function NovedadesPage({
       if (f.analisis === "LLEGADA_TARDE") {
         analisisMesObj[key] = { ...(analisisMesObj[key] ?? { tarde: false, anticipada: false }), tarde: true }
       }
-    } else if (f.tipo === "SALIDA" && f.analisis === "SALIDA_ANTICIPADA") {
-      analisisMesObj[key] = { ...(analisisMesObj[key] ?? { tarde: false, anticipada: false }), anticipada: true }
+    } else if (f.tipo === "SALIDA") {
+      if (f.analisis === "SALIDA_ANTICIPADA") {
+        analisisMesObj[key] = { ...(analisisMesObj[key] ?? { tarde: false, anticipada: false, salidaTarde: false }), anticipada: true }
+      } else if (f.analisis === "SALIDA_TARDE") {
+        analisisMesObj[key] = { ...(analisisMesObj[key] ?? { tarde: false, anticipada: false, salidaTarde: false }), salidaTarde: true }
+      }
     }
   }
 

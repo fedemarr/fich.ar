@@ -13,34 +13,22 @@ export default async function ListadoPage({ params, searchParams }: ListadoPageP
   const session = await auth()
   if (!session?.user) redirect("/login")
 
-  const { slug } = await params
+  await params
   const { fecha, hasta } = await searchParams
-
-  const empresa = await prisma.empresa.findUnique({
-    where: { slug },
-    select: { id: true, nombre: true },
-  })
-  if (!empresa) redirect("/login")
+  const empresaId = session.user.empresaId
 
   const fechaStr = fecha ?? hoyARG()
   const hastaStr = hasta ?? fechaStr
-
   const fechaDesde = inicioDiaARG(fechaStr)
   const fechaHasta = finDiaARG(hastaStr)
 
   const [colaboradores, fichadas] = await Promise.all([
     prisma.colaborador.findMany({
-      where: { empresa_id: empresa.id, estado: "ACTIVO", deleted_at: null },
+      where: { empresa_id: empresaId, estado: "ACTIVO", deleted_at: null },
       include: {
         jornadas: {
-          where: {
-            fecha_hasta: null,
-          },
-          include: {
-            jornada: {
-              include: { punto_fichaje: true },
-            },
-          },
+          where: { fecha_hasta: null },
+          include: { jornada: { include: { punto_fichaje: true } } },
           take: 1,
         },
       },
@@ -48,7 +36,7 @@ export default async function ListadoPage({ params, searchParams }: ListadoPageP
     }),
     prisma.fichada.findMany({
       where: {
-        empresa_id: empresa.id,
+        empresa_id: empresaId,
         timestamp: { gte: fechaDesde, lte: fechaHasta },
       },
       include: {
@@ -63,7 +51,7 @@ export default async function ListadoPage({ params, searchParams }: ListadoPageP
     <ListadoCliente
       colaboradores={colaboradores}
       fichadas={fichadas}
-      empresaId={empresa.id}
+      empresaId={empresaId}
       fechaInicial={fechaStr}
       hastaInicial={hasta ?? null}
     />

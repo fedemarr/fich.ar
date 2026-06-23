@@ -58,10 +58,14 @@ function badgePresente(analisis?: AnalisisDia): { label: string; cls: string } {
   if (!analisis) return { label: "P", cls: "bg-green-50 text-green-600 border border-green-200" }
   if (analisis.tarde && analisis.anticipada)
     return { label: "P-T/ST", cls: "bg-orange-100 text-orange-700 border border-orange-300" }
+  if (analisis.tarde && analisis.salidaTarde)
+    return { label: "P-T/S-T", cls: "bg-red-50 text-red-600 border border-red-200" }
   if (analisis.tarde)
     return { label: "P-T", cls: "bg-orange-50 text-orange-600 border border-orange-200" }
   if (analisis.anticipada)
     return { label: "P-ST", cls: "bg-yellow-50 text-yellow-600 border border-yellow-200" }
+  if (analisis.salidaTarde)
+    return { label: "S-T", cls: "bg-purple-50 text-purple-600 border border-purple-200" }
   return { label: "P", cls: "bg-green-50 text-green-600 border border-green-200" }
 }
 
@@ -231,6 +235,10 @@ export function CalendarioNovedades({
             <div className="flex items-center gap-1.5">
               <span className="inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold bg-yellow-50 text-yellow-600 border border-yellow-200">P-ST</span>
               <span className="text-xs text-gray-600">Salida temprana</span>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <span className="inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold bg-purple-50 text-purple-600 border border-purple-200">S-T</span>
+              <span className="text-xs text-gray-600">Salida tarde</span>
             </div>
             {(Object.entries(ETIQUETAS_NOVEDAD) as [TipoNovedad, string][]).map(([k, v]) => (
               <div key={k} className="flex items-center gap-1.5">

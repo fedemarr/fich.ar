@@ -3,43 +3,46 @@ import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { PuntosCliente } from "@/components/puntos/puntos-cliente"
 
-interface PuntosPageProps {
+export default async function PuntosPage({
+  params,
+}: {
   params: Promise<{ slug: string }>
-}
-
-export default async function PuntosPage({ params }: PuntosPageProps) {
+}) {
   const session = await auth()
   if (!session?.user) redirect("/login")
 
-  const { slug } = await params
+  await params
+  const empresaId = session.user.empresaId
+  const empresaNombre = session.user.empresaNombre
 
-  const empresa = await prisma.empresa.findUnique({
-    where: { slug },
-    select: { id: true, nombre: true, logo_url: true },
-  })
-  if (!empresa) redirect("/login")
-
-  const puntos = await prisma.puntoFichaje.findMany({
-    where: { empresa_id: empresa.id, activo: true },
-    include: {
-      jornadas: {
-        where: { activo: true },
-        include: {
-          colaboradores: {
-            where: { fecha_hasta: null },
+  // Puntos y logo en paralelo — sin query empresa previa bloqueante
+  const [puntos, empresaData] = await Promise.all([
+    prisma.puntoFichaje.findMany({
+      where: { empresa_id: empresaId, activo: true },
+      include: {
+        jornadas: {
+          where: { activo: true },
+          include: {
+            colaboradores: {
+              where: { fecha_hasta: null },
+            },
           },
         },
       },
-    },
-    orderBy: { created_at: "asc" },
-  })
+      orderBy: { created_at: "asc" },
+    }),
+    prisma.empresa.findUnique({
+      where: { id: empresaId },
+      select: { logo_url: true },
+    }),
+  ])
 
   return (
     <PuntosCliente
       puntos={puntos}
-      empresaId={empresa.id}
-      empresaNombre={empresa.nombre}
-      empresaLogoUrl={empresa.logo_url ?? null}
+      empresaId={empresaId}
+      empresaNombre={empresaNombre}
+      empresaLogoUrl={empresaData?.logo_url ?? null}
     />
   )
 }

@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import {
   LayoutDashboard,
   ClipboardList,
@@ -21,23 +21,22 @@ import { cn } from "@/lib/utils"
 interface SidebarProps {
   slug: string
   rol?: string
-  empresaLogoUrl?: string | null
 }
 
 const navMain = [
-  { href: "resumen",        label: "Resumen",        icon: LayoutDashboard },
-  { href: "listado",        label: "Listado del día", icon: ClipboardList },
-  { href: "colaboradores",  label: "Colaboradores",   icon: Users },
-  { href: "puntos",         label: "Puntos QR",       icon: MapPin },
-  { href: "proyeccion",     label: "Proyección",      icon: BarChart2 },
-  { href: "novedades",      label: "Novedades",       icon: Calendar },
-  { href: "comunicaciones", label: "Comunicaciones",  icon: Megaphone },
-  { href: "notificaciones", label: "Notificaciones",  icon: Bell },
+  { href: "resumen",        label: "Resumen",         icon: LayoutDashboard },
+  { href: "listado",        label: "Listado del día",  icon: ClipboardList },
+  { href: "colaboradores",  label: "Colaboradores",    icon: Users },
+  { href: "puntos",         label: "Puntos QR",        icon: MapPin },
+  { href: "proyeccion",     label: "Proyección",       icon: BarChart2 },
+  { href: "novedades",      label: "Novedades",        icon: Calendar },
+  { href: "comunicaciones", label: "Comunicaciones",   icon: Megaphone },
+  { href: "notificaciones", label: "Notificaciones",   icon: Bell },
 ]
 
 const navBottom = [
-  { href: "configuracion", label: "Configuración",   icon: Settings },
-  { href: "ayuda",         label: "Centro de Ayuda", icon: HelpCircle },
+  { href: "configuracion", label: "Configuración",    icon: Settings },
+  { href: "ayuda",         label: "Centro de Ayuda",  icon: HelpCircle },
 ]
 
 function NavLink({ href, label, icon: Icon, slug }: { href: string; label: string; icon: React.ElementType; slug: string }) {
@@ -61,17 +60,27 @@ function NavLink({ href, label, icon: Icon, slug }: { href: string; label: strin
   )
 }
 
-export function Sidebar({ slug, rol, empresaLogoUrl }: SidebarProps) {
+export function Sidebar({ slug, rol }: SidebarProps) {
+  const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoError, setLogoError] = useState(false)
+
+  useEffect(() => {
+    fetch("/api/empresa")
+      .then((r) => r.json())
+      .then((data: { logo_url?: string | null }) => {
+        if (data.logo_url) setLogoUrl(data.logo_url)
+      })
+      .catch(() => {/* silently ignore */})
+  }, [])
 
   return (
     <aside className="w-60 min-h-screen bg-white border-r border-gray-200 flex flex-col">
       <div className="px-6 py-5 border-b border-gray-100">
-        {empresaLogoUrl && !logoError ? (
+        {logoUrl && !logoError ? (
           <div className="flex flex-col gap-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
-              src={empresaLogoUrl}
+              src={logoUrl}
               alt="Logo empresa"
               className="h-12 max-w-[160px] object-contain"
               onError={() => setLogoError(true)}

@@ -3,6 +3,16 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 
+export async function GET() {
+  const session = await auth()
+  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  const empresa = await prisma.empresa.findUnique({
+    where: { id: session.user.empresaId },
+    select: { logo_url: true },
+  })
+  return NextResponse.json({ logo_url: empresa?.logo_url ?? null })
+}
+
 const schema = z.object({
   nombre: z.string().min(1),
   logo_url: z.string().optional().nullable(),

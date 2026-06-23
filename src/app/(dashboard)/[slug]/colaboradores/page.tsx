@@ -11,17 +11,12 @@ export default async function ColaboradoresPage({
   const session = await auth()
   if (!session?.user) redirect("/login")
 
-  const { slug } = await params
-
-  const empresa = await prisma.empresa.findUnique({
-    where: { slug },
-    select: { id: true },
-  })
-  if (!empresa) redirect("/login")
+  await params
+  const empresaId = session.user.empresaId
 
   const [colaboradores, jornadas] = await Promise.all([
     prisma.colaborador.findMany({
-      where: { empresa_id: empresa.id, deleted_at: null },
+      where: { empresa_id: empresaId, deleted_at: null },
       include: {
         jornadas: {
           where: { fecha_hasta: null },
@@ -32,7 +27,7 @@ export default async function ColaboradoresPage({
       orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
     }),
     prisma.jornada.findMany({
-      where: { empresa_id: empresa.id, activo: true },
+      where: { empresa_id: empresaId, activo: true },
       include: { punto_fichaje: true },
     }),
   ])
@@ -41,7 +36,7 @@ export default async function ColaboradoresPage({
     <ColaboradoresCliente
       colaboradores={colaboradores}
       jornadas={jornadas}
-      empresaId={empresa.id}
+      empresaId={empresaId}
     />
   )
 }

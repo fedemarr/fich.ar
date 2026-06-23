@@ -24,7 +24,10 @@ export function calcularAnalisis(
       ? "LLEGADA_EN_TIEMPO"
       : "LLEGADA_TARDE"
   }
-  return hora >= hF * 60 + mF ? "SALIDA_EN_TIEMPO" : "SALIDA_ANTICIPADA"
+  const horaFin = hF * 60 + mF
+  if (hora < horaFin) return "SALIDA_ANTICIPADA"
+  if (hora === horaFin) return "SALIDA_EN_TIEMPO"
+  return "SALIDA_TARDE"
 }
 
 const DIAS = [

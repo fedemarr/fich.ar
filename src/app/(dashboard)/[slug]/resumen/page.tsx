@@ -14,26 +14,20 @@ export default async function ResumenPage({
   const session = await auth()
   if (!session?.user) redirect("/login")
 
-  const { slug } = await params
+  await params
+  const empresaId = session.user.empresaId
 
-  const empresa = await prisma.empresa.findUnique({
-    where: { slug },
-    select: { id: true, nombre: true },
-  })
-  if (!empresa) redirect("/login")
-
-  // Rango del día en hora Argentina
   const hoyStr = hoyARG()
   const inicioDia = inicioDiaARG(hoyStr)
   const finDia = finDiaARG(hoyStr)
 
   const [totalColaboradores, fichadasHoy] = await Promise.all([
     prisma.colaborador.count({
-      where: { empresa_id: empresa.id, estado: "ACTIVO", deleted_at: null },
+      where: { empresa_id: empresaId, estado: "ACTIVO", deleted_at: null },
     }),
     prisma.fichada.findMany({
       where: {
-        empresa_id: empresa.id,
+        empresa_id: empresaId,
         timestamp: { gte: inicioDia, lte: finDia },
         es_valida: true,
       },
@@ -54,7 +48,6 @@ export default async function ResumenPage({
     fichadasHoy.filter((f) => f.tipo === "ENTRADA").map((f) => f.colaborador_id)
   ).size
 
-  // Gráfico por hora en hora Argentina (7am a 8pm)
   const horasRange = Array.from({ length: 14 }, (_, i) => i + 7)
   const conteoHoras: Record<number, { ingresos: number; salidas: number }> = {}
   for (const h of horasRange) conteoHoras[h] = { ingresos: 0, salidas: 0 }
@@ -89,7 +82,6 @@ export default async function ResumenPage({
         <span className="text-sm text-gray-500 ml-2 capitalize">{fechaFormateada}</span>
       </div>
 
-      {/* KPIs */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <KpiCard label="Colaboradores" value={totalColaboradores} variant="neutral" />
         <KpiCard label="Presentes" value={presentes} variant="coral" />
@@ -97,48 +89,31 @@ export default async function ResumenPage({
         <KpiCard label="Salidas" value={salidas} variant="dark" />
       </div>
 
-      {/* Gráfico */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-sm font-semibold text-gray-700 mb-1">
-          Comportamiento de fichadas
-        </h2>
+        <h2 className="text-sm font-semibold text-gray-700 mb-1">Comportamiento de fichadas</h2>
         <p className="text-xs text-gray-400 mb-4">Entradas y salidas por hora del día</p>
         <GraficoFichadas datos={datosGrafico} />
       </div>
 
-      {/* Últimas fichadas */}
       <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="text-sm font-semibold text-gray-700 mb-4">
-          Últimas fichadas de hoy
-        </h2>
+        <h2 className="text-sm font-semibold text-gray-700 mb-4">Últimas fichadas de hoy</h2>
         {fichadasHoy.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">
-            Sin fichadas registradas hoy
-          </p>
+          <p className="text-sm text-gray-400 text-center py-8">Sin fichadas registradas hoy</p>
         ) : (
           <div className="space-y-2">
             {fichadasHoy.slice(-10).reverse().map((f) => (
-              <div
-                key={f.id}
-                className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0"
-              >
+              <div key={f.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
                 <div className="flex items-center gap-3">
-                  <span
-                    className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                      f.tipo === "ENTRADA"
-                        ? "bg-green-50 text-green-700"
-                        : "bg-orange-50 text-orange-700"
-                    }`}
-                  >
+                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
+                    f.tipo === "ENTRADA" ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-700"
+                  }`}>
                     {f.tipo === "ENTRADA" ? "↑ Entrada" : "↓ Salida"}
                   </span>
                   <span className="text-sm text-gray-800">
                     {f.colaborador.nombre} {f.colaborador.apellido}
                   </span>
                 </div>
-                <span className="text-xs text-gray-500">
-                  {formatHoraARG(f.timestamp)}
-                </span>
+                <span className="text-xs text-gray-500">{formatHoraARG(f.timestamp)}</span>
               </div>
             ))}
           </div>
@@ -148,32 +123,13 @@ export default async function ResumenPage({
   )
 }
 
-function KpiCard({
-  label,
-  value,
-  variant,
-}: {
-  label: string
-  value: number
-  variant: "neutral" | "coral" | "dark"
-}) {
-  const styles = {
-    neutral: "bg-white border border-dashed border-gray-300",
-    coral: "bg-[#2563EB] text-white",
-    dark: "bg-[#1D4ED8] text-white",
-  }
+function KpiCard({ label, value, variant }: { label: string; value: number; variant: "neutral" | "coral" | "dark" }) {
+  const styles = { neutral: "bg-white border border-dashed border-gray-300", coral: "bg-[#2563EB] text-white", dark: "bg-[#1D4ED8] text-white" }
   const textStyles = { neutral: "text-gray-900", coral: "text-white", dark: "text-white" }
-  const labelStyles = {
-    neutral: "text-gray-500",
-    coral: "text-blue-100",
-    dark: "text-blue-100",
-  }
-
+  const labelStyles = { neutral: "text-gray-500", coral: "text-blue-100", dark: "text-blue-100" }
   return (
     <div className={`rounded-xl p-5 ${styles[variant]}`}>
-      <p className={`text-xs font-medium uppercase tracking-wide ${labelStyles[variant]}`}>
-        {label}
-      </p>
+      <p className={`text-xs font-medium uppercase tracking-wide ${labelStyles[variant]}`}>{label}</p>
       <p className={`text-3xl font-bold mt-1 ${textStyles[variant]}`}>{value}</p>
     </div>
   )
