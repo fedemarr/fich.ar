@@ -4,6 +4,7 @@ import { z } from "zod"
 import { normalizarCelular } from "@/lib/utils"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { registrarAudit } from "@/lib/audit"
+import { tags, invalidateTag } from "@/lib/queries"
 
 const schema = z.object({
   nombre: z.string().min(1),
@@ -68,6 +69,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
     detalle: { nombre: rest.nombre, apellido: rest.apellido },
   })
 
+  invalidateTag(tags.colaboradores(empresaId))
   return NextResponse.json({ ok: true })
 }
 
@@ -98,5 +100,6 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     detalle: { nombre: colaborador.nombre, apellido: colaborador.apellido },
   })
 
+  invalidateTag(tags.colaboradores(empresaId))
   return NextResponse.json({ ok: true })
 }

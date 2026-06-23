@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
+import { tags, invalidateTag } from "@/lib/queries"
 
 export async function DELETE(
   _req: Request,
@@ -26,5 +27,7 @@ export async function DELETE(
     data: { activo: false },
   })
 
+  invalidateTag(tags.jornadas(jornada.punto_fichaje.empresa_id))
+  invalidateTag(tags.puntos(jornada.punto_fichaje.empresa_id))
   return NextResponse.json({ ok: true })
 }

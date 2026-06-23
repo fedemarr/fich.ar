@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { tags, invalidateTag } from "@/lib/queries"
 
 const schema = z.object({
   nombre: z.string().min(1),
@@ -22,5 +23,6 @@ export async function POST(req: Request) {
     data: { ...parsed.data, empresa_id: session.user.empresaId },
   })
 
+  invalidateTag(tags.puntos(session.user.empresaId))
   return NextResponse.json(punto, { status: 201 })
 }

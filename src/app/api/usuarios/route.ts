@@ -12,6 +12,23 @@ const schema = z.object({
   rol: z.enum(["ADMIN", "MANAGER"]),
 })
 
+export async function GET() {
+  const session = await auth()
+  if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+
+  const usuarios = await prisma.usuario.findMany({
+    where: {
+      empresa_id: session.user.empresaId,
+      deleted_at: null,
+      rol: { not: "SUPER_ADMIN" },
+    },
+    select: { id: true, nombre: true, email: true, rol: true, activo: true, created_at: true },
+    orderBy: { nombre: "asc" },
+  })
+
+  return NextResponse.json(usuarios)
+}
+
 export async function POST(req: Request) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })

@@ -85,10 +85,10 @@ function exportarExcel(
     mapa[n.colaborador_id][dia] = n.tipo
   }
 
-  const headers = ["Colaborador", "Legajo", ...Array.from({ length: dias }, (_, i) => String(i + 1)), "P", "P-T", "P-ST", "AU"]
+  const headers = ["Colaborador", "Legajo", ...Array.from({ length: dias }, (_, i) => String(i + 1)), "P", "P-T", "P-ST", "S-T", "AU"]
   const rows = colaboradores.map((c) => {
     const fila: string[] = [`${c.apellido}, ${c.nombre}`, c.legajo ?? "N/A"]
-    let totalP = 0, totalPT = 0, totalPST = 0, totalAU = 0
+    let totalP = 0, totalPT = 0, totalPST = 0, totalST = 0, totalAU = 0
     for (let d = 1; d <= dias; d++) {
       const novedad = mapa[c.id]?.[d]
       const key = `${c.id}|${d}`
@@ -101,12 +101,13 @@ function exportarExcel(
         fila.push(badge.label)
         if (analisis?.tarde) totalPT++
         else if (analisis?.anticipada) totalPST++
+        else if (analisis?.salidaTarde) totalST++
         else totalP++
       } else {
         fila.push("")
       }
     }
-    fila.push(String(totalP), String(totalPT), String(totalPST), String(totalAU))
+    fila.push(String(totalP), String(totalPT), String(totalPST), String(totalST), String(totalAU))
     return fila
   })
 

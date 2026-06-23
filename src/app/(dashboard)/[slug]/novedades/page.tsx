@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { NovedadesCliente } from "@/components/novedades/novedades-cliente"
 import { hoyARG, fechaARG, inicioDiaARG } from "@/lib/utils"
 import type { TipoNovedad, Colaborador } from "@/generated/prisma/client"
+import { getColaboradoresSoloActivos } from "@/lib/queries"
 
 export interface InasistenciaDetectada {
   colaborador: Colaborador
@@ -55,10 +56,7 @@ export default async function NovedadesPage({
   hastaCalendarioReal.setTime(hastaCalendarioReal.getTime() + 24 * 60 * 60 * 1000 - 1)
 
   const [colaboradores, fichadasRecientes, novedadesRecientes, novedadesMes, fichadasMesRaw] = await Promise.all([
-    prisma.colaborador.findMany({
-      where: { empresa_id: empresaId, deleted_at: null, estado: "ACTIVO" },
-      orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
-    }),
+    getColaboradoresSoloActivos(empresaId),
     prisma.fichada.findMany({
       where: {
         empresa_id: empresaId,

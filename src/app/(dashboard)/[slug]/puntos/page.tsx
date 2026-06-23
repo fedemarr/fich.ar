@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { PuntosCliente } from "@/components/puntos/puntos-cliente"
+import { getPuntos } from "@/lib/queries"
 
 export default async function PuntosPage({
   params,
@@ -15,22 +16,8 @@ export default async function PuntosPage({
   const empresaId = session.user.empresaId
   const empresaNombre = session.user.empresaNombre
 
-  // Puntos y logo en paralelo — sin query empresa previa bloqueante
   const [puntos, empresaData] = await Promise.all([
-    prisma.puntoFichaje.findMany({
-      where: { empresa_id: empresaId, activo: true },
-      include: {
-        jornadas: {
-          where: { activo: true },
-          include: {
-            colaboradores: {
-              where: { fecha_hasta: null },
-            },
-          },
-        },
-      },
-      orderBy: { created_at: "asc" },
-    }),
+    getPuntos(empresaId),
     prisma.empresa.findUnique({
       where: { id: empresaId },
       select: { logo_url: true },

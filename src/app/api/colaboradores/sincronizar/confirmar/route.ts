@@ -1,6 +1,7 @@
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { tags, invalidateTag } from "@/lib/queries"
 
 const FilaAsociadoSchema = z.object({
   legajo: z.string(),
@@ -44,8 +45,14 @@ export async function POST(req: Request): Promise<Response> {
   const parsed = BodySchema.safeParse(await req.json())
   if (!parsed.success) return Response.json({ error: "Datos inválidos" }, { status: 400 })
 
-  if (parsed.data.tipo === "asociados") return confirmarAsociados(parsed.data, empresaId)
-  return confirmarServicios(parsed.data, empresaId)
+  let resp: Response
+  if (parsed.data.tipo === "asociados") {
+    resp = await confirmarAsociados(parsed.data, empresaId)
+  } else {
+    resp = await confirmarServicios(parsed.data, empresaId)
+  }
+  invalidateTag(tags.colaboradores(empresaId))
+  return resp
 }
 
 async function confirmarAsociados(

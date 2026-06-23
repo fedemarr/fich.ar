@@ -4,6 +4,7 @@ import { z } from "zod"
 import { normalizarCelular } from "@/lib/utils"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { registrarAudit } from "@/lib/audit"
+import { tags, invalidateTag } from "@/lib/queries"
 
 const schema = z.object({
   nombre: z.string().min(1),
@@ -56,5 +57,6 @@ export async function POST(req: Request) {
     detalle: { nombre: colaborador.nombre, apellido: colaborador.apellido, legajo },
   })
 
+  invalidateTag(tags.colaboradores(empresaId))
   return NextResponse.json(colaborador, { status: 201 })
 }

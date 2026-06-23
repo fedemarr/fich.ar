@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { tags, invalidateTag } from "@/lib/queries"
 
 const schema = z.object({
   punto_fichaje_id: z.string().min(1),
@@ -44,5 +45,7 @@ export async function POST(req: Request) {
     data: { ...jornadaData, punto_fichaje_id, empresa_id: session.user.empresaId },
   })
 
+  invalidateTag(tags.jornadas(session.user.empresaId))
+  invalidateTag(tags.puntos(session.user.empresaId))
   return NextResponse.json(jornada, { status: 201 })
 }

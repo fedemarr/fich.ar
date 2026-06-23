@@ -1,5 +1,6 @@
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
+import { tags, invalidateTag } from "@/lib/queries"
 
 // POST /api/colaboradores/reset
 // Elimina (soft-delete) todos los colaboradores de la empresa.
@@ -30,5 +31,6 @@ export async function POST(): Promise<Response> {
     data: { deleted_at: new Date(), estado: "DESACTIVADO" },
   })
 
+  invalidateTag(tags.colaboradores(empresaId))
   return Response.json({ ok: true, eliminados: ids.length })
 }

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { tags, invalidateTag } from "@/lib/queries"
 
 const schema = z.object({
   nombre: z.string().min(1).optional(),
@@ -28,6 +29,7 @@ export async function PUT(
   })
 
   if (punto.count === 0) return NextResponse.json({ error: "No encontrado" }, { status: 404 })
+  invalidateTag(tags.puntos(session.user.empresaId))
   return NextResponse.json({ ok: true })
 }
 
@@ -45,5 +47,6 @@ export async function DELETE(
     data: { activo: false },
   })
 
+  invalidateTag(tags.puntos(session.user.empresaId))
   return NextResponse.json({ ok: true })
 }

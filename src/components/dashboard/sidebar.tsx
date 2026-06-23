@@ -15,6 +15,7 @@ import {
   Settings,
   HelpCircle,
   Shield,
+  UserCog,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -96,6 +97,9 @@ export function Sidebar({ slug, rol }: SidebarProps) {
         {navMain.map((item) => (
           <NavLink key={item.href} {...item} slug={slug} />
         ))}
+        {(rol === "ADMIN" || rol === "SUPER_ADMIN") && (
+          <NavLink href="usuarios" label="Usuarios" icon={UserCog} slug={slug} />
+        )}
       </nav>
 
       <div className="px-3 pb-4 border-t border-gray-100 pt-3 space-y-1">
