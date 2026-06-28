@@ -37,6 +37,7 @@ export function PuntosCliente({ puntos, empresaId, empresaNombre, empresaLogoUrl
   const [verQr, setVerQr] = useState<PuntoConJornadas | null>(null)
   const [verJornadas, setVerJornadas] = useState<PuntoConJornadas | null>(null)
   const [limpiando, setLimpiando] = useState(false)
+  const [eliminandoId, setEliminandoId] = useState<string | null>(null)
 
   async function limpiarPuntos() {
     const ok = confirm(
@@ -167,10 +168,24 @@ export function PuntosCliente({ puntos, empresaId, empresaNombre, empresaLogoUrl
                     variant="outline"
                     size="sm"
                     className="h-8 w-8 p-0 text-gray-400 hover:text-red-500"
+                    disabled={eliminandoId === p.id}
                     onClick={async () => {
                       if (!confirm(`¿Eliminar "${p.nombre}"?`)) return
-                      await fetch(`/api/puntos/${p.id}`, { method: "DELETE" })
-                      router.refresh()
+                      setEliminandoId(p.id)
+                      try {
+                        const res = await fetch(`/api/puntos/${p.id}`, { method: "DELETE" })
+                        if (!res.ok) {
+                          const data = await res.json() as { error?: string }
+                          toast.error(data.error ?? "Error al eliminar el punto")
+                          return
+                        }
+                        toast.success(`"${p.nombre}" eliminado`)
+                        router.refresh()
+                      } catch {
+                        toast.error("Error de conexión")
+                      } finally {
+                        setEliminandoId(null)
+                      }
                     }}
                   >
                     <Trash2 size={13} />

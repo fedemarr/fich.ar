@@ -23,7 +23,7 @@ const PERMISOS = {
   VER_PUNTOS:             ["SUPER_ADMIN", "ADMIN", "MANAGER"],
   CREAR_PUNTO:            ["SUPER_ADMIN", "ADMIN"],
   EDITAR_PUNTO:           ["SUPER_ADMIN", "ADMIN"],
-  ELIMINAR_PUNTO:         ["SUPER_ADMIN"],
+  ELIMINAR_PUNTO:         ["SUPER_ADMIN", "ADMIN"],
   GENERAR_QR:             ["SUPER_ADMIN", "ADMIN"],
 
   // Proyección
