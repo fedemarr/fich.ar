@@ -34,8 +34,8 @@ function cargarImagenBase64(url: string): Promise<string> {
 
 export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDialogProps) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://fich-ar.vercel.app"
-  const url = `${appUrl}/fichar/${punto.qr_token}`
+  const waNumber = process.env.NEXT_PUBLIC_META_WA_NUMBER ?? ""
+  const url = `https://wa.me/${waNumber}?text=FICHAR%20${punto.qr_token}`
 
   const [logoBase64, setLogoBase64] = useState<string>("")
 
@@ -252,7 +252,7 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
       <span class="punto-nombre">📍 ${nombrePunto}</span>
     </div>
     <div class="cuerpo">
-      <p class="titulo">Fichá tu asistencia<br/>escaneando el <em>código QR</em></p>
+      <p class="titulo">Fichá tu asistencia<br/>por <em>WhatsApp</em></p>
       <div class="qr-wrap">
         <img src="${qrDataUrl}" alt="QR Fich.ar" />
       </div>
@@ -262,28 +262,28 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
         <div class="paso">
           <div class="paso-num">1</div>
           <div>
-            <div class="paso-texto">Abrí la cámara de tu celular</div>
-            <div class="paso-sub">Cualquier cámara moderna reconoce el QR</div>
+            <div class="paso-texto">Abrí la cámara y escaneá el QR</div>
+            <div class="paso-sub">Se abre WhatsApp automáticamente</div>
           </div>
         </div>
         <div class="paso">
           <div class="paso-num">2</div>
           <div>
-            <div class="paso-texto">Apuntá al código QR y tocá el link</div>
-            <div class="paso-sub">Se abre automáticamente en tu navegador</div>
+            <div class="paso-texto">Presioná Enviar en WhatsApp</div>
+            <div class="paso-sub">El mensaje ya está listo, solo envialo</div>
           </div>
         </div>
         <div class="paso">
           <div class="paso-num">3</div>
           <div>
-            <div class="paso-texto">Ingresá tu DNI la primera vez</div>
-            <div class="paso-sub">Después el sistema te recuerda</div>
+            <div class="paso-texto">Elegí Entrada o Salida</div>
+            <div class="paso-sub">Tocá el botón que corresponda</div>
           </div>
         </div>
         <div class="paso">
           <div class="paso-num">4</div>
           <div>
-            <div class="paso-texto">Elegí Entrada o Salida y confirmá</div>
+            <div class="paso-texto">Compartí tu ubicación</div>
             <div class="paso-sub">¡Listo! Tu fichada queda registrada</div>
           </div>
         </div>
