@@ -59,6 +59,44 @@ function parsearFecha(raw: string | number): string {
   return str
 }
 
+// Acepta "09:00", "9:00", "9", o serial de Excel ("0.375" tras pasar por col())
+function parsearHora(raw: string): string {
+  if (!raw) return ""
+  const str = raw.trim()
+  const m = str.match(/^(\d{1,2})[:.hH](\d{2})/)
+  if (m) return `${m[1].padStart(2, "0")}:${m[2]}`
+  const n = Number(str.replace(",", "."))
+  if (!isNaN(n)) {
+    if (n >= 0 && n < 1) {
+      const totalMin = Math.round(n * 24 * 60)
+      const h = Math.floor(totalMin / 60) % 24
+      const min = totalMin % 60
+      return `${String(h).padStart(2, "0")}:${String(min).padStart(2, "0")}`
+    }
+    if (n >= 1 && n < 24) return `${String(Math.floor(n)).padStart(2, "0")}:00`
+  }
+  return ""
+}
+
+function parsearHorasNumero(raw: string): number | null {
+  if (!raw) return null
+  const n = Number(raw.trim().replace(",", "."))
+  return isNaN(n) ? null : n
+}
+
+function sumarHoras(horaInicio: string, horas: number): string {
+  const [h, m] = horaInicio.split(":").map(Number)
+  const totalMin = h * 60 + m + Math.round(horas * 60)
+  const hf = Math.floor(totalMin / 60) % 24
+  const mf = ((totalMin % 60) + 60) % 60
+  return `${String(hf).padStart(2, "0")}:${String(mf).padStart(2, "0")}`
+}
+
+function matchPunto(nombreBuscado: string, puntos: { id: string; nombre: string }[]): string | undefined {
+  const low = nombreBuscado.toLowerCase()
+  return puntos.find((p) => p.nombre.toLowerCase().includes(low) || low.includes(p.nombre.toLowerCase()))?.id
+}
+
 export interface FilaAsociado {
   legajo: string
   apellido: string
@@ -69,6 +107,10 @@ export interface FilaAsociado {
   email: string
   sector: string
   fecha_ingreso: string
+  punto_qr_nombre?: string
+  punto_qr_id?: string | null
+  hora_entrada?: string
+  hora_salida?: string
 }
 
 export interface ColabDesactivado {
@@ -86,6 +128,7 @@ export interface PreviewAsociados {
   actualizados: FilaAsociado[]
   sinCambios: number
   desactivados: ColabDesactivado[]
+  sinPuntoQr: string[]
 }
 
 export interface FilaServicio {
@@ -169,6 +212,12 @@ async function previewAsociados(
   sheets: string[],
   sheetActual: string
 ): Promise<Response> {
+  const puntos = await prisma.puntoFichaje.findMany({
+    where: { empresa_id: empresaId, activo: true },
+    select: { id: true, nombre: true },
+  })
+
+  const sinPuntoQrSet = new Set<string>()
   const excelMap = new Map<string, FilaAsociado>()
   for (const row of rows) {
     // Soporta: formato clásico (NRO SOC/NOMBRE), formato Olimpia (Soc. N°/Apellido), formulario Google (Nombre y Apellido/DNI)
@@ -195,7 +244,34 @@ async function previewAsociados(
     const fechaRaw = row["Fecha de Ingreso"] ?? row["FECHA DE INGRESO"] ?? row["fecha_ingreso"] ?? row["Fecha Ingreso"] ?? ""
     const fecha_ingreso = parsearFecha(fechaRaw as string | number)
 
-    excelMap.set(clave, { legajo, apellido, nombre, identificacion, domicilio, celular, email, sector, fecha_ingreso })
+    // Punto QR + horario (opcional, por fila) — define la jornada del colaborador
+    const puntoQrNombre = col(row, "Punto QR", "PUNTO QR", "Punto", "PUNTO", "Lugar de Trabajo", "Objetivo")
+    const horaEntradaRaw = col(row, "Hora Entrada", "HORA ENTRADA", "Hora de Entrada", "Entrada")
+    const horasRaw = col(row, "Horas", "HORAS", "Horas Trabajo", "Horas Diarias", "Cantidad de Horas")
+
+    let punto_qr_nombre: string | undefined
+    let punto_qr_id: string | null | undefined
+    let hora_entrada: string | undefined
+    let hora_salida: string | undefined
+
+    if (puntoQrNombre) {
+      punto_qr_nombre = puntoQrNombre
+      const matchId = matchPunto(puntoQrNombre, puntos)
+      punto_qr_id = matchId ?? null
+      if (!matchId) sinPuntoQrSet.add(`${legajo} ${nombreCompleto} — "${puntoQrNombre}"`)
+
+      const horaInicio = parsearHora(horaEntradaRaw)
+      const horas = parsearHorasNumero(horasRaw)
+      if (horaInicio && horas != null) {
+        hora_entrada = horaInicio
+        hora_salida = sumarHoras(horaInicio, horas)
+      }
+    }
+
+    excelMap.set(clave, {
+      legajo, apellido, nombre, identificacion, domicilio, celular, email, sector, fecha_ingreso,
+      punto_qr_nombre, punto_qr_id, hora_entrada, hora_salida,
+    })
   }
 
   if (excelMap.size === 0) {
@@ -233,9 +309,10 @@ async function previewAsociados(
     const cambioCelular = fila.celular && fila.celular !== (existente.celular ?? "")
     const cambioEmail = fila.email && fila.email !== (existente.email ?? "")
     const cambioSector = fila.sector && fila.sector !== (existente.sector ?? "")
+    const cambioJornada = Boolean(fila.punto_qr_id && fila.hora_entrada && fila.hora_salida)
     const estabaDesactivado = existente.estado === "DESACTIVADO"
 
-    if (cambioNombre || cambioDNI || cambioCelular || cambioEmail || cambioSector || estabaDesactivado) {
+    if (cambioNombre || cambioDNI || cambioCelular || cambioEmail || cambioSector || cambioJornada || estabaDesactivado) {
       actualizados.push(fila)
     } else {
       sinCambios++
@@ -250,6 +327,7 @@ async function previewAsociados(
     tipo: "asociados",
     sheets,
     sheet_actual: sheetActual,
+    sinPuntoQr: Array.from(sinPuntoQrSet),
     creados,
     actualizados,
     sinCambios,

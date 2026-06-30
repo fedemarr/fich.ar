@@ -22,6 +22,10 @@ interface FilaAsociado {
   email: string
   sector: string
   fecha_ingreso: string
+  punto_qr_nombre?: string
+  punto_qr_id?: string | null
+  hora_entrada?: string
+  hora_salida?: string
 }
 
 interface ColabDesactivado {
@@ -39,6 +43,7 @@ interface PreviewAsociados {
   actualizados: FilaAsociado[]
   sinCambios: number
   desactivados: ColabDesactivado[]
+  sinPuntoQr: string[]
 }
 
 interface FilaServicio {
@@ -194,7 +199,7 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas
                         {t === "asociados" ? "Lista de asociados" : "Servicios por operario"}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {t === "asociados" ? "Columnas: Soc. N°, Apellido, DNI, CONTACTO, Sector..." : "Columnas: NRO SOC, NOMBRE, OBJETIVO"}
+                        {t === "asociados" ? "Columnas: Soc. N°, Apellido, DNI, CONTACTO, Sector... (opcional: Punto QR, Hora Entrada, Horas)" : "Columnas: NRO SOC, NOMBRE, OBJETIVO"}
                       </p>
                     </div>
                   </label>
@@ -296,7 +301,7 @@ function PreviewAsociadosStep({
   onVolver: () => void
   onConfirmar: () => void
 }) {
-  const { creados, actualizados, sinCambios, desactivados, sheets, sheet_actual } = preview
+  const { creados, actualizados, sinCambios, desactivados, sheets, sheet_actual, sinPuntoQr } = preview
 
   const tabs: { id: TabId; label: string; color: string; count: number }[] = [
     ...(creados.length > 0 ? [{ id: "creados" as TabId, label: "Nuevos", color: "green", count: creados.length }] : []),
@@ -345,6 +350,15 @@ function PreviewAsociadosStep({
         {totalCambios === 0 && sinCambios === 0 && <span className="text-xs text-gray-400">No se encontraron datos</span>}
       </div>
 
+      {sinPuntoQr.length > 0 && (
+        <div className="bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 shrink-0">
+          <p className="text-xs font-semibold text-amber-700 mb-0.5">
+            {sinPuntoQr.length} fila{sinPuntoQr.length !== 1 ? "s" : ""} con Punto QR no encontrado (no se asignó jornada)
+          </p>
+          <p className="text-xs text-amber-600">{sinPuntoQr.slice(0, 5).join(", ")}{sinPuntoQr.length > 5 ? ` y ${sinPuntoQr.length - 5} más` : ""}</p>
+        </div>
+      )}
+
       {/* Tabs + tabla */}
       {tabs.length > 0 && (
         <div className="flex flex-col min-h-0 flex-1 border border-gray-100 rounded-xl overflow-hidden">
@@ -377,6 +391,7 @@ function PreviewAsociadosStep({
                     <th className="px-3 py-2 text-left text-gray-400 font-medium w-24">DNI</th>
                     <th className="px-3 py-2 text-left text-gray-400 font-medium w-32">Celular</th>
                     <th className="px-3 py-2 text-left text-gray-400 font-medium">Sector</th>
+                    <th className="px-3 py-2 text-left text-gray-400 font-medium w-36">Punto QR / Horario</th>
                   </>}
                 </tr>
               </thead>
@@ -391,11 +406,25 @@ function PreviewAsociadosStep({
                       <td className="px-3 py-1.5 text-gray-400 max-w-[160px] truncate" title={(f as FilaAsociado).sector}>
                         {(f as FilaAsociado).sector || "—"}
                       </td>
+                      <td className="px-3 py-1.5 text-xs">
+                        {(f as FilaAsociado).punto_qr_nombre ? (
+                          (f as FilaAsociado).punto_qr_id ? (
+                            <span className="text-gray-600">
+                              {(f as FilaAsociado).punto_qr_nombre}
+                              {(f as FilaAsociado).hora_entrada && (
+                                <span className="text-gray-400"> · {(f as FilaAsociado).hora_entrada}–{(f as FilaAsociado).hora_salida}</span>
+                              )}
+                            </span>
+                          ) : (
+                            <span className="text-amber-600">{(f as FilaAsociado).punto_qr_nombre} (no encontrado)</span>
+                          )
+                        ) : "—"}
+                      </td>
                     </>}
                   </tr>
                 ))}
                 {filasMostradas.length === 0 && (
-                  <tr><td colSpan={5} className="px-3 py-6 text-center text-gray-400">Sin filas</td></tr>
+                  <tr><td colSpan={6} className="px-3 py-6 text-center text-gray-400">Sin filas</td></tr>
                 )}
               </tbody>
             </table>

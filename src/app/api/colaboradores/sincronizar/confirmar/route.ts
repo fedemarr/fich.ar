@@ -13,6 +13,9 @@ const FilaAsociadoSchema = z.object({
   email: z.string().optional().default(""),
   sector: z.string().optional().default(""),
   fecha_ingreso: z.string().optional().default(""),
+  punto_qr_id: z.string().nullable().optional(),
+  hora_entrada: z.string().optional(),
+  hora_salida: z.string().optional(),
 })
 
 const FilaServicioSchema = z.object({
@@ -55,6 +58,59 @@ export async function POST(req: Request): Promise<Response> {
   return resp
 }
 
+// Busca una jornada existente en ese punto con el mismo horario, o crea una nueva (L-V presencial)
+async function resolverJornadaPunto(
+  empresaId: string,
+  puntoId: string,
+  horaInicio: string,
+  horaFin: string
+): Promise<string> {
+  const existente = await prisma.jornada.findFirst({
+    where: { empresa_id: empresaId, punto_fichaje_id: puntoId, hora_inicio: horaInicio, hora_fin: horaFin, activo: true },
+  })
+  if (existente) return existente.id
+
+  const nueva = await prisma.jornada.create({
+    data: {
+      empresa_id: empresaId,
+      punto_fichaje_id: puntoId,
+      nombre: `L-V ${horaInicio} a ${horaFin}`,
+      hora_inicio: horaInicio,
+      hora_fin: horaFin,
+      lunes_presencial: true,
+      martes_presencial: true,
+      miercoles_presencial: true,
+      jueves_presencial: true,
+      viernes_presencial: true,
+    },
+  })
+  return nueva.id
+}
+
+// Asigna la jornada que corresponda: la calculada por fila (punto QR + horario) tiene prioridad sobre la global
+async function asignarJornadaSiCorresponde(
+  colabId: string,
+  empresaId: string,
+  fila: z.infer<typeof FilaAsociadoSchema>,
+  jornadaIdGlobal?: string
+) {
+  let jornadaId: string | undefined
+  if (fila.punto_qr_id && fila.hora_entrada && fila.hora_salida) {
+    jornadaId = await resolverJornadaPunto(empresaId, fila.punto_qr_id, fila.hora_entrada, fila.hora_salida)
+  } else if (jornadaIdGlobal) {
+    jornadaId = jornadaIdGlobal
+  }
+  if (!jornadaId) return
+
+  await prisma.colaboradorJornada.updateMany({
+    where: { colaborador_id: colabId, fecha_hasta: null },
+    data: { fecha_hasta: new Date() },
+  })
+  await prisma.colaboradorJornada.create({
+    data: { colaborador_id: colabId, jornada_id: jornadaId, fecha_desde: new Date() },
+  })
+}
+
 async function confirmarAsociados(
   data: {
     tipo: "asociados"
@@ -94,11 +150,7 @@ async function confirmarAsociados(
         estado: "ACTIVO",
       },
     })
-    if (jornada_id) {
-      await prisma.colaboradorJornada.create({
-        data: { colaborador_id: colab.id, jornada_id, fecha_desde: new Date() },
-      })
-    }
+    await asignarJornadaSiCorresponde(colab.id, empresaId, fila, jornada_id)
     creados++
   }
 
@@ -122,16 +174,7 @@ async function confirmarAsociados(
         deleted_at: null,
       },
     })
-    if (jornada_id) {
-      // Cerrar jornadas vigentes y asignar la nueva
-      await prisma.colaboradorJornada.updateMany({
-        where: { colaborador_id: id, fecha_hasta: null },
-        data: { fecha_hasta: new Date() },
-      })
-      await prisma.colaboradorJornada.create({
-        data: { colaborador_id: id, jornada_id, fecha_desde: new Date() },
-      })
-    }
+    await asignarJornadaSiCorresponde(id, empresaId, fila, jornada_id)
     actualizados++
   }
 
