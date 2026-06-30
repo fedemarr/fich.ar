@@ -3,8 +3,11 @@ import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { LayoutDashboard } from "lucide-react"
 import { GraficoFichadas } from "@/components/resumen/grafico-fichadas"
+import { AutoRefresh } from "@/components/resumen/auto-refresh"
 import { hoyARG, inicioDiaARG, finDiaARG, horaARG, formatHoraARG } from "@/lib/utils"
 import type { DatoGrafico } from "@/types"
+
+export const dynamic = "force-dynamic"
 
 export default async function ResumenPage({
   params,
@@ -76,10 +79,13 @@ export default async function ResumenPage({
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center gap-2">
-        <LayoutDashboard size={20} className="text-[#2563EB]" />
-        <h1 className="text-xl font-semibold text-gray-900">Resumen del día</h1>
-        <span className="text-sm text-gray-500 ml-2 capitalize">{fechaFormateada}</span>
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2">
+          <LayoutDashboard size={20} className="text-[#2563EB]" />
+          <h1 className="text-xl font-semibold text-gray-900">Resumen del día</h1>
+          <span className="text-sm text-gray-500 ml-2 capitalize">{fechaFormateada}</span>
+        </div>
+        <AutoRefresh intervalSeconds={30} />
       </div>
 
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
