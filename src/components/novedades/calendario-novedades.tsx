@@ -25,6 +25,7 @@ interface CalendarioNovedadesProps {
 const COLORES_BG: Record<TipoNovedad, string> = {
   P:   "bg-white text-gray-600 border border-gray-200",
   PT:  "bg-orange-50 text-orange-600 border border-orange-200",
+  ST:  "bg-purple-50 text-purple-600 border border-purple-200",
   AU:  "bg-red-700 text-white",
   VAC: "bg-amber-300 text-amber-900",
   EN:  "bg-orange-400 text-white",
@@ -39,6 +40,7 @@ const COLORES_BG: Record<TipoNovedad, string> = {
 // Etiqueta visible en la celda (más corta para el grid)
 const LABEL_CELDA: Partial<Record<TipoNovedad, string>> = {
   PT: "P-T",
+  ST: "S-T",
   VIR: "VIR",
   HDO: "HDO",
   DES: "DES",

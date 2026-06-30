@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createHmac } from "crypto"
 import { prisma } from "@/lib/prisma"
 import { rateLimitWA } from "@/lib/rate-limit"
-import { getEstadoBot, setEstadoBot, delEstadoBot, type EstadoBotWA } from "@/lib/redis"
+import { redis, getEstadoBot, setEstadoBot, delEstadoBot, type EstadoBotWA } from "@/lib/redis"
 import {
   enviarTexto,
   enviarBotones,
@@ -60,7 +60,10 @@ export async function POST(req: Request) {
   try {
     await procesarWebhook(payload)
   } catch (e) {
-    console.error("[WA] Error procesando:", e)
+    const stack = e instanceof Error ? e.stack ?? e.message : String(e)
+    // Guardar en Redis para debug (clave expira en 10 min)
+    try { await redis.set("wa:last_error", stack.slice(0, 800), { ex: 600 }) } catch { /* ignore */ }
+    console.error("[WA_ERR]", stack.slice(0, 200))
   }
 
   return NextResponse.json({ status: "ok" })
@@ -87,14 +90,12 @@ async function procesarWebhook(payload: WAPayload) {
         wa_message_id: waId,
       },
     })
-
     await manejarMensaje(from, msg)
   }
 }
 
-// Argentina: WA envía 549XXXXXXXXXX pero la API espera 54XXXXXXXXXX
+// Argentina: usar el número exacto que WA envía (549XXXXXXXXXX) para el reply
 function toEnvio(from: string): string {
-  if (/^549\d{10}$/.test(from)) return "54" + from.slice(3)
   return from
 }
 
@@ -199,13 +200,8 @@ async function manejarMensaje(from: string, msg: WAMessage) {
   const tokenMatch = texto.match(/FICHAR\s+(\S+)/i)
   const token = tokenMatch?.[1]
 
-  console.log("[WA_FLOW] from:", from, "| tipo:", msg.type, "| texto:", texto.slice(0, 80), "| token:", token ?? "NO_TOKEN")
-
   if (!token) {
-    await enviarTexto({
-      to,
-      body: "¡Hola! Para registrar tu fichaje escaneá el código QR de tu lugar de trabajo.",
-    })
+    await enviarTexto({ to, body: "¡Hola! Para registrar tu fichaje escaneá el código QR de tu lugar de trabajo." })
     return
   }
 
@@ -219,7 +215,6 @@ async function manejarMensaje(from: string, msg: WAMessage) {
     return
   }
 
-  // Intentar identificar por celular
   const colaborador = await identificarColaborador(from, punto.empresa_id)
 
   if (colaborador) {
@@ -241,7 +236,6 @@ async function manejarMensaje(from: string, msg: WAMessage) {
       ],
     })
   } else {
-    // No identificado por celular → pedir DNI
     await setEstadoBot(from, {
       paso: "esperando_dni",
       qr_token: token,

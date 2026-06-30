@@ -1,7 +1,12 @@
 import { createHmac } from "crypto"
 import { NextResponse } from "next/server"
+import { redis } from "@/lib/redis"
 
-// Endpoint temporal de diagnóstico — eliminar post-presentación
+export async function GET() {
+  const lastError = await redis.get<string>("wa:last_error")
+  return NextResponse.json({ last_error: lastError ?? "none" })
+}
+
 export async function POST(req: Request) {
   const body = await req.text()
   const secret = process.env.META_APP_SECRET ?? ""
@@ -9,6 +14,5 @@ export async function POST(req: Request) {
   return NextResponse.json({
     prefix: hash.slice(0, 8),
     secret_length: secret.length,
-    secret_set: secret.length > 0,
   })
 }

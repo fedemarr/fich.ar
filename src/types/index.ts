@@ -80,6 +80,7 @@ export interface DatoGrafico {
 export const ETIQUETAS_NOVEDAD: Record<TipoNovedad, string> = {
   P: "Presente",
   PT: "Presente tarde",
+  ST: "Salida tarde",
   AU: "Ausente",
   VAC: "Vacaciones",
   EN: "Enfermedad",

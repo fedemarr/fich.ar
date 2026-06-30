@@ -34,8 +34,8 @@ function cargarImagenBase64(url: string): Promise<string> {
 
 export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDialogProps) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const waNumber = process.env.NEXT_PUBLIC_META_WA_NUMBER ?? ""
-  const url = `https://wa.me/${waNumber}?text=FICHAR%20${punto.qr_token}`
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://fich-ar.lat"
+  const url = `${appUrl}/fichar/${punto.qr_token}`
 
   const [logoBase64, setLogoBase64] = useState<string>("")
 
@@ -252,7 +252,7 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
       <span class="punto-nombre">📍 ${nombrePunto}</span>
     </div>
     <div class="cuerpo">
-      <p class="titulo">Fichá tu asistencia<br/>por <em>WhatsApp</em></p>
+      <p class="titulo">Registrá tu<br/><em>asistencia</em></p>
       <div class="qr-wrap">
         <img src="${qrDataUrl}" alt="QR Fich.ar" />
       </div>
@@ -262,15 +262,15 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
         <div class="paso">
           <div class="paso-num">1</div>
           <div>
-            <div class="paso-texto">Abrí la cámara y escaneá el QR</div>
-            <div class="paso-sub">Se abre WhatsApp automáticamente</div>
+            <div class="paso-texto">Escaneá el código QR</div>
+            <div class="paso-sub">Con la cámara de tu celular</div>
           </div>
         </div>
         <div class="paso">
           <div class="paso-num">2</div>
           <div>
-            <div class="paso-texto">Presioná Enviar en WhatsApp</div>
-            <div class="paso-sub">El mensaje ya está listo, solo envialo</div>
+            <div class="paso-texto">Ingresá tu DNI</div>
+            <div class="paso-sub">Para identificarte en el sistema</div>
           </div>
         </div>
         <div class="paso">
@@ -283,7 +283,7 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
         <div class="paso">
           <div class="paso-num">4</div>
           <div>
-            <div class="paso-texto">Compartí tu ubicación</div>
+            <div class="paso-texto">Permitís tu ubicación</div>
             <div class="paso-sub">¡Listo! Tu fichada queda registrada</div>
           </div>
         </div>
