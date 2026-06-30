@@ -176,6 +176,16 @@ export default function FicharPage() {
           setEstado("error-gps")
           return
         }
+        if (res.status === 404) {
+          // Colaborador guardado ya no existe o está inactivo → pedir DNI de nuevo
+          detenerGPS()
+          localStorage.removeItem(STORAGE_ID)
+          localStorage.removeItem(STORAGE_NOMBRE)
+          localStorage.removeItem(STORAGE_APELLIDO)
+          setColaborador(null)
+          setEstado("pedir-dni")
+          return
+        }
         if (!data.ok) {
           detenerGPS()
           setErrorMsg(data.error ?? "No pudimos verificar tu ubicación")
@@ -332,6 +342,12 @@ export default function FicharPage() {
       return
     }
     if (!data.ok) {
+      // Si el error es que ya fichó hoy, mostrar "Jornada completa" en vez de error genérico
+      if (data.error?.includes("Ya registraste")) {
+        setNextTipo(null)
+        setEstado("eligiendo")
+        return
+      }
       setErrorMsg(data.error ?? "Error al registrar la fichada")
       setEstado("error-generico")
       return
@@ -578,6 +594,12 @@ export default function FicharPage() {
                 </div>
               )}
               <p className="text-gray-400 text-sm pt-2">Podés cerrar esta página</p>
+              <button
+                onClick={reintentar}
+                className="text-xs text-gray-400 hover:text-gray-600 underline pt-1"
+              >
+                Volver al inicio
+              </button>
             </div>
           )}
 
