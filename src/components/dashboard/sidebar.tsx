@@ -40,7 +40,7 @@ const navBottom = [
   { href: "ayuda",         label: "Centro de Ayuda",  icon: HelpCircle },
 ]
 
-function NavLink({ href, label, icon: Icon, slug }: { href: string; label: string; icon: React.ElementType; slug: string }) {
+function NavLink({ href, label, icon: Icon, slug, badge }: { href: string; label: string; icon: React.ElementType; slug: string; badge?: number }) {
   const pathname = usePathname()
   const fullHref = `/${slug}/${href}`
   const isActive = pathname === fullHref || pathname.startsWith(`${fullHref}/`)
@@ -55,15 +55,22 @@ function NavLink({ href, label, icon: Icon, slug }: { href: string; label: strin
           : "text-gray-600 hover:text-gray-900 hover:bg-gray-50"
       )}
     >
-      <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+      <span className="relative">
+        <Icon size={18} strokeWidth={isActive ? 2.5 : 2} />
+        {badge != null && badge > 0 && (
+          <span className="absolute -top-1 -right-1 w-2 h-2 rounded-full bg-red-500" />
+        )}
+      </span>
       {label}
     </Link>
   )
 }
 
 export function Sidebar({ slug, rol }: SidebarProps) {
+  const pathname = usePathname()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoError, setLogoError] = useState(false)
+  const [notifCount, setNotifCount] = useState(0)
 
   useEffect(() => {
     fetch("/api/empresa")
@@ -73,6 +80,17 @@ export function Sidebar({ slug, rol }: SidebarProps) {
       })
       .catch(() => {/* silently ignore */})
   }, [])
+
+  useEffect(() => {
+    if (pathname.includes("/notificaciones")) {
+      setNotifCount(0)
+      return
+    }
+    fetch("/api/notificaciones/count")
+      .then((r) => r.json())
+      .then((data: { noLeidas: number }) => setNotifCount(data.noLeidas ?? 0))
+      .catch(() => {})
+  }, [pathname])
 
   return (
     <aside className="w-60 min-h-screen bg-white border-r border-gray-200 flex flex-col">
@@ -95,7 +113,12 @@ export function Sidebar({ slug, rol }: SidebarProps) {
 
       <nav className="flex-1 px-3 py-4 space-y-1">
         {navMain.map((item) => (
-          <NavLink key={item.href} {...item} slug={slug} />
+          <NavLink
+            key={item.href}
+            {...item}
+            slug={slug}
+            badge={item.href === "notificaciones" ? notifCount : undefined}
+          />
         ))}
         {(rol === "ADMIN" || rol === "SUPER_ADMIN") && (
           <NavLink href="usuarios" label="Usuarios" icon={UserCog} slug={slug} />

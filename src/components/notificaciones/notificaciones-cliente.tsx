@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { Bell, CheckCheck, AlertCircle, Info, Megaphone, UserX } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -44,6 +44,15 @@ function formatFechaRelativa(date: Date | string) {
 export function NotificacionesCliente({ notificaciones: notifs }: NotificacionesClienteProps) {
   const router = useRouter()
   const [filtro, setFiltro] = useState<"todas" | "no_leidas">("todas")
+
+  useEffect(() => {
+    const tieneNoLeidas = notifs.some((n) => n.estado === "NO_LEIDA")
+    if (!tieneNoLeidas) return
+    fetch("/api/notificaciones/leer-todas", { method: "POST" })
+      .then(() => router.refresh())
+      .catch(() => {})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const noLeidas = notifs.filter((n) => n.estado === "NO_LEIDA")
   const filtradas = filtro === "no_leidas" ? noLeidas : notifs
