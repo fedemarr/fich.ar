@@ -51,16 +51,14 @@ export default async function ResumenPage({
     fichadasHoy.filter((f) => f.tipo === "ENTRADA").map((f) => f.colaborador_id)
   ).size
 
-  const horasRange = Array.from({ length: 14 }, (_, i) => i + 7)
+  const horasRange = Array.from({ length: 24 }, (_, i) => i)
   const conteoHoras: Record<number, { ingresos: number; salidas: number }> = {}
   for (const h of horasRange) conteoHoras[h] = { ingresos: 0, salidas: 0 }
 
   for (const f of fichadasHoy) {
     const hora = horaARG(f.timestamp)
-    if (hora >= 7 && hora <= 20) {
-      if (f.tipo === "ENTRADA") conteoHoras[hora].ingresos++
-      else conteoHoras[hora].salidas++
-    }
+    if (f.tipo === "ENTRADA") conteoHoras[hora].ingresos++
+    else conteoHoras[hora].salidas++
   }
 
   const datosGrafico: DatoGrafico[] = horasRange.map((h) => ({
