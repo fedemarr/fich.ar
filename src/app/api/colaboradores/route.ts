@@ -10,6 +10,7 @@ const schema = z.object({
   nombre: z.string().min(1),
   apellido: z.string().min(1),
   celular: z.string().min(10),
+  identificacion: z.string().optional(),
   email: z.string().email().optional().or(z.literal("")),
   legajo: z.string().optional(),
   sector: z.string().optional(),
@@ -26,7 +27,7 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
 
-  const { jornada_id, email, legajo, sector, domicilio, ...rest } = parsed.data
+  const { jornada_id, email, legajo, sector, domicilio, identificacion, ...rest } = parsed.data
   const empresaId = session.user.empresaId
 
   const colaborador = await prisma.colaborador.create({
@@ -37,6 +38,7 @@ export async function POST(req: Request) {
       legajo: legajo || null,
       sector: sector || null,
       domicilio: domicilio || null,
+      identificacion: identificacion || null,
       empresa_id: empresaId,
     },
   })
