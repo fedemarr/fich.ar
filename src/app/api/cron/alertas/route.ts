@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { esDiaPresencial, esDiaLaboral } from "@/lib/jornadas"
+import { hoyARG, inicioDiaARG, finDiaARG } from "@/lib/utils"
 
 // Vercel Cron — runs 13:00 UTC = 10:00 ARG
 export async function GET(req: Request) {
@@ -9,10 +10,9 @@ export async function GET(req: Request) {
     return new Response("Unauthorized", { status: 401 })
   }
 
-  const ahora = new Date()
-  // Argentina timezone offset: UTC-3
-  const fechaArg = new Date(ahora.getTime() - 3 * 60 * 60 * 1000)
-  fechaArg.setHours(0, 0, 0, 0)
+  const hoyStr = hoyARG()
+  const fechaArg = inicioDiaARG(hoyStr)   // ARG 00:00 = UTC 03:00
+  const finDia = finDiaARG(hoyStr)        // ARG 23:59:59 = UTC next day 02:59:59
 
   const empresas = await prisma.empresa.findMany({
     where: { activa: true, deleted_at: null },
@@ -37,10 +37,7 @@ export async function GET(req: Request) {
       where: {
         empresa_id: empresa.id,
         tipo: "ENTRADA",
-        timestamp: {
-          gte: fechaArg,
-          lte: new Date(fechaArg.getTime() + 86400000 - 1),
-        },
+        timestamp: { gte: fechaArg, lte: finDia },
       },
       select: { colaborador_id: true },
     })
@@ -59,21 +56,23 @@ export async function GET(req: Request) {
       const novedadExistente = await prisma.novedad.findFirst({
         where: {
           colaborador_id: colab.id,
-          fecha: {
-            gte: fechaArg,
-            lte: new Date(fechaArg.getTime() + 86400000 - 1),
-          },
+          fecha: { gte: fechaArg, lte: finDia },
         },
       })
       if (novedadExistente) continue
 
       // Crear novedad AU e inasistencia
+      // Para @db.Date usamos mediodía UTC del día ARG para evitar drift de timezone
+      const fechaNovedad = new Date(hoyStr + "T12:00:00.000Z")
+      const fechaLabel = new Date(hoyStr + "T12:00:00.000Z").toLocaleDateString("es-AR", {
+        timeZone: "America/Argentina/Buenos_Aires",
+      })
       await prisma.$transaction([
         prisma.novedad.create({
           data: {
             empresa_id: empresa.id,
             colaborador_id: colab.id,
-            fecha: fechaArg,
+            fecha: fechaNovedad,
             tipo: "AU",
             observacion: "Generada automáticamente por el sistema",
           },
@@ -84,7 +83,7 @@ export async function GET(req: Request) {
             colaborador_id: colab.id,
             tipo: "INASISTENCIA",
             titulo: `Inasistencia — ${colab.apellido}, ${colab.nombre}`,
-            descripcion: `Sin fichada de entrada el ${fechaArg.toLocaleDateString("es-AR")}`,
+            descripcion: `Sin fichada de entrada el ${fechaLabel}`,
           },
         }),
       ])

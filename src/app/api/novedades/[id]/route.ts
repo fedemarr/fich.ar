@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import type { TipoNovedad } from "@/generated/prisma/client"
 
-const TIPOS_NOVEDAD = ["P","PT","AU","VAC","EN","FR","FE","HDO","C","DES","VIR"] as const
+const TIPOS_NOVEDAD = ["P","PT","ST","AU","VAC","EN","FR","FE","HDO","C","DES","VIR"] as const
 
 const schema = z.object({
   fecha: z.string().optional(),

@@ -5,7 +5,7 @@ import type { TipoNovedad } from "@/generated/prisma/client"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { registrarAudit } from "@/lib/audit"
 
-const TIPOS_NOVEDAD = ["P", "PT", "AU", "VAC", "EN", "FR", "FE", "HDO", "C", "DES", "VIR"] as const
+const TIPOS_NOVEDAD = ["P", "PT", "ST", "AU", "VAC", "EN", "FR", "FE", "HDO", "C", "DES", "VIR"] as const
 
 const schema = z.object({
   colaborador_id: z.string().min(1),

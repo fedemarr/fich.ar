@@ -15,7 +15,9 @@ export function calcularAnalisis(
     return tipo === "ENTRADA" ? "LLEGADA_EN_TIEMPO" : "SALIDA_EN_TIEMPO"
   }
 
-  const hora = timestamp.getHours() * 60 + timestamp.getMinutes()
+  // Hora en zona ARG (UTC-3) — el servidor corre en UTC, getHours() devolvería hora UTC
+  const argDate = new Date(timestamp.toLocaleString("en-US", { timeZone: "America/Argentina/Buenos_Aires" }))
+  const hora = argDate.getHours() * 60 + argDate.getMinutes()
   const [hI, mI] = jornada.hora_inicio.split(":").map(Number)
   const [hF, mF] = jornada.hora_fin.split(":").map(Number)
 

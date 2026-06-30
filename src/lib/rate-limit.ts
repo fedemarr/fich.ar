@@ -17,9 +17,9 @@ export const rateLimitLogin = new Ratelimit({
   prefix: "rl:login",
 })
 
-// QR Web: max 5 fichadas por minuto por IP
+// QR Web: 200 requests por minuto por IP (48 colaboradores × 2-3 requests c/u en pico de mañana)
 export const rateLimitQR = new Ratelimit({
   redis,
-  limiter: Ratelimit.slidingWindow(5, "1 m"),
+  limiter: Ratelimit.slidingWindow(200, "1 m"),
   prefix: "rl:qr",
 })

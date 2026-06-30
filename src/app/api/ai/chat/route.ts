@@ -8,7 +8,7 @@ import type { TipoNovedad } from "@/generated/prisma/client"
 
 const anthropic = new Anthropic({ apiKey: process.env.ANTHROPIC_API_KEY })
 
-const TIPOS_NOVEDAD = ["P","PT","AU","VAC","EN","FR","FE","HDO","C","DES","VIR"] as const
+const TIPOS_NOVEDAD = ["P","PT","ST","AU","VAC","EN","FR","FE","HDO","C","DES","VIR"] as const
 
 const msgSchema = z.object({
   messages: z.array(z.object({
