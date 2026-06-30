@@ -45,6 +45,7 @@ export default function FicharPage() {
   const [estado, setEstado] = useState<Estado>("cargando")
   const [punto, setPunto] = useState<PuntoInfo | null>(null)
   const [colaborador, setColaborador] = useState<ColaboradorInfo | null>(null)
+  const [nextTipo, setNextTipo] = useState<"ENTRADA" | "SALIDA" | null>(null)
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null)
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null)
   const [gpsStatus, setGpsStatus] = useState("")
@@ -166,6 +167,7 @@ export default function FicharPage() {
           usuario_lat?: number
           usuario_lon?: number
           error?: string
+          next_tipo?: "ENTRADA" | "SALIDA" | null
         }
 
         if (res.status === 400 && data.distancia != null) {
@@ -180,7 +182,7 @@ export default function FicharPage() {
           setEstado("error-generico")
           return
         }
-        // GPS validado en el servidor → recién ahora mostramos la pantalla
+        setNextTipo(data.next_tipo ?? null)
         setEstado("eligiendo")
       } catch {
         detenerGPS()
@@ -266,6 +268,7 @@ export default function FicharPage() {
       usuario_lat?: number
       usuario_lon?: number
       colaborador?: ColaboradorInfo
+      next_tipo?: "ENTRADA" | "SALIDA" | null
     }
 
     if (res.status === 400 && data.distancia != null) {
@@ -283,6 +286,7 @@ export default function FicharPage() {
       localStorage.setItem(STORAGE_NOMBRE, data.colaborador.nombre)
       localStorage.setItem(STORAGE_APELLIDO, data.colaborador.apellido)
       setColaborador(data.colaborador)
+      setNextTipo(data.next_tipo ?? null)
       setEstado("eligiendo")
     }
   }
@@ -506,22 +510,29 @@ export default function FicharPage() {
                 )}
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
+              {nextTipo === null ? (
+                <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center space-y-2">
+                  <CheckCircle2 size={44} className="text-green-400 mx-auto" />
+                  <p className="text-gray-800 font-semibold text-lg">Jornada completa</p>
+                  <p className="text-gray-400 text-sm">Ya registraste tu entrada y salida de hoy.</p>
+                </div>
+              ) : nextTipo === "ENTRADA" ? (
                 <button
                   onClick={() => void registrarFichada("ENTRADA")}
-                  className="bg-green-500 hover:bg-green-600 active:bg-green-700 text-white rounded-2xl p-6 flex flex-col items-center gap-2 transition-colors shadow-sm"
+                  className="w-full bg-green-500 hover:bg-green-600 active:bg-green-700 text-white rounded-2xl p-8 flex flex-col items-center gap-2 transition-colors shadow-sm"
                 >
-                  <LogIn size={32} />
-                  <span className="font-bold text-lg">Entrada</span>
+                  <LogIn size={40} />
+                  <span className="font-bold text-2xl">Registrar Entrada</span>
                 </button>
+              ) : (
                 <button
                   onClick={() => void registrarFichada("SALIDA")}
-                  className="bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-2xl p-6 flex flex-col items-center gap-2 transition-colors shadow-sm"
+                  className="w-full bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-2xl p-8 flex flex-col items-center gap-2 transition-colors shadow-sm"
                 >
-                  <LogOut size={32} />
-                  <span className="font-bold text-lg">Salida</span>
+                  <LogOut size={40} />
+                  <span className="font-bold text-2xl">Registrar Salida</span>
                 </button>
-              </div>
+              )}
 
               <button
                 onClick={olvidarIdentidad}

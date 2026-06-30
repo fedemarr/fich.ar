@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { calcularDistanciaMetros } from "@/lib/geo"
 import { calcularAnalisis } from "@/lib/jornadas"
 import { rateLimitQR } from "@/lib/rate-limit"
+import { hoyARG, inicioDiaARG } from "@/lib/utils"
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
@@ -68,34 +69,52 @@ export async function POST(req: Request) {
     )
   }
 
-  // 3b. Modo solo identificar: validar GPS + devolver colaborador sin registrar fichada
+  // 4. Verificar fichadas de hoy
+  const inicioDia = inicioDiaARG(hoyARG())
+  const fichadasHoy = await prisma.fichada.findMany({
+    where: { colaborador_id: colaborador.id, timestamp: { gte: inicioDia }, es_valida: true },
+    select: { tipo: true },
+    orderBy: { timestamp: "asc" },
+  })
+  const tieneEntrada = fichadasHoy.some((f) => f.tipo === "ENTRADA")
+  const tieneSalida = fichadasHoy.some((f) => f.tipo === "SALIDA")
+
+  // next_tipo: qué puede fichar a continuación (null = ya completó la jornada)
+  const next_tipo: "ENTRADA" | "SALIDA" | null =
+    !tieneEntrada ? "ENTRADA" : !tieneSalida ? "SALIDA" : null
+
+  // 4b. Modo solo identificar: devolver colaborador + qué puede fichar
   if (solo_identificar) {
     return NextResponse.json({
       ok: true,
       colaborador: { id: colaborador.id, nombre: colaborador.nombre, apellido: colaborador.apellido },
+      next_tipo,
     })
   }
 
-  // 4. Determinar tipo si no viene
-  let tipoFichada = tipo
+  // 5. Validar que el tipo pedido esté permitido
+  const tipoFichada = tipo ?? next_tipo
   if (!tipoFichada) {
-    const hoy = new Date()
-    hoy.setHours(0, 0, 0, 0)
-    const ultima = await prisma.fichada.findFirst({
-      where: { colaborador_id: colaborador.id, timestamp: { gte: hoy } },
-      orderBy: { timestamp: "desc" },
-    })
-    tipoFichada = !ultima || ultima.tipo === "SALIDA" ? "ENTRADA" : "SALIDA"
+    return NextResponse.json({ error: "Ya registraste entrada y salida hoy" }, { status: 400 })
+  }
+  if (tipoFichada === "ENTRADA" && tieneEntrada) {
+    return NextResponse.json({ error: "Ya registraste tu entrada hoy" }, { status: 400 })
+  }
+  if (tipoFichada === "SALIDA" && tieneSalida) {
+    return NextResponse.json({ error: "Ya registraste tu salida hoy" }, { status: 400 })
+  }
+  if (tipoFichada === "SALIDA" && !tieneEntrada) {
+    return NextResponse.json({ error: "Primero debés registrar tu entrada" }, { status: 400 })
   }
 
-  // 5. Calcular análisis
+  // 6. Calcular análisis
   const jornadaActiva = await prisma.colaboradorJornada.findFirst({
     where: { colaborador_id: colaborador.id, fecha_hasta: null },
     include: { jornada: true },
   })
   const analisis = calcularAnalisis(new Date(), tipoFichada, jornadaActiva?.jornada)
 
-  // 6. Registrar fichada
+  // 7. Registrar fichada
   const fichada = await prisma.fichada.create({
     data: {
       empresa_id: punto.empresa_id,
@@ -111,7 +130,7 @@ export async function POST(req: Request) {
     },
   })
 
-  // 7. Notificar anomalías
+  // 8. Notificar anomalías
   if (analisis === "LLEGADA_TARDE" || analisis === "SALIDA_ANTICIPADA") {
     await prisma.notificacion.create({
       data: {
