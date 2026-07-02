@@ -30,11 +30,18 @@ export async function POST(req: Request) {
 
   const fecha = new Date(parsed.data.fecha + "T12:00:00.000Z")
 
-  const novedad = await prisma.novedad.create({
-    data: {
+  // Upsert: si ya existe una novedad para ese colaborador+fecha, la actualiza en vez de fallar
+  const novedad = await prisma.novedad.upsert({
+    where: { colaborador_id_fecha: { colaborador_id: parsed.data.colaborador_id, fecha } },
+    create: {
       empresa_id: session.user.empresaId,
       colaborador_id: parsed.data.colaborador_id,
       fecha,
+      tipo: parsed.data.tipo as TipoNovedad,
+      observacion: parsed.data.observacion ?? null,
+      aprobada: parsed.data.aprobada ?? false,
+    },
+    update: {
       tipo: parsed.data.tipo as TipoNovedad,
       observacion: parsed.data.observacion ?? null,
       aprobada: parsed.data.aprobada ?? false,

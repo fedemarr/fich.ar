@@ -281,12 +281,19 @@ export function NovedadesCliente({
                   >
                     {/* Avatar + nombre */}
                     <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className="w-9 h-9 rounded-full bg-[#EFF6FF] border-2 border-[#2563EB]/20 flex items-center justify-center text-xs font-bold text-[#2563EB] shrink-0">
+                      <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 ${
+                        item.conFichada
+                          ? "bg-green-50 border-green-200 text-green-700"
+                          : "bg-[#EFF6FF] border-[#2563EB]/20 text-[#2563EB]"
+                      }`}>
                         {avatarLetras(item.colaborador.nombre, item.colaborador.apellido)}
                       </div>
                       <span className="text-sm font-medium text-gray-800 truncate">
                         {item.colaborador.apellido} {item.colaborador.nombre}
                       </span>
+                      {item.conFichada && (
+                        <span className="text-xs text-green-600 font-medium shrink-0">fichó ✓</span>
+                      )}
                     </div>
 
                     {/* Fecha */}

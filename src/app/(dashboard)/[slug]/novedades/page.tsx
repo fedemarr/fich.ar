@@ -12,6 +12,7 @@ export interface InasistenciaDetectada {
   novedadId: string | null
   novedadTipo: TipoNovedad | null
   aprobada: boolean
+  conFichada: boolean   // fichó entrada ese día
 }
 
 export type AnalisisDia = { tarde: boolean; anticipada: boolean; salidaTarde?: boolean }
@@ -63,7 +64,7 @@ export default async function NovedadesPage({
         tipo: "ENTRADA",
         timestamp: { gte: hace14 },
       },
-      select: { colaborador_id: true, timestamp: true },
+      select: { colaborador_id: true, timestamp: true, analisis: true },
     }),
     prisma.novedad.findMany({
       where: { empresa_id: empresaId, fecha: { gte: hace14 } },
@@ -94,8 +95,15 @@ export default async function NovedadesPage({
 
   // Presencias recientes: "colaborador_id|YYYY-MM-DD" en hora ARG
   const presencias = new Set<string>()
+  // Tipo sugerido de novedad según análisis de fichada: P si llegó en tiempo, PT si llegó tarde
+  const fichadaAnalisis = new Map<string, TipoNovedad>()
   for (const f of fichadasRecientes) {
-    presencias.add(`${f.colaborador_id}|${fechaARG(f.timestamp)}`)
+    const fechaStr = fechaARG(f.timestamp)
+    presencias.add(`${f.colaborador_id}|${fechaStr}`)
+    fichadaAnalisis.set(
+      `${f.colaborador_id}|${fechaStr}`,
+      f.analisis === "LLEGADA_TARDE" ? "PT" : "P"
+    )
   }
 
   // Mapa de novedades recientes: "colaborador_id|YYYY-MM-DD"
@@ -109,9 +117,11 @@ export default async function NovedadesPage({
     })
   }
 
-  // Inasistencias: últimos 14 días hábiles en hora ARG
+  // Inasistencias + presencias recientes:
+  // - Hoy (i=0) y ayer (i=1): muestra TODOS (para que el admin pueda completar quién vino y quién no)
+  // - Días anteriores (i>=2): solo muestra ausentes (sin fichada)
   const inasistencias: InasistenciaDetectada[] = []
-  for (let i = 1; i <= 14; i++) {
+  for (let i = 0; i <= 14; i++) {
     const d = new Date(hoyStr + "T12:00:00Z")
     d.setDate(d.getDate() - i)
     const diaStr = fechaARG(d)
@@ -121,16 +131,26 @@ export default async function NovedadesPage({
 
     for (const colab of colaboradores) {
       const key = `${colab.id}|${diaStr}`
-      if (!presencias.has(key)) {
-        const novedad = novedadesMap.get(key)
-        inasistencias.push({
-          colaborador: colab,
-          fecha: diaStr,
-          novedadId: novedad?.id ?? null,
-          novedadTipo: novedad?.tipo ?? null,
-          aprobada: novedad?.aprobada ?? false,
-        })
+      const esPresenteConFichada = presencias.has(key)
+      const novedad = novedadesMap.get(key)
+
+      // Para días anteriores a ayer: solo mostrar si no tiene fichada
+      if (i >= 2 && esPresenteConFichada) continue
+
+      // Tipo a mostrar: novedad existente → esa; con fichada sin novedad → P o PT según análisis; sin ninguna → null
+      let novedadTipo: TipoNovedad | null = novedad?.tipo ?? null
+      if (novedadTipo === null && esPresenteConFichada) {
+        novedadTipo = fichadaAnalisis.get(key) ?? "P"
       }
+
+      inasistencias.push({
+        colaborador: colab,
+        fecha: diaStr,
+        novedadId: novedad?.id ?? null,
+        novedadTipo,
+        aprobada: novedad?.aprobada ?? false,
+        conFichada: esPresenteConFichada,
+      })
     }
   }
 
