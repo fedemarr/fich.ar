@@ -55,20 +55,34 @@ function diasEnMes(mes: number, anio: number) {
   return new Date(anio, mes, 0).getDate()
 }
 
-// Devuelve el label y la clase CSS para una celda presente según análisis
-function badgePresente(analisis?: AnalisisDia): { label: string; cls: string } {
-  if (!analisis) return { label: "P", cls: "bg-green-50 text-green-600 border border-green-200" }
-  if (analisis.tarde && analisis.anticipada)
-    return { label: "P-T/ST", cls: "bg-orange-100 text-orange-700 border border-orange-300" }
-  if (analisis.tarde && analisis.salidaTarde)
-    return { label: "P-T/S-T", cls: "bg-red-50 text-red-600 border border-red-200" }
-  if (analisis.tarde)
+// Combina el estado de entrada (P / PT) con el de salida para mostrar la etiqueta compuesta
+function badgeEntradaSalida(
+  entradaTarde: boolean,
+  analisis?: AnalisisDia
+): { label: string; cls: string } {
+  const salidaTarde = analisis?.salidaTarde ?? false
+  const salidaTemprana = analisis?.anticipada ?? false
+  const salidaNormal = analisis?.salidaNormal ?? false
+
+  if (!entradaTarde) {
+    if (salidaTarde)    return { label: "P--ST",  cls: "bg-purple-50 text-purple-700 border border-purple-200" }
+    if (salidaTemprana) return { label: "P--STP", cls: "bg-yellow-50 text-yellow-700 border border-yellow-200" }
+    if (salidaNormal)   return { label: "P-S",    cls: "bg-green-100 text-green-700 border border-green-300" }
+    return { label: "P", cls: "bg-green-50 text-green-600 border border-green-200" }
+  } else {
+    if (salidaTarde)    return { label: "PT--ST",  cls: "bg-red-100 text-red-700 border border-red-300" }
+    if (salidaTemprana) return { label: "PT--STP", cls: "bg-orange-100 text-orange-700 border border-orange-300" }
+    if (salidaNormal)   return { label: "PT-S",    cls: "bg-orange-50 text-orange-500 border border-orange-200" }
     return { label: "P-T", cls: "bg-orange-50 text-orange-600 border border-orange-200" }
-  if (analisis.anticipada)
-    return { label: "P-ST", cls: "bg-yellow-50 text-yellow-600 border border-yellow-200" }
-  if (analisis.salidaTarde)
-    return { label: "S-T", cls: "bg-purple-50 text-purple-600 border border-purple-200" }
-  return { label: "P", cls: "bg-green-50 text-green-600 border border-green-200" }
+  }
+}
+
+function labelFontSize(label: string): string {
+  const n = label.length
+  if (n <= 2) return "11px"
+  if (n <= 4) return "10px"
+  if (n <= 6) return "9px"
+  return "8px"
 }
 
 function exportarExcel(
@@ -87,29 +101,40 @@ function exportarExcel(
     mapa[n.colaborador_id][dia] = n.tipo
   }
 
-  const headers = ["Colaborador", "Legajo", ...Array.from({ length: dias }, (_, i) => String(i + 1)), "P", "P-T", "P-ST", "S-T", "AU"]
+  const headers = ["Colaborador", "Legajo", ...Array.from({ length: dias }, (_, i) => String(i + 1)), "P", "PT", "P-S", "P--ST", "P--STP", "AU"]
   const rows = colaboradores.map((c) => {
     const fila: string[] = [`${c.apellido}, ${c.nombre}`, c.legajo ?? "N/A"]
-    let totalP = 0, totalPT = 0, totalPST = 0, totalST = 0, totalAU = 0
+    let totalP = 0, totalPT = 0, totalPS = 0, totalST = 0, totalSTP = 0, totalAU = 0
     for (let d = 1; d <= dias; d++) {
       const novedad = mapa[c.id]?.[d]
       const key = `${c.id}|${d}`
       const analisis = analisisMes[key]
       if (novedad) {
-        fila.push(LABEL_CELDA[novedad] ?? novedad)
-        if (novedad === "AU") totalAU++
+        if (novedad === "P" || novedad === "PT") {
+          const badge = badgeEntradaSalida(novedad === "PT", analisis)
+          fila.push(badge.label)
+          if (badge.label.includes("STP")) totalSTP++
+          else if (badge.label.includes("ST")) totalST++
+          else if (badge.label.includes("-S")) totalPS++
+          else if (novedad === "PT") totalPT++
+          else totalP++
+        } else {
+          fila.push(LABEL_CELDA[novedad] ?? novedad)
+          if (novedad === "AU") totalAU++
+        }
       } else if (presenciasMes.has(key)) {
-        const badge = badgePresente(analisis)
+        const badge = badgeEntradaSalida(analisis?.tarde ?? false, analisis)
         fila.push(badge.label)
-        if (analisis?.tarde) totalPT++
-        else if (analisis?.anticipada) totalPST++
-        else if (analisis?.salidaTarde) totalST++
+        if (badge.label.includes("STP")) totalSTP++
+        else if (badge.label.includes("ST")) totalST++
+        else if (badge.label.includes("-S")) totalPS++
+        else if (analisis?.tarde) totalPT++
         else totalP++
       } else {
         fila.push("")
       }
     }
-    fila.push(String(totalP), String(totalPT), String(totalPST), String(totalST), String(totalAU))
+    fila.push(String(totalP), String(totalPT), String(totalPS), String(totalST), String(totalSTP), String(totalAU))
     return fila
   })
 
@@ -225,32 +250,40 @@ export function CalendarioNovedades({
 
       {/* Referencias */}
       {mostrarRefs && (
-        <div className="bg-white rounded-xl border border-gray-200 p-4">
+        <div className="bg-white rounded-xl border border-gray-200 p-4 space-y-2">
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1">Fichadas automáticas</p>
           <div className="flex flex-wrap gap-2">
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold bg-green-50 text-green-600 border border-green-200">P</span>
-              <span className="text-xs text-gray-600">Presente</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold bg-orange-50 text-orange-600 border border-orange-200">P-T</span>
-              <span className="text-xs text-gray-600">Llegada tarde</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold bg-yellow-50 text-yellow-600 border border-yellow-200">P-ST</span>
-              <span className="text-xs text-gray-600">Salida temprana</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <span className="inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold bg-purple-50 text-purple-600 border border-purple-200">S-T</span>
-              <span className="text-xs text-gray-600">Salida tarde</span>
-            </div>
-            {(Object.entries(ETIQUETAS_NOVEDAD) as [TipoNovedad, string][]).map(([k, v]) => (
-              <div key={k} className="flex items-center gap-1.5">
-                <span className={`inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold ${COLORES_BG[k]}`}>
-                  {LABEL_CELDA[k] ?? k}
+            {([
+              { label: "P",      cls: "bg-green-50 text-green-600 border border-green-200",    desc: "Presente (sin salida aún)" },
+              { label: "P-S",    cls: "bg-green-100 text-green-700 border border-green-300",   desc: "Jornada completa a tiempo" },
+              { label: "P-T",    cls: "bg-orange-50 text-orange-600 border border-orange-200", desc: "Llegada tarde" },
+              { label: "PT-S",   cls: "bg-orange-50 text-orange-500 border border-orange-200", desc: "Llegada tarde + salida a tiempo" },
+              { label: "P--ST",  cls: "bg-purple-50 text-purple-700 border border-purple-200", desc: "Salida tarde" },
+              { label: "P--STP", cls: "bg-yellow-50 text-yellow-700 border border-yellow-200", desc: "Salida temprana" },
+              { label: "PT--ST", cls: "bg-red-100 text-red-700 border border-red-300",         desc: "Llegada tarde + salida tarde" },
+              { label: "PT--STP",cls: "bg-orange-100 text-orange-700 border border-orange-300",desc: "Llegada tarde + salida temprana" },
+            ] as { label: string; cls: string; desc: string }[]).map(({ label, cls, desc }) => (
+              <div key={label} className="flex items-center gap-1.5">
+                <span className={`inline-flex items-center justify-center rounded font-bold ${cls}`}
+                  style={{ fontSize: labelFontSize(label), width: "40px", height: "24px" }}>
+                  {label}
                 </span>
-                <span className="text-xs text-gray-600">{v}</span>
+                <span className="text-xs text-gray-600">{desc}</span>
               </div>
             ))}
+          </div>
+          <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mt-2 mb-1">Novedades manuales</p>
+          <div className="flex flex-wrap gap-2">
+            {(Object.entries(ETIQUETAS_NOVEDAD) as [TipoNovedad, string][])
+              .filter(([k]) => k !== "P" && k !== "PT")
+              .map(([k, v]) => (
+                <div key={k} className="flex items-center gap-1.5">
+                  <span className={`inline-flex items-center justify-center w-9 h-6 rounded text-xs font-bold ${COLORES_BG[k]}`}>
+                    {LABEL_CELDA[k] ?? k}
+                  </span>
+                  <span className="text-xs text-gray-600">{v}</span>
+                </div>
+              ))}
           </div>
         </div>
       )}
@@ -308,9 +341,27 @@ export function CalendarioNovedades({
                       const presente = presenciasMes.has(key)
                       const analisis = analisisMes[key]
 
+                      // Para P y PT combinamos con análisis de salida; el resto usa el color fijo del tipo
+                      const esPT = tipo === "P" || tipo === "PT"
+                      const badge = (esPT || (!tipo && presente))
+                        ? badgeEntradaSalida(
+                            tipo === "PT" || (!tipo && (analisis?.tarde ?? false)),
+                            analisis
+                          )
+                        : null
+
                       return (
                         <td key={dia} className="p-0.5">
-                          {tipo ? (
+                          {badge ? (
+                            <button
+                              onClick={() => onCeldaClick(c, dia)}
+                              className={`w-full h-7 rounded font-bold transition-opacity hover:opacity-75 ${badge.cls}`}
+                              style={{ fontSize: labelFontSize(badge.label) }}
+                              title={badge.label}
+                            >
+                              {badge.label}
+                            </button>
+                          ) : tipo ? (
                             <button
                               onClick={() => onCeldaClick(c, dia)}
                               className={`w-full h-7 rounded text-xs font-bold transition-opacity hover:opacity-75 ${COLORES_BG[tipo]}`}
@@ -320,20 +371,6 @@ export function CalendarioNovedades({
                             </button>
                           ) : esFuturo(dia) ? (
                             <div className="w-full h-7 rounded bg-gray-50" />
-                          ) : presente ? (
-                            (() => {
-                              const badge = badgePresente(analisis)
-                              return (
-                                <button
-                                  onClick={() => onCeldaClick(c, dia)}
-                                  className={`w-full h-7 rounded font-bold transition-opacity hover:opacity-75 ${badge.cls}`}
-                                  style={{ fontSize: badge.label.length > 3 ? "9px" : "11px" }}
-                                  title={badge.label}
-                                >
-                                  {badge.label}
-                                </button>
-                              )
-                            })()
                           ) : (
                             <button
                               onClick={() => onCeldaClick(c, dia)}

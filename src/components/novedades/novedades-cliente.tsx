@@ -213,7 +213,7 @@ export function NovedadesCliente({
           <p className="text-xs text-gray-400">Gestión de todos los colaboradores</p>
         </div>
         <div className="ml-auto flex items-center gap-3">
-          <AutoRefresh intervalSeconds={30} />
+          <AutoRefresh intervalSeconds={15} />
           <Button
             variant="outline"
             className="h-9 gap-1.5 border-green-300 text-green-700 hover:bg-green-50"

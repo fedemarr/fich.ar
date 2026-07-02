@@ -17,7 +17,12 @@ export interface InasistenciaDetectada {
   conFichada: boolean   // fichó entrada ese día
 }
 
-export type AnalisisDia = { tarde: boolean; anticipada: boolean; salidaTarde?: boolean }
+export type AnalisisDia = {
+  tarde: boolean        // llegada tarde
+  anticipada: boolean   // salida anticipada (temprana)
+  salidaTarde?: boolean // salida tarde
+  salidaNormal?: boolean // fichó salida en tiempo
+}
 
 export default async function NovedadesPage({
   params,
@@ -177,10 +182,14 @@ export default async function NovedadesPage({
         analisisMesObj[key] = { ...(analisisMesObj[key] ?? { tarde: false, anticipada: false }), tarde: true }
       }
     } else if (f.tipo === "SALIDA") {
+      const prev = analisisMesObj[key] ?? { tarde: false, anticipada: false }
       if (f.analisis === "SALIDA_ANTICIPADA") {
-        analisisMesObj[key] = { ...(analisisMesObj[key] ?? { tarde: false, anticipada: false, salidaTarde: false }), anticipada: true }
+        analisisMesObj[key] = { ...prev, anticipada: true }
       } else if (f.analisis === "SALIDA_TARDE") {
-        analisisMesObj[key] = { ...(analisisMesObj[key] ?? { tarde: false, anticipada: false, salidaTarde: false }), salidaTarde: true }
+        analisisMesObj[key] = { ...prev, salidaTarde: true }
+      } else {
+        // SALIDA_EN_TIEMPO o sin jornada (tratamos como normal)
+        analisisMesObj[key] = { ...prev, salidaNormal: true }
       }
     }
   }
