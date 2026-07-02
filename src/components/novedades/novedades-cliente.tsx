@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { Calendar, AlertCircle, FileText, Plus, RefreshCw, CheckCircle2, Trash2 } from "lucide-react"
+import { Calendar, AlertCircle, FileText, Plus, RefreshCw, CheckCircle2, Trash2, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CalendarioNovedades } from "@/components/novedades/calendario-novedades"
 import { NovedadDialog } from "@/components/novedades/novedad-dialog"
@@ -85,6 +85,7 @@ export function NovedadesCliente({
 
   // Local state for inasistencias (optimistic updates)
   const [inasistencias, setInasistencias] = useState<InasistenciaDetectada[]>(inasistenciasIniciales)
+  const [sincronizando, setSincronizando] = useState(false)
 
   function cambiarTab(t: "inasistencias" | "reporte") {
     setTab(t)
@@ -183,6 +184,19 @@ export function NovedadesCliente({
     setDialogoAbierto(true)
   }
 
+  async function sincronizarPresentesHoy() {
+    setSincronizando(true)
+    const res = await fetch("/api/novedades/sincronizar-hoy", { method: "POST" })
+    const data = await res.json() as { ok?: boolean; creadas?: number }
+    setSincronizando(false)
+    if (data.ok) {
+      toast.success(data.creadas === 0 ? "Ya estaban todos actualizados" : `${data.creadas} presente(s) registrado(s)`)
+      router.refresh()
+    } else {
+      toast.error("Error al sincronizar")
+    }
+  }
+
   const inasistenciasFiltradas = inasistencias.filter((i) => {
     if (!busqueda) return true
     const texto = `${i.colaborador.apellido} ${i.colaborador.nombre}`.toLowerCase()
@@ -200,6 +214,15 @@ export function NovedadesCliente({
         </div>
         <div className="ml-auto flex items-center gap-3">
           <AutoRefresh intervalSeconds={30} />
+          <Button
+            variant="outline"
+            className="h-9 gap-1.5 border-green-300 text-green-700 hover:bg-green-50"
+            onClick={() => void sincronizarPresentesHoy()}
+            disabled={sincronizando}
+          >
+            <Zap size={15} className={sincronizando ? "animate-pulse" : ""} />
+            {sincronizando ? "Sincronizando..." : "Marcar presentes de hoy"}
+          </Button>
           <Button
             className="h-9 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
             onClick={() => {

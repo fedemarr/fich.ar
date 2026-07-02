@@ -130,7 +130,24 @@ export async function POST(req: Request) {
     },
   })
 
-  // 8. Notificar anomalías
+  // 8. Auto-registrar novedad P/PT al fichar ENTRADA (si no hay novedad o la que hay es AU del cron)
+  if (tipoFichada === "ENTRADA") {
+    const tipoNovedad = analisis === "LLEGADA_TARDE" ? "PT" : "P"
+    const fechaNovedad = new Date(hoyARG() + "T12:00:00.000Z")
+    const novedadExistente = await prisma.novedad.findUnique({
+      where: { colaborador_id_fecha: { colaborador_id: colaborador.id, fecha: fechaNovedad } },
+      select: { tipo: true },
+    })
+    if (!novedadExistente || novedadExistente.tipo === "AU") {
+      await prisma.novedad.upsert({
+        where: { colaborador_id_fecha: { colaborador_id: colaborador.id, fecha: fechaNovedad } },
+        create: { empresa_id: punto.empresa_id, colaborador_id: colaborador.id, fecha: fechaNovedad, tipo: tipoNovedad },
+        update: { tipo: tipoNovedad },
+      })
+    }
+  }
+
+  // 9. Notificar anomalías
   if (analisis === "LLEGADA_TARDE" || analisis === "SALIDA_ANTICIPADA") {
     await prisma.notificacion.create({
       data: {
