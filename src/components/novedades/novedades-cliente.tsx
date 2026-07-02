@@ -6,6 +6,7 @@ import { Calendar, AlertCircle, FileText, Plus, RefreshCw, CheckCircle2, Trash2 
 import { Button } from "@/components/ui/button"
 import { CalendarioNovedades } from "@/components/novedades/calendario-novedades"
 import { NovedadDialog } from "@/components/novedades/novedad-dialog"
+import { AutoRefresh } from "@/components/resumen/auto-refresh"
 import { ETIQUETAS_NOVEDAD } from "@/types"
 import { toast } from "sonner"
 import type { Colaborador, Novedad, TipoNovedad } from "@/generated/prisma/client"
@@ -197,18 +198,21 @@ export function NovedadesCliente({
           <h1 className="text-xl font-semibold text-gray-900">Novedades</h1>
           <p className="text-xs text-gray-400">Gestión de todos los colaboradores</p>
         </div>
-        <Button
-          className="ml-auto h-9 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
-          onClick={() => {
-            setColaboradorDialog(null)
-            setFechaDialog("")
-            setNovedadEditando(null)
-            setDialogoAbierto(true)
-          }}
-        >
-          <Plus size={15} />
-          Nueva novedad
-        </Button>
+        <div className="ml-auto flex items-center gap-3">
+          <AutoRefresh intervalSeconds={30} />
+          <Button
+            className="h-9 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+            onClick={() => {
+              setColaboradorDialog(null)
+              setFechaDialog("")
+              setNovedadEditando(null)
+              setDialogoAbierto(true)
+            }}
+          >
+            <Plus size={15} />
+            Nueva novedad
+          </Button>
+        </div>
       </div>
 
       {/* Tabs */}
@@ -254,13 +258,6 @@ export function NovedadesCliente({
                 className="h-9 pl-9 pr-4 text-sm rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 w-64"
               />
             </div>
-            <button
-              onClick={() => router.refresh()}
-              className="text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
-              title="Actualizar"
-            >
-              <RefreshCw size={16} />
-            </button>
           </div>
 
           {/* Lista */}

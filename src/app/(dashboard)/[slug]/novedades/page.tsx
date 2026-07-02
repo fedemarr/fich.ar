@@ -6,6 +6,8 @@ import { hoyARG, fechaARG, inicioDiaARG } from "@/lib/utils"
 import type { TipoNovedad, Colaborador } from "@/generated/prisma/client"
 import { getColaboradoresSoloActivos } from "@/lib/queries"
 
+export const dynamic = "force-dynamic"
+
 export interface InasistenciaDetectada {
   colaborador: Colaborador
   fecha: string
