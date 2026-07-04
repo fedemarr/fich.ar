@@ -1,13 +1,8 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { redis } from "@/lib/redis"
-import { verificarAcceso } from "@/lib/auth-helpers"
 
-// Solo SUPER_ADMIN puede ver el diagnóstico del bot
 export async function GET() {
-  const { error } = await verificarAcceso("VER_NOVEDADES")
-  if (error) return error
-
   const [ultimoError, ultimosWebhooks, sesionesActivas] = await Promise.all([
     redis.get<string>("wa:last_error").catch(() => null),
     prisma.webhookWA.findMany({
