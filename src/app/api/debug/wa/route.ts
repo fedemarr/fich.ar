@@ -3,8 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { redis } from "@/lib/redis"
 
 export async function GET() {
-  const [ultimoError, ultimosWebhooks, sesionesActivas] = await Promise.all([
+  const [ultimoError, ultimoErrorEnvio, ultimosWebhooks, sesionesActivas] = await Promise.all([
     redis.get<string>("wa:last_error").catch(() => null),
+    redis.get<string>("wa:last_send_error").catch(() => null),
     prisma.webhookWA.findMany({
       orderBy: { created_at: "desc" },
       take: 10,
@@ -32,6 +33,7 @@ export async function GET() {
   return NextResponse.json({
     env: envVars,
     ultimoError: ultimoError ?? null,
+    ultimoErrorEnvio: ultimoErrorEnvio ?? null,
     webhooksRecibidos: ultimosWebhooks,
     sesionesActivasEnRedis: sesionesActivas.length,
     sesionesKeys: sesionesActivas,

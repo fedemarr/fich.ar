@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { redis } from "@/lib/redis"
 
 const WA_API = "https://graph.facebook.com/v21.0"
 const PHONE_ID = process.env.META_WA_PHONE_NUMBER_ID!
@@ -17,8 +18,8 @@ interface TextMessage {
 
 async function waPost(payload: Record<string, unknown>) {
   const to = (payload as { to?: string }).to
-  console.log("[WA_TO]", to)
-  const res = await fetch(`${WA_API}/${PHONE_ID}/messages`, {
+  const url = `${WA_API}/${PHONE_ID}/messages`
+  const res = await fetch(url, {
     method: "POST",
     headers: {
       Authorization: `Bearer ${TOKEN}`,
@@ -28,7 +29,9 @@ async function waPost(payload: Record<string, unknown>) {
   })
   if (!res.ok) {
     const err = await res.text()
-    console.error("[WA_ERR_CODE]", res.status, "[WA_ERR_BODY]", err.slice(0, 500))
+    const msg = `[WA_SEND_ERR] status=${res.status} to=${to} phone_id=${PHONE_ID} body=${err.slice(0, 400)}`
+    console.error(msg)
+    try { await redis.set("wa:last_send_error", msg, { ex: 600 }) } catch { /* ignore */ }
   }
   return res
 }
