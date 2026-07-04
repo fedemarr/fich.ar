@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Download, Printer } from "lucide-react"
+import { Download, Printer, Smartphone, Globe } from "lucide-react"
 import type { PuntoFichaje } from "@/generated/prisma/client"
 
 interface QrDialogProps {
@@ -35,7 +35,14 @@ function cargarImagenBase64(url: string): Promise<string> {
 export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDialogProps) {
   const svgRef = useRef<SVGSVGElement>(null)
   const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://fich-ar.lat"
-  const url = `${appUrl}/fichar/${punto.qr_token}`
+  const waNumber = process.env.NEXT_PUBLIC_META_WA_NUMBER ?? ""
+
+  const [modo, setModo] = useState<"pwa" | "wa">("pwa")
+  const urlPwa = `${appUrl}/fichar/${punto.qr_token}`
+  const urlWa = waNumber
+    ? `https://wa.me/${waNumber}?text=FICHAR%20${punto.qr_token}`
+    : ""
+  const url = modo === "wa" && urlWa ? urlWa : urlPwa
 
   const [logoBase64, setLogoBase64] = useState<string>("")
 
@@ -259,34 +266,41 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
       <p class="url">${url}</p>
       <div class="pasos">
         <p class="pasos-titulo">¿Cómo fichar?</p>
-        <div class="paso">
-          <div class="paso-num">1</div>
-          <div>
-            <div class="paso-texto">Escaneá el código QR</div>
-            <div class="paso-sub">Con la cámara de tu celular</div>
-          </div>
-        </div>
-        <div class="paso">
-          <div class="paso-num">2</div>
-          <div>
-            <div class="paso-texto">Ingresá tu DNI</div>
-            <div class="paso-sub">Para identificarte en el sistema</div>
-          </div>
-        </div>
-        <div class="paso">
-          <div class="paso-num">3</div>
-          <div>
-            <div class="paso-texto">Elegí Entrada o Salida</div>
-            <div class="paso-sub">Tocá el botón que corresponda</div>
-          </div>
-        </div>
-        <div class="paso">
-          <div class="paso-num">4</div>
-          <div>
-            <div class="paso-texto">Permitís tu ubicación</div>
-            <div class="paso-sub">¡Listo! Tu fichada queda registrada</div>
-          </div>
-        </div>
+        ${modo === "wa" ? `
+        <div class="paso"><div class="paso-num">1</div><div>
+          <div class="paso-texto">Escaneá el QR</div>
+          <div class="paso-sub">Se abre WhatsApp automáticamente</div>
+        </div></div>
+        <div class="paso"><div class="paso-num">2</div><div>
+          <div class="paso-texto">Enviá el mensaje</div>
+          <div class="paso-sub">Tocá "Enviar" en WhatsApp</div>
+        </div></div>
+        <div class="paso"><div class="paso-num">3</div><div>
+          <div class="paso-texto">Elegí Entrada o Salida</div>
+          <div class="paso-sub">Tocá el botón del bot</div>
+        </div></div>
+        <div class="paso"><div class="paso-num">4</div><div>
+          <div class="paso-texto">Compartí tu ubicación</div>
+          <div class="paso-sub">¡Listo! Fichada registrada</div>
+        </div></div>
+        ` : `
+        <div class="paso"><div class="paso-num">1</div><div>
+          <div class="paso-texto">Escaneá el código QR</div>
+          <div class="paso-sub">Con la cámara de tu celular</div>
+        </div></div>
+        <div class="paso"><div class="paso-num">2</div><div>
+          <div class="paso-texto">Ingresá tu DNI</div>
+          <div class="paso-sub">Para identificarte en el sistema</div>
+        </div></div>
+        <div class="paso"><div class="paso-num">3</div><div>
+          <div class="paso-texto">Elegí Entrada o Salida</div>
+          <div class="paso-sub">Tocá el botón que corresponda</div>
+        </div></div>
+        <div class="paso"><div class="paso-num">4</div><div>
+          <div class="paso-texto">Permitís tu ubicación</div>
+          <div class="paso-sub">¡Listo! Tu fichada queda registrada</div>
+        </div></div>
+        `}
       </div>
     </div>
     <div class="footer">
@@ -320,13 +334,40 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
           <DialogTitle>QR — {punto.nombre}</DialogTitle>
         </DialogHeader>
         <div className="flex flex-col items-center gap-4 py-2">
+          {/* Toggle modo */}
+          <div className="flex rounded-lg border border-gray-200 overflow-hidden w-full">
+            <button
+              onClick={() => setModo("pwa")}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
+                modo === "pwa" ? "bg-[#2563EB] text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+              }`}
+            >
+              <Globe size={13} /> App Web
+            </button>
+            <button
+              onClick={() => setModo("wa")}
+              disabled={!urlWa}
+              className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-xs font-medium transition-colors ${
+                modo === "wa" ? "bg-[#25D366] text-white" : "bg-white text-gray-500 hover:bg-gray-50"
+              } disabled:opacity-40 disabled:cursor-not-allowed`}
+            >
+              <Smartphone size={13} /> WhatsApp
+            </button>
+          </div>
+
+          {modo === "wa" && (
+            <p className="text-xs text-amber-600 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 w-full text-center">
+              Al escanear este QR se abre WhatsApp y el colaborador sigue el flujo del bot
+            </p>
+          )}
+
           <div className="rounded-lg border border-gray-100 p-4 bg-white">
             <QRCodeSVG
               ref={svgRef}
               value={url}
               size={248}
               bgColor="#ffffff"
-              fgColor="#000000"
+              fgColor={modo === "wa" ? "#075E54" : "#000000"}
               level="H"
               imageSettings={logoBase64 ? {
                 src: logoBase64,
@@ -346,7 +387,7 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
               PNG
             </Button>
             <Button
-              className="flex-1 gap-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+              className={`flex-1 gap-2 text-white ${modo === "wa" ? "bg-[#25D366] hover:bg-[#1ebe5d]" : "bg-[#2563EB] hover:bg-[#1D4ED8]"}`}
               onClick={imprimirFicha}
             >
               <Printer size={15} />
