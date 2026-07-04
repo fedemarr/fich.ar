@@ -39,9 +39,9 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
 
   const [modo, setModo] = useState<"pwa" | "wa">("pwa")
   const urlPwa = `${appUrl}/fichar/${punto.qr_token}`
-  const urlWa = waNumber
-    ? `https://wa.me/${waNumber}?text=FICHAR%20${punto.qr_token}`
-    : ""
+  // Usamos nuestra propia ruta /wa/[token] que hace redirect a wa.me desde el browser.
+  // Si el QR apunta directo a wa.me, algunas cámaras abren el diálogo de "reenviar" en WA.
+  const urlWa = waNumber ? `${appUrl}/wa/${punto.qr_token}` : ""
   const url = modo === "wa" && urlWa ? urlWa : urlPwa
 
   const [logoBase64, setLogoBase64] = useState<string>("")
