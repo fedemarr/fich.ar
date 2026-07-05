@@ -19,20 +19,37 @@ export default async function ResumenPage({
 
   await params
   const empresaId = session.user.empresaId
+  const isSupervisor = session.user.rol === "SUPERVISOR"
+  const puntosIds = isSupervisor ? session.user.puntosIds : null
 
   const hoyStr = hoyARG()
   const inicioDia = inicioDiaARG(hoyStr)
   const finDia = finDiaARG(hoyStr)
 
+  // Para supervisor: colaboradores cuya jornada activa está en sus puntos
+  const colaboradoresFiltro = puntosIds
+    ? await prisma.colaboradorJornada.findMany({
+        where: { fecha_hasta: null, jornada: { punto_fichaje_id: { in: puntosIds } } },
+        select: { colaborador_id: true },
+        distinct: ["colaborador_id"],
+      }).then((rows) => rows.map((r) => r.colaborador_id))
+    : null
+
   const [totalColaboradores, fichadasHoy] = await Promise.all([
     prisma.colaborador.count({
-      where: { empresa_id: empresaId, estado: "ACTIVO", deleted_at: null },
+      where: {
+        empresa_id: empresaId,
+        estado: "ACTIVO",
+        deleted_at: null,
+        ...(colaboradoresFiltro ? { id: { in: colaboradoresFiltro } } : {}),
+      },
     }),
     prisma.fichada.findMany({
       where: {
         empresa_id: empresaId,
         timestamp: { gte: inicioDia, lte: finDia },
         es_valida: true,
+        ...(puntosIds ? { punto_fichaje_id: { in: puntosIds } } : {}),
       },
       select: {
         id: true,

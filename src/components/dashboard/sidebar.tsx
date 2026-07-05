@@ -39,6 +39,7 @@ const navAdmin = [
 ]
 
 const navSupervisor = [
+  { href: "resumen",        label: "Resumen",          icon: LayoutDashboard },
   { href: "equipo",         label: "Mi equipo",        icon: UsersRound },
   { href: "listado",        label: "Listado del día",  icon: ClipboardList },
   { href: "novedades",      label: "Novedades",        icon: Calendar },
