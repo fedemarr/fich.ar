@@ -1,10 +1,9 @@
 "use client"
 
-import { useState } from "react"
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query"
+import { useState, useEffect, useCallback } from "react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus, Pencil, Trash2, MapPin, CheckCircle, XCircle, ShieldCheck } from "lucide-react"
+import { Plus, Pencil, Trash2, MapPin, ShieldCheck } from "lucide-react"
 import { SupervisorModal } from "./supervisor-modal"
 
 interface Punto { id: string; nombre: string }
@@ -20,19 +19,24 @@ interface Supervisor {
 interface Props { puntos: Punto[] }
 
 export function SupervisoresCliente({ puntos }: Props) {
-  const qc = useQueryClient()
+  const [supervisores, setSupervisores] = useState<Supervisor[]>([])
+  const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<{ open: boolean; supervisor?: Supervisor }>({ open: false })
 
-  const { data: supervisores = [], isLoading } = useQuery<Supervisor[]>({
-    queryKey: ["supervisores"],
-    queryFn: () => fetch("/api/supervisores").then((r) => r.json()),
-  })
+  const cargar = useCallback(async () => {
+    setLoading(true)
+    const res = await fetch("/api/supervisores")
+    if (res.ok) setSupervisores(await res.json())
+    setLoading(false)
+  }, [])
 
-  const eliminar = useMutation({
-    mutationFn: (id: string) =>
-      fetch(`/api/supervisores/${id}`, { method: "DELETE" }).then((r) => r.json()),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ["supervisores"] }),
-  })
+  useEffect(() => { cargar() }, [cargar])
+
+  async function eliminar(s: Supervisor) {
+    if (!confirm(`¿Desactivar a ${s.nombre}?`)) return
+    await fetch(`/api/supervisores/${s.id}`, { method: "DELETE" })
+    cargar()
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto space-y-6">
@@ -46,7 +50,7 @@ export function SupervisoresCliente({ puntos }: Props) {
         </Button>
       </div>
 
-      {isLoading ? (
+      {loading ? (
         <div className="text-center py-12 text-gray-400">Cargando...</div>
       ) : supervisores.length === 0 ? (
         <div className="text-center py-16 text-gray-400">
@@ -56,10 +60,7 @@ export function SupervisoresCliente({ puntos }: Props) {
       ) : (
         <div className="space-y-3">
           {supervisores.map((s) => (
-            <div
-              key={s.id}
-              className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4"
-            >
+            <div key={s.id} className="bg-white border border-gray-200 rounded-xl p-4 flex items-center gap-4">
               <div className="w-10 h-10 rounded-full bg-blue-50 flex items-center justify-center flex-shrink-0">
                 <ShieldCheck size={20} className="text-blue-600" />
               </div>
@@ -73,18 +74,13 @@ export function SupervisoresCliente({ puntos }: Props) {
                     <Badge className="bg-gray-100 text-gray-500 border-gray-200 text-xs">Inactivo</Badge>
                   )}
                   {s.puedeGestionarPuntos && (
-                    <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-xs">
-                      Gestiona puntos
-                    </Badge>
+                    <Badge className="bg-purple-50 text-purple-700 border-purple-200 text-xs">Gestiona puntos</Badge>
                   )}
                 </div>
                 <p className="text-sm text-gray-500">{s.email}</p>
                 <div className="flex flex-wrap gap-1.5 mt-2">
                   {s.puntos.map((p) => (
-                    <span
-                      key={p.id}
-                      className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5"
-                    >
+                    <span key={p.id} className="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
                       <MapPin size={10} /> {p.nombre}
                     </span>
                   ))}
@@ -92,22 +88,10 @@ export function SupervisoresCliente({ puntos }: Props) {
               </div>
 
               <div className="flex items-center gap-2 flex-shrink-0">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setModal({ open: true, supervisor: s })}
-                  className="gap-1.5 text-gray-600"
-                >
+                <Button variant="ghost" size="sm" onClick={() => setModal({ open: true, supervisor: s })} className="gap-1.5 text-gray-600">
                   <Pencil size={14} /> Editar
                 </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => {
-                    if (confirm(`¿Desactivar a ${s.nombre}?`)) eliminar.mutate(s.id)
-                  }}
-                  className="gap-1.5 text-red-500 hover:text-red-700 hover:bg-red-50"
-                >
+                <Button variant="ghost" size="sm" onClick={() => eliminar(s)} className="gap-1.5 text-red-500 hover:text-red-700 hover:bg-red-50">
                   <Trash2 size={14} />
                 </Button>
               </div>
@@ -121,10 +105,7 @@ export function SupervisoresCliente({ puntos }: Props) {
           puntos={puntos}
           supervisor={modal.supervisor}
           onClose={() => setModal({ open: false })}
-          onSaved={() => {
-            qc.invalidateQueries({ queryKey: ["supervisores"] })
-            setModal({ open: false })
-          }}
+          onSaved={() => { cargar(); setModal({ open: false }) }}
         />
       )}
     </div>
