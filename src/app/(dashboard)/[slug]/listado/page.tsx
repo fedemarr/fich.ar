@@ -22,9 +22,26 @@ export default async function ListadoPage({ params, searchParams }: ListadoPageP
   const fechaDesde = inicioDiaARG(fechaStr)
   const fechaHasta = finDiaARG(hastaStr)
 
+  const isSupervisor = session.user.rol === "SUPERVISOR"
+  const puntosIds = isSupervisor ? session.user.puntosIds : null
+
+  // Para supervisor: solo colaboradores cuya jornada activa está en sus puntos
+  const colaboradoresFiltroIds = puntosIds
+    ? await prisma.colaboradorJornada.findMany({
+        where: { fecha_hasta: null, jornada: { punto_fichaje_id: { in: puntosIds } } },
+        select: { colaborador_id: true },
+        distinct: ["colaborador_id"],
+      }).then((rows) => rows.map((r) => r.colaborador_id))
+    : null
+
   const [colaboradores, fichadas] = await Promise.all([
     prisma.colaborador.findMany({
-      where: { empresa_id: empresaId, estado: "ACTIVO", deleted_at: null },
+      where: {
+        empresa_id: empresaId,
+        estado: "ACTIVO",
+        deleted_at: null,
+        ...(colaboradoresFiltroIds ? { id: { in: colaboradoresFiltroIds } } : {}),
+      },
       include: {
         jornadas: {
           where: { fecha_hasta: null },
@@ -38,6 +55,7 @@ export default async function ListadoPage({ params, searchParams }: ListadoPageP
       where: {
         empresa_id: empresaId,
         timestamp: { gte: fechaDesde, lte: fechaHasta },
+        ...(puntosIds ? { punto_fichaje_id: { in: puntosIds } } : {}),
       },
       include: {
         colaborador: true,
