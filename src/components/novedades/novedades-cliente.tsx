@@ -34,10 +34,12 @@ function SelectorTipoNovedad({
   value,
   onChange,
   disabled,
+  className: extraClass,
 }: {
   value: TipoNovedad | null
   onChange: (tipo: TipoNovedad) => void
   disabled?: boolean
+  className?: string
 }) {
   return (
     <select
@@ -48,8 +50,7 @@ function SelectorTipoNovedad({
         value
           ? "border-gray-300 text-gray-800 font-medium"
           : "border-gray-200 text-gray-400"
-      }`}
-      style={{ minWidth: "160px" }}
+      } ${extraClass ?? "min-w-[160px]"}`}
     >
       <option value="" disabled>Seleccionar</option>
       {(Object.entries(ETIQUETAS_NOVEDAD) as [TipoNovedad, string][]).map(([k, v]) => (
@@ -206,25 +207,30 @@ export function NovedadesCliente({
   return (
     <div className="space-y-4">
       {/* Header */}
-      <div className="flex items-center gap-2">
-        <Calendar size={20} className="text-[#2563EB]" />
-        <div>
-          <h1 className="text-xl font-semibold text-gray-900">Novedades</h1>
-          <p className="text-xs text-gray-400">Gestión de todos los colaboradores</p>
+      <div className="flex items-start justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <Calendar size={20} className="text-[#2563EB] shrink-0 mt-0.5" />
+          <div>
+            <h1 className="text-xl font-semibold text-gray-900">Novedades</h1>
+            <p className="text-xs text-gray-400 hidden sm:block">Gestión de todos los colaboradores</p>
+          </div>
         </div>
-        <div className="ml-auto flex items-center gap-3">
+        <div className="flex items-center gap-2 flex-wrap justify-end">
           <AutoRefresh intervalSeconds={15} />
           <Button
             variant="outline"
-            className="h-9 gap-1.5 border-green-300 text-green-700 hover:bg-green-50"
+            size="sm"
+            className="h-9 gap-1.5 border-green-300 text-green-700 hover:bg-green-50 text-xs sm:text-sm"
             onClick={() => void sincronizarPresentesHoy()}
             disabled={sincronizando}
           >
-            <Zap size={15} className={sincronizando ? "animate-pulse" : ""} />
-            {sincronizando ? "Sincronizando..." : "Marcar presentes de hoy"}
+            <Zap size={14} className={sincronizando ? "animate-pulse" : ""} />
+            <span className="hidden sm:inline">{sincronizando ? "Sincronizando..." : "Marcar presentes de hoy"}</span>
+            <span className="sm:hidden">{sincronizando ? "..." : "Presentes"}</span>
           </Button>
           <Button
-            className="h-9 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
+            size="sm"
+            className="h-9 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs sm:text-sm"
             onClick={() => {
               setColaboradorDialog(null)
               setFechaDialog("")
@@ -232,8 +238,9 @@ export function NovedadesCliente({
               setDialogoAbierto(true)
             }}
           >
-            <Plus size={15} />
-            Nueva novedad
+            <Plus size={14} />
+            <span className="hidden sm:inline">Nueva novedad</span>
+            <span className="sm:hidden">Nueva</span>
           </Button>
         </div>
       </div>
@@ -297,55 +304,94 @@ export function NovedadesCliente({
                 {inasistenciasFiltradas.map((item) => (
                   <div
                     key={`${item.colaborador.id}-${item.fecha}`}
-                    className="flex items-center gap-4 px-5 py-3 hover:bg-gray-50/50 transition-colors"
+                    className="hover:bg-gray-50/50 transition-colors"
                   >
-                    {/* Avatar + nombre */}
-                    <div className="flex items-center gap-3 flex-1 min-w-0">
-                      <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 ${
-                        item.conFichada
-                          ? "bg-green-50 border-green-200 text-green-700"
-                          : "bg-[#EFF6FF] border-[#2563EB]/20 text-[#2563EB]"
-                      }`}>
-                        {avatarLetras(item.colaborador.nombre, item.colaborador.apellido)}
+                    {/* Mobile: card */}
+                    <div className="sm:hidden px-4 py-3 space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <div className={`w-8 h-8 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 ${
+                            item.conFichada
+                              ? "bg-green-50 border-green-200 text-green-700"
+                              : "bg-[#EFF6FF] border-[#2563EB]/20 text-[#2563EB]"
+                          }`}>
+                            {avatarLetras(item.colaborador.nombre, item.colaborador.apellido)}
+                          </div>
+                          <div className="min-w-0">
+                            <p className="text-sm font-medium text-gray-800 truncate">
+                              {item.colaborador.apellido} {item.colaborador.nombre}
+                            </p>
+                            <p className="text-xs text-gray-400">{item.fecha}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center gap-2 shrink-0">
+                          {item.conFichada && (
+                            <span className="text-xs text-green-600 font-medium">✓</span>
+                          )}
+                          <button
+                            onClick={() => void eliminar(item)}
+                            className="text-[#2563EB] hover:text-[#1D4ED8] transition-colors"
+                            title="Eliminar"
+                          >
+                            <Trash2 size={15} />
+                          </button>
+                          <button
+                            onClick={() => void aprobar(item)}
+                            className={`transition-colors ${
+                              item.aprobada ? "text-green-500" : "text-gray-300 hover:text-green-400"
+                            }`}
+                            title={item.aprobada ? "Aprobada" : "Aprobar"}
+                          >
+                            <CheckCircle2 size={16} />
+                          </button>
+                        </div>
                       </div>
-                      <span className="text-sm font-medium text-gray-800 truncate">
-                        {item.colaborador.apellido} {item.colaborador.nombre}
-                      </span>
-                      {item.conFichada && (
-                        <span className="text-xs text-green-600 font-medium shrink-0">fichó ✓</span>
-                      )}
+                      <SelectorTipoNovedad
+                        value={item.novedadTipo}
+                        onChange={(tipo) => void asignarTipo(item, tipo)}
+                        className="w-full"
+                      />
                     </div>
 
-                    {/* Fecha */}
-                    <span className="text-sm text-gray-500 shrink-0 w-28">{item.fecha}</span>
-
-                    {/* Selector tipo */}
-                    <SelectorTipoNovedad
-                      value={item.novedadTipo}
-                      onChange={(tipo) => void asignarTipo(item, tipo)}
-                    />
-
-                    {/* Delete */}
-                    <button
-                      onClick={() => void eliminar(item)}
-                      className="text-[#2563EB] hover:text-[#1D4ED8] transition-colors shrink-0"
-                      title="Eliminar"
-                    >
-                      <Trash2 size={17} />
-                    </button>
-
-                    {/* Approve */}
-                    <button
-                      onClick={() => void aprobar(item)}
-                      className={`shrink-0 transition-colors ${
-                        item.aprobada
-                          ? "text-green-500"
-                          : "text-gray-300 hover:text-green-400"
-                      }`}
-                      title={item.aprobada ? "Aprobada" : "Aprobar"}
-                    >
-                      <CheckCircle2 size={18} />
-                    </button>
+                    {/* Desktop: row */}
+                    <div className="hidden sm:flex items-center gap-4 px-5 py-3">
+                      <div className="flex items-center gap-3 flex-1 min-w-0">
+                        <div className={`w-9 h-9 rounded-full border-2 flex items-center justify-center text-xs font-bold shrink-0 ${
+                          item.conFichada
+                            ? "bg-green-50 border-green-200 text-green-700"
+                            : "bg-[#EFF6FF] border-[#2563EB]/20 text-[#2563EB]"
+                        }`}>
+                          {avatarLetras(item.colaborador.nombre, item.colaborador.apellido)}
+                        </div>
+                        <span className="text-sm font-medium text-gray-800 truncate">
+                          {item.colaborador.apellido} {item.colaborador.nombre}
+                        </span>
+                        {item.conFichada && (
+                          <span className="text-xs text-green-600 font-medium shrink-0">fichó ✓</span>
+                        )}
+                      </div>
+                      <span className="text-sm text-gray-500 shrink-0 w-28">{item.fecha}</span>
+                      <SelectorTipoNovedad
+                        value={item.novedadTipo}
+                        onChange={(tipo) => void asignarTipo(item, tipo)}
+                      />
+                      <button
+                        onClick={() => void eliminar(item)}
+                        className="text-[#2563EB] hover:text-[#1D4ED8] transition-colors shrink-0"
+                        title="Eliminar"
+                      >
+                        <Trash2 size={17} />
+                      </button>
+                      <button
+                        onClick={() => void aprobar(item)}
+                        className={`shrink-0 transition-colors ${
+                          item.aprobada ? "text-green-500" : "text-gray-300 hover:text-green-400"
+                        }`}
+                        title={item.aprobada ? "Aprobada" : "Aprobar"}
+                      >
+                        <CheckCircle2 size={18} />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

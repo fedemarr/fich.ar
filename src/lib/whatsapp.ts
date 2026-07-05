@@ -89,6 +89,24 @@ export async function identificarPorDNI(dni: string, empresaId: string) {
   })
 }
 
+export async function enviarPlantilla(to: string, templateName: string, params: string[]) {
+  return waPost({
+    messaging_product: "whatsapp",
+    to,
+    type: "template",
+    template: {
+      name: templateName,
+      language: { code: "es_AR" },
+      components: params.length > 0
+        ? [{
+            type: "body",
+            parameters: params.map((p) => ({ type: "text", text: p })),
+          }]
+        : [],
+    },
+  })
+}
+
 export async function solicitarUbicacion(to: string) {
   return waPost({
     messaging_product: "whatsapp",

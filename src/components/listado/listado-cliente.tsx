@@ -111,51 +111,100 @@ export function ListadoCliente({
         </span>
       </div>
 
-      <div className="flex items-center gap-2 flex-wrap">
-        <div className="relative flex-1 min-w-48">
-          <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
-          <Input
-            placeholder="Buscar..."
-            className="pl-8 h-9 text-sm"
-            value={busqueda}
-            onChange={(e) => setBusqueda(e.target.value)}
-          />
-        </div>
-
-        <Button
-          variant="outline"
-          size="sm"
-          className="h-9 w-9 p-0"
-          onClick={() => router.refresh()}
-        >
-          <RefreshCw size={14} />
-        </Button>
-
-        <div className="ml-auto flex items-center gap-2">
-          <SelectorFecha fechaInicial={fechaInicial} hastaInicial={hastaInicial} />
-
+      <div className="space-y-2">
+        <div className="flex items-center gap-2">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Buscar..."
+              className="pl-8 h-9 text-sm"
+              value={busqueda}
+              onChange={(e) => setBusqueda(e.target.value)}
+            />
+          </div>
           <Button
             variant="outline"
             size="sm"
-            className="h-9 gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
+            className="h-9 w-9 p-0 shrink-0"
+            onClick={() => router.refresh()}
+          >
+            <RefreshCw size={14} />
+          </Button>
+          <SelectorFecha fechaInicial={fechaInicial} hastaInicial={hastaInicial} />
+        </div>
+        <div className="flex items-center gap-2 sm:justify-end">
+          <Button
+            variant="outline"
+            size="sm"
+            className="flex-1 sm:flex-none h-9 gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF] text-xs sm:text-sm"
             onClick={() => setModalFichada(true)}
           >
             Fichada manual
           </Button>
-
           <Button
             variant="outline"
             size="sm"
-            className="h-9 gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
+            className="flex-1 sm:flex-none h-9 gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF] text-xs sm:text-sm"
             onClick={handleExportar}
           >
             <Download size={14} />
-            Exportar datos
+            <span className="hidden xs:inline">Exportar</span>
+            <span className="xs:hidden">Excel</span>
           </Button>
         </div>
       </div>
 
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+      {/* Mobile: cards */}
+      <div className="sm:hidden bg-white rounded-xl border border-gray-200 overflow-hidden">
+        {filasFiltradas.length === 0 ? (
+          <div className="text-center text-gray-400 py-12 text-sm">Sin registros para esta fecha</div>
+        ) : (
+          <div className="divide-y divide-gray-100">
+            {filasFiltradas.map(({ colaborador, entrada, salida, edificio }) => {
+              const analisisEntrada = getAnalisisEntrada(entrada)
+              const esTarde = analisisEntrada === "Llegada tarde"
+              return (
+                <div key={colaborador.id} className="px-4 py-3 flex items-center gap-3">
+                  <div className="w-9 h-9 rounded-full bg-[#EFF6FF] flex items-center justify-center text-xs font-semibold text-[#2563EB] shrink-0">
+                    {colaborador.nombre[0]}{colaborador.apellido[0]}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-sm font-medium text-gray-800 truncate">
+                      {colaborador.apellido} {colaborador.nombre}
+                    </p>
+                    <p className="text-xs text-gray-400 truncate">{edificio}</p>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <div className="flex items-center gap-1.5 justify-end">
+                      {entrada ? (
+                        <span className={`text-xs font-semibold ${esTarde ? "text-orange-600" : "text-gray-800"}`}>
+                          ↑ {formatHora(entrada.timestamp)}
+                        </span>
+                      ) : (
+                        <span className="text-xs text-gray-300">Sin fichada</span>
+                      )}
+                      {salida && (
+                        <span className="text-xs text-gray-500">↓ {formatHora(salida.timestamp)}</span>
+                      )}
+                    </div>
+                    {analisisEntrada && (
+                      <p className={`text-[10px] mt-0.5 ${esTarde ? "text-orange-500" : "text-green-600"}`}>
+                        {analisisEntrada}
+                      </p>
+                    )}
+                    {!entrada && salida === null && (
+                      <p className="text-[10px] text-gray-400 mt-0.5">Pendiente salida</p>
+                    )}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+
+      {/* Desktop: table */}
+      <div className="hidden sm:block bg-white rounded-xl border border-gray-200 overflow-hidden">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-gray-100 bg-gray-50">
