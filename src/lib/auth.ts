@@ -12,6 +12,8 @@ declare module "next-auth" {
     empresaSlug: string
     empresaNombre: string
     rol: RolUsuario
+    puedeGestionarPuntos: boolean
+    puntosIds: string[]
   }
   interface Session {
     user: {
@@ -22,6 +24,8 @@ declare module "next-auth" {
       empresaSlug: string
       empresaNombre: string
       rol: RolUsuario
+      puedeGestionarPuntos: boolean
+      puntosIds: string[]
     }
   }
 }
@@ -43,7 +47,10 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
 
         const usuario = await prisma.usuario.findFirst({
           where: { email, deleted_at: null },
-          include: { empresa: { select: { slug: true, nombre: true } } },
+          include: {
+            empresa: { select: { slug: true, nombre: true } },
+            puntos_asignados: { select: { punto_fichaje_id: true } },
+          },
         })
 
         if (!usuario || !usuario.activo) return null
@@ -58,6 +65,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           empresaSlug: usuario.empresa.slug,
           empresaNombre: usuario.empresa.nombre,
           rol: usuario.rol,
+          puedeGestionarPuntos: usuario.puede_gestionar_puntos,
+          puntosIds: usuario.puntos_asignados.map((p) => p.punto_fichaje_id),
         }
       },
     }),
@@ -71,6 +80,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.empresaSlug = user.empresaSlug
         token.empresaNombre = user.empresaNombre
         token.rol = user.rol as string
+        token.puedeGestionarPuntos = user.puedeGestionarPuntos
+        token.puntosIds = user.puntosIds
       }
       return token
     },
@@ -84,6 +95,8 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           empresaSlug: token.empresaSlug as string,
           empresaNombre: token.empresaNombre as string,
           rol: token.rol as RolUsuario,
+          puedeGestionarPuntos: (token.puedeGestionarPuntos as boolean) ?? false,
+          puntosIds: (token.puntosIds as string[]) ?? [],
         },
       }
     },

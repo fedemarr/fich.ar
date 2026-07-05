@@ -39,7 +39,9 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
 
   const [modo, setModo] = useState<"pwa" | "wa">("pwa")
   const urlPwa = `${appUrl}/fichar/${punto.qr_token}`
-  const urlWa = waNumber ? `https://wa.me/${waNumber}?text=FICHAR%20${punto.qr_token}` : ""
+  const urlWa = waNumber
+    ? `https://api.whatsapp.com/send/?phone=${waNumber}&text=FICHAR%20${punto.qr_token}&type=phone_number&app_absent=0`
+    : ""
   const url = modo === "wa" && urlWa ? urlWa : urlPwa
 
   const [logoBase64, setLogoBase64] = useState<string>("")

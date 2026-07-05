@@ -66,12 +66,14 @@ const ROLES: Record<RolUsuario, string> = {
   SUPER_ADMIN: "Super Admin",
   ADMIN: "Administrador",
   MANAGER: "Manager",
+  SUPERVISOR: "Supervisor",
 }
 
 const COLORES_ROL: Record<RolUsuario, string> = {
   SUPER_ADMIN: "text-purple-700 border-purple-200 bg-purple-50",
   ADMIN: "text-blue-700 border-blue-200 bg-blue-50",
   MANAGER: "text-green-700 border-green-200 bg-green-50",
+  SUPERVISOR: "text-orange-700 border-orange-200 bg-orange-50",
 }
 
 function TabButton({ active, onClick, icon: Icon, label }: {

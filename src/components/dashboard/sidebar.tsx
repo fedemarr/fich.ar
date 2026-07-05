@@ -16,20 +16,31 @@ import {
   HelpCircle,
   Shield,
   UserCog,
+  UsersRound,
+  ShieldCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface SidebarProps {
   slug: string
   rol?: string
+  puedeGestionarPuntos?: boolean
 }
 
-const navMain = [
+const navAdmin = [
   { href: "resumen",        label: "Resumen",         icon: LayoutDashboard },
   { href: "listado",        label: "Listado del día",  icon: ClipboardList },
   { href: "colaboradores",  label: "Colaboradores",    icon: Users },
   { href: "puntos",         label: "Puntos QR",        icon: MapPin },
   { href: "proyeccion",     label: "Proyección",       icon: BarChart2 },
+  { href: "novedades",      label: "Novedades",        icon: Calendar },
+  { href: "comunicaciones", label: "Comunicaciones",   icon: Megaphone },
+  { href: "notificaciones", label: "Notificaciones",   icon: Bell },
+]
+
+const navSupervisor = [
+  { href: "equipo",         label: "Mi equipo",        icon: UsersRound },
+  { href: "listado",        label: "Listado del día",  icon: ClipboardList },
   { href: "novedades",      label: "Novedades",        icon: Calendar },
   { href: "comunicaciones", label: "Comunicaciones",   icon: Megaphone },
   { href: "notificaciones", label: "Notificaciones",   icon: Bell },
@@ -66,7 +77,7 @@ function NavLink({ href, label, icon: Icon, slug, badge }: { href: string; label
   )
 }
 
-export function Sidebar({ slug, rol }: SidebarProps) {
+export function Sidebar({ slug, rol, puedeGestionarPuntos }: SidebarProps) {
   const pathname = usePathname()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoError, setLogoError] = useState(false)
@@ -112,16 +123,37 @@ export function Sidebar({ slug, rol }: SidebarProps) {
       </div>
 
       <nav className="flex-1 px-3 py-4 space-y-1">
-        {navMain.map((item) => (
-          <NavLink
-            key={item.href}
-            {...item}
-            slug={slug}
-            badge={item.href === "notificaciones" ? notifCount : undefined}
-          />
-        ))}
-        {(rol === "ADMIN" || rol === "SUPER_ADMIN") && (
-          <NavLink href="usuarios" label="Usuarios" icon={UserCog} slug={slug} />
+        {rol === "SUPERVISOR" ? (
+          <>
+            {navSupervisor.map((item) => (
+              <NavLink
+                key={item.href}
+                {...item}
+                slug={slug}
+                badge={item.href === "notificaciones" ? notifCount : undefined}
+              />
+            ))}
+            {puedeGestionarPuntos && (
+              <NavLink href="puntos" label="Puntos QR" icon={MapPin} slug={slug} />
+            )}
+          </>
+        ) : (
+          <>
+            {navAdmin.map((item) => (
+              <NavLink
+                key={item.href}
+                {...item}
+                slug={slug}
+                badge={item.href === "notificaciones" ? notifCount : undefined}
+              />
+            ))}
+            {(rol === "ADMIN" || rol === "SUPER_ADMIN") && (
+              <>
+                <NavLink href="usuarios" label="Usuarios" icon={UserCog} slug={slug} />
+                <NavLink href="supervisores" label="Supervisores" icon={ShieldCheck} slug={slug} />
+              </>
+            )}
+          </>
         )}
       </nav>
 

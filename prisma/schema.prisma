@@ -11,6 +11,7 @@ enum RolUsuario {
   SUPER_ADMIN
   ADMIN
   MANAGER
+  SUPERVISOR
 }
 
 enum EstadoColaborador {
@@ -92,22 +93,38 @@ model Empresa {
 }
 
 model Usuario {
-  id         String     @id @default(uuid())
-  empresa_id String
-  nombre     String
-  email      String     @unique
-  password   String
-  rol        RolUsuario @default(ADMIN)
-  activo     Boolean    @default(true)
-  created_at DateTime   @default(now())
-  updated_at DateTime   @updatedAt
-  deleted_at DateTime?
+  id                     String     @id @default(uuid())
+  empresa_id             String
+  nombre                 String
+  email                  String     @unique
+  password               String
+  rol                    RolUsuario @default(ADMIN)
+  activo                 Boolean    @default(true)
+  puede_gestionar_puntos Boolean    @default(false)
+  created_at             DateTime   @default(now())
+  updated_at             DateTime   @updatedAt
+  deleted_at             DateTime?
 
-  empresa           Empresa   @relation(fields: [empresa_id], references: [id])
-  fichadas_manuales Fichada[] @relation("FichadaManualUsuario")
+  empresa           Empresa        @relation(fields: [empresa_id], references: [id])
+  fichadas_manuales Fichada[]      @relation("FichadaManualUsuario")
+  puntos_asignados  UsuarioPunto[]
 
   @@index([empresa_id])
   @@map("usuarios")
+}
+
+model UsuarioPunto {
+  id               String @id @default(uuid())
+  usuario_id       String
+  punto_fichaje_id String
+
+  usuario       Usuario      @relation(fields: [usuario_id], references: [id])
+  punto_fichaje PuntoFichaje @relation(fields: [punto_fichaje_id], references: [id])
+
+  @@unique([usuario_id, punto_fichaje_id])
+  @@index([usuario_id])
+  @@index([punto_fichaje_id])
+  @@map("usuario_puntos")
 }
 
 model Colaborador {
@@ -152,10 +169,11 @@ model PuntoFichaje {
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 
-  empresa      Empresa             @relation(fields: [empresa_id], references: [id])
-  fichadas     Fichada[]
-  jornadas     Jornada[]
-  asignaciones AsignacionMensual[]
+  empresa           Empresa        @relation(fields: [empresa_id], references: [id])
+  fichadas          Fichada[]
+  jornadas          Jornada[]
+  asignaciones      AsignacionMensual[]
+  supervisores      UsuarioPunto[]
 
   @@index([empresa_id])
   @@index([qr_token])
