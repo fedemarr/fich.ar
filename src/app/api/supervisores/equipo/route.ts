@@ -21,8 +21,8 @@ export async function GET() {
         ? {
             jornadas: {
               some: {
-                fecha_hasta: null,
                 jornada: { punto_fichaje_id: { in: puntosIds } },
+                OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }],
               },
             },
           }
@@ -30,7 +30,7 @@ export async function GET() {
     },
     include: {
       jornadas: {
-        where: { fecha_hasta: null },
+        where: { OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }] },
         include: {
           jornada: {
             select: {

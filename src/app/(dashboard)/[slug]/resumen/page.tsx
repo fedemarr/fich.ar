@@ -29,7 +29,7 @@ export default async function ResumenPage({
   // Para supervisor: colaboradores cuya jornada activa está en sus puntos
   const colaboradoresFiltro = puntosIds
     ? await prisma.colaboradorJornada.findMany({
-        where: { fecha_hasta: null, jornada: { punto_fichaje_id: { in: puntosIds } } },
+        where: { jornada: { punto_fichaje_id: { in: puntosIds } }, OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }] },
         select: { colaborador_id: true },
         distinct: ["colaborador_id"],
       }).then((rows) => rows.map((r) => r.colaborador_id))

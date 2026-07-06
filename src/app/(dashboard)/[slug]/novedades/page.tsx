@@ -49,7 +49,7 @@ export default async function NovedadesPage({
   // Para supervisor: solo colaboradores de sus puntos
   const colaboradoresFiltroIds = puntosIds?.length
     ? await prisma.colaboradorJornada.findMany({
-        where: { fecha_hasta: null, jornada: { punto_fichaje_id: { in: puntosIds } } },
+        where: { jornada: { punto_fichaje_id: { in: puntosIds } }, OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }] },
         select: { colaborador_id: true },
         distinct: ["colaborador_id"],
       }).then((rows) => rows.map((r) => r.colaborador_id))

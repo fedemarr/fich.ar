@@ -1,6 +1,16 @@
 import { unstable_cache, revalidateTag } from "next/cache"
 import { prisma } from "./prisma"
 
+// Filtro "asignación activa": sin fecha de fin O fecha de fin en el futuro
+export function jornadaActivaFiltro() {
+  return {
+    OR: [
+      { fecha_hasta: null },
+      { fecha_hasta: { gte: new Date() } },
+    ],
+  }
+}
+
 // Tags por empresa — usados tanto para cachear como para invalidar
 export const tags = {
   colaboradores: (id: string) => `col-${id}`,
@@ -20,8 +30,9 @@ export function getColaboradoresActivos(empresaId: string) {
         where: { empresa_id: empresaId, deleted_at: null },
         include: {
           jornadas: {
-            where: { fecha_hasta: null },
+            where: jornadaActivaFiltro(),
             include: { jornada: { include: { punto_fichaje: true } } },
+            orderBy: { fecha_desde: "desc" },
             take: 1,
           },
         },
@@ -52,7 +63,7 @@ export function getPuntos(empresaId: string) {
         include: {
           jornadas: {
             where: { activo: true },
-            include: { colaboradores: { where: { fecha_hasta: null } } },
+            include: { colaboradores: { where: jornadaActivaFiltro() } },
           },
         },
         orderBy: { created_at: "asc" },

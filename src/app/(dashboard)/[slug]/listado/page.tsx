@@ -28,7 +28,7 @@ export default async function ListadoPage({ params, searchParams }: ListadoPageP
   // Para supervisor: solo colaboradores cuya jornada activa está en sus puntos
   const colaboradoresFiltroIds = puntosIds
     ? await prisma.colaboradorJornada.findMany({
-        where: { fecha_hasta: null, jornada: { punto_fichaje_id: { in: puntosIds } } },
+        where: { jornada: { punto_fichaje_id: { in: puntosIds } }, OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }] },
         select: { colaborador_id: true },
         distinct: ["colaborador_id"],
       }).then((rows) => rows.map((r) => r.colaborador_id))
@@ -44,8 +44,9 @@ export default async function ListadoPage({ params, searchParams }: ListadoPageP
       },
       include: {
         jornadas: {
-          where: { fecha_hasta: null },
+          where: { OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }] },
           include: { jornada: { include: { punto_fichaje: true } } },
+          orderBy: { fecha_desde: "desc" },
           take: 1,
         },
       },

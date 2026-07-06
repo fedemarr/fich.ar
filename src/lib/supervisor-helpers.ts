@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma"
+import { jornadaActivaFiltro } from "@/lib/queries"
 import type { SesionVerificada } from "@/lib/auth-helpers"
 
 /**
@@ -15,8 +16,8 @@ export async function getColaboradoresSupervisor(
 
   const jornadas = await prisma.colaboradorJornada.findMany({
     where: {
-      fecha_hasta: null,
       jornada: { punto_fichaje_id: { in: puntosIds } },
+      OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }],
     },
     select: { colaborador_id: true },
     distinct: ["colaborador_id"],
