@@ -60,12 +60,14 @@ export async function GET() {
     orderBy: { timestamp: "asc" },
   })
 
-  // Novedades de hoy
+  // Novedades de hoy — @db.Date se guarda como 00:00 UTC, no ARG midnight
+  const fechaHoyUTC = new Date(hoy + "T00:00:00.000Z")
+  const finHoyUTC   = new Date(hoy + "T23:59:59.999Z")
   const novedadesHoy = await prisma.novedad.findMany({
     where: {
       empresa_id: empresaId,
       colaborador_id: { in: colaboradores.map((c) => c.id) },
-      fecha: { gte: hoyInicio, lte: hoyFin },
+      fecha: { gte: fechaHoyUTC, lte: finHoyUTC },
     },
   })
 

@@ -4,7 +4,6 @@ import { redirect } from "next/navigation"
 import { NovedadesCliente } from "@/components/novedades/novedades-cliente"
 import { hoyARG, fechaARG, inicioDiaARG } from "@/lib/utils"
 import type { TipoNovedad, Colaborador } from "@/generated/prisma/client"
-import { getColaboradoresSoloActivos } from "@/lib/queries"
 
 export const dynamic = "force-dynamic"
 
@@ -44,6 +43,17 @@ export default async function NovedadesPage({
   const anioActual = sp.anio ? parseInt(sp.anio) : anioHoy
 
   const empresaId = session.user.empresaId
+  const isSupervisor = session.user.rol === "SUPERVISOR"
+  const puntosIds = isSupervisor ? session.user.puntosIds : null
+
+  // Para supervisor: solo colaboradores de sus puntos
+  const colaboradoresFiltroIds = puntosIds?.length
+    ? await prisma.colaboradorJornada.findMany({
+        where: { fecha_hasta: null, jornada: { punto_fichaje_id: { in: puntosIds } } },
+        select: { colaborador_id: true },
+        distinct: ["colaborador_id"],
+      }).then((rows) => rows.map((r) => r.colaborador_id))
+    : null
 
   // Últimos 14 días calendario en hora ARG (cubre ~10 días hábiles)
   const hace14Str = (() => {
@@ -63,24 +73,40 @@ export default async function NovedadesPage({
   )
   hastaCalendarioReal.setTime(hastaCalendarioReal.getTime() + 24 * 60 * 60 * 1000 - 1)
 
+  const colabWhere = {
+    empresa_id: empresaId,
+    estado: "ACTIVO" as const,
+    deleted_at: null,
+    ...(colaboradoresFiltroIds ? { id: { in: colaboradoresFiltroIds } } : {}),
+  }
+
   const [colaboradores, fichadasRecientes, novedadesRecientes, novedadesMes, fichadasMesRaw] = await Promise.all([
-    getColaboradoresSoloActivos(empresaId),
+    prisma.colaborador.findMany({
+      where: colabWhere,
+      orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
+    }),
     prisma.fichada.findMany({
       where: {
         empresa_id: empresaId,
         tipo: "ENTRADA",
         timestamp: { gte: hace14 },
+        ...(colaboradoresFiltroIds ? { colaborador_id: { in: colaboradoresFiltroIds } } : {}),
       },
       select: { colaborador_id: true, timestamp: true, analisis: true },
     }),
     prisma.novedad.findMany({
-      where: { empresa_id: empresaId, fecha: { gte: hace14 } },
+      where: {
+        empresa_id: empresaId,
+        fecha: { gte: hace14 },
+        ...(colaboradoresFiltroIds ? { colaborador_id: { in: colaboradoresFiltroIds } } : {}),
+      },
       select: { id: true, colaborador_id: true, fecha: true, tipo: true, aprobada: true },
     }),
     prisma.novedad.findMany({
       where: {
         empresa_id: empresaId,
         fecha: { gte: desdeCalendario, lte: hastaCalendarioReal },
+        ...(colaboradoresFiltroIds ? { colaborador_id: { in: colaboradoresFiltroIds } } : {}),
       },
       select: {
         id: true, empresa_id: true, colaborador_id: true, fecha: true,
@@ -89,12 +115,12 @@ export default async function NovedadesPage({
       },
       orderBy: { fecha: "asc" },
     }),
-    // Traemos ENTRADA + SALIDA con analisis para el calendario
     prisma.fichada.findMany({
       where: {
         empresa_id: empresaId,
         timestamp: { gte: desdeCalendario, lte: hastaCalendarioReal },
         es_valida: true,
+        ...(colaboradoresFiltroIds ? { colaborador_id: { in: colaboradoresFiltroIds } } : {}),
       },
       select: { colaborador_id: true, timestamp: true, tipo: true, analisis: true },
     }),
