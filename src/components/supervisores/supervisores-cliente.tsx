@@ -15,10 +15,11 @@ interface Supervisor {
   puedeGestionarPuntos: boolean
   puntos: Punto[]
 }
+interface ColaboradorSimple { id: string; nombre: string; apellido: string }
 
-interface Props { puntos: Punto[] }
+interface Props { puntos: Punto[]; colaboradores: ColaboradorSimple[] }
 
-export function SupervisoresCliente({ puntos }: Props) {
+export function SupervisoresCliente({ puntos, colaboradores }: Props) {
   const [supervisores, setSupervisores] = useState<Supervisor[]>([])
   const [loading, setLoading] = useState(true)
   const [modal, setModal] = useState<{ open: boolean; supervisor?: Supervisor }>({ open: false })
@@ -103,6 +104,7 @@ export function SupervisoresCliente({ puntos }: Props) {
       {modal.open && (
         <SupervisorModal
           puntos={puntos}
+          colaboradores={colaboradores}
           supervisor={modal.supervisor}
           onClose={() => setModal({ open: false })}
           onSaved={() => { cargar(); setModal({ open: false }) }}

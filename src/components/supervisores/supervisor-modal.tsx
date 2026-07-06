@@ -15,6 +15,7 @@ interface Supervisor {
   id: string; nombre: string; email: string; activo: boolean
   puedeGestionarPuntos: boolean; puntos: Punto[]
 }
+interface ColaboradorSimple { id: string; nombre: string; apellido: string }
 
 const schema = z.object({
   nombre: z.string().min(1, "Requerido"),
@@ -28,19 +29,20 @@ type Form = z.infer<typeof schema>
 
 interface Props {
   puntos: Punto[]
+  colaboradores: ColaboradorSimple[]
   supervisor?: Supervisor
   onClose: () => void
   onSaved: () => void
 }
 
-export function SupervisorModal({ puntos, supervisor, onClose, onSaved }: Props) {
+export function SupervisorModal({ puntos, colaboradores, supervisor, onClose, onSaved }: Props) {
   const [puntosSeleccionados, setPuntosSeleccionados] = useState<string[]>(
     supervisor?.puntos.map((p) => p.id) ?? []
   )
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const { register, handleSubmit, formState: { errors } } = useForm<Form>({
+  const { register, handleSubmit, setValue, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
     defaultValues: {
       nombre: supervisor?.nombre ?? "",
@@ -50,6 +52,12 @@ export function SupervisorModal({ puntos, supervisor, onClose, onSaved }: Props)
       puedeGestionarPuntos: supervisor?.puedeGestionarPuntos ?? false,
     },
   })
+
+  function onSelectColaborador(e: React.ChangeEvent<HTMLSelectElement>) {
+    const id = e.target.value
+    const col = colaboradores.find((c) => c.id === id)
+    if (col) setValue("nombre", `${col.nombre} ${col.apellido}`)
+  }
 
   function togglePunto(id: string) {
     setPuntosSeleccionados((prev) =>
@@ -100,11 +108,33 @@ export function SupervisorModal({ puntos, supervisor, onClose, onSaved }: Props)
         </DialogHeader>
 
         <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
-          <div className="space-y-1">
-            <Label>Nombre</Label>
-            <Input {...register("nombre")} placeholder="Nombre completo" />
-            {errors.nombre && <p className="text-xs text-red-500">{errors.nombre.message}</p>}
-          </div>
+          {!supervisor ? (
+            <div className="space-y-1">
+              <Label>Colaborador</Label>
+              <select
+                onChange={onSelectColaborador}
+                defaultValue=""
+                className="w-full h-9 px-3 pr-8 text-sm rounded-lg border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 appearance-none text-gray-700"
+              >
+                <option value="" disabled>Seleccioná un colaborador...</option>
+                {[...colaboradores]
+                  .sort((a, b) => a.apellido.localeCompare(b.apellido))
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.apellido}, {c.nombre}
+                    </option>
+                  ))}
+              </select>
+              <input type="hidden" {...register("nombre")} />
+              {errors.nombre && <p className="text-xs text-red-500">Seleccioná un colaborador</p>}
+            </div>
+          ) : (
+            <div className="space-y-1">
+              <Label>Nombre</Label>
+              <Input {...register("nombre")} placeholder="Nombre completo" />
+              {errors.nombre && <p className="text-xs text-red-500">{errors.nombre.message}</p>}
+            </div>
+          )}
 
           <div className="space-y-1">
             <Label>Email</Label>
