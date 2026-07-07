@@ -42,7 +42,7 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
   const [importarServiciosAbierto, setImportarServiciosAbierto] = useState(false)
   const [editando, setEditando] = useState<PuntoConJornadas | null>(null)
   const [verQr, setVerQr] = useState<PuntoConJornadas | null>(null)
-  const [verJornadas, setVerJornadas] = useState<PuntoConJornadas | null>(null)
+  const [verJornadasId, setVerJornadasId] = useState<string | null>(null)
   const [limpiando, setLimpiando] = useState(false)
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
 
@@ -142,7 +142,7 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
                   <span>
                     <button
                       className="text-[#2563EB] hover:underline font-medium"
-                      onClick={() => setVerJornadas(p)}
+                      onClick={() => setVerJornadasId(p.id)}
                     >
                       {p.jornadas.length} {p.jornadas.length === 1 ? "turno" : "turnos"}
                     </button>
@@ -233,14 +233,17 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
         />
       )}
 
-      {verJornadas && (
-        <JornadasDialog
-          punto={verJornadas}
-          colaboradores={colaboradores}
-          onClose={() => setVerJornadas(null)}
-          onSuccess={() => router.refresh()}
-        />
-      )}
+      {verJornadasId && (() => {
+        const puntoActivo = puntos.find((p) => p.id === verJornadasId)
+        return puntoActivo ? (
+          <JornadasDialog
+            punto={puntoActivo}
+            colaboradores={colaboradores}
+            onClose={() => setVerJornadasId(null)}
+            onSuccess={() => router.refresh()}
+          />
+        ) : null
+      })()}
     </div>
   )
 }
