@@ -92,19 +92,27 @@ function AgregarColaboradorPanel({
     setCargando(true)
     const ids = Array.from(seleccionados)
     const resultados = await Promise.all(
-      ids.map((id) =>
-        fetch(`/api/puntos/jornadas/${jornadaId}/colaboradores`, {
+      ids.map(async (id) => {
+        const r = await fetch(`/api/puntos/jornadas/${jornadaId}/colaboradores`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ colaborador_id: id }),
         })
-      )
+        return { id, status: r.status }
+      })
     )
     setCargando(false)
-    const errores = resultados.filter((r) => !r.ok).length
-    if (errores > 0) toast.error(`${errores} colaborador(es) no se pudieron agregar`)
-    const ok = ids.length - errores
-    if (ok > 0) toast.success(`${ok} colaborador${ok > 1 ? "es" : ""} agregado${ok > 1 ? "s" : ""}`)
+    // 409 = ya estaba asignado, se trata como éxito
+    const fallidos = resultados.filter((r) => r.status !== 201 && r.status !== 409)
+    const agregados = resultados.filter((r) => r.status === 201).length
+    if (fallidos.length > 0) {
+      const nombres = fallidos.map((f) => {
+        const c = colaboradoresDisponibles.find((c) => c.id === f.id)
+        return c ? `${c.apellido}, ${c.nombre}` : f.id
+      })
+      toast.error(`No se pudo agregar: ${nombres.join(" · ")}`)
+    }
+    if (agregados > 0) toast.success(`${agregados} colaborador${agregados > 1 ? "es" : ""} agregado${agregados > 1 ? "s" : ""}`)
     onAgregado()
   }
 
