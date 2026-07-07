@@ -10,7 +10,6 @@ const geistSans = Geist({
 export const metadata: Metadata = {
   title: "Fich.ar",
   description: "Sistema de control de asistencia y RRHH",
-  manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",

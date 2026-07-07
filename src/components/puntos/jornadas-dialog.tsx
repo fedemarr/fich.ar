@@ -112,7 +112,11 @@ function AgregarColaboradorPanel({
       })
       toast.error(`No se pudo agregar: ${nombres.join(" · ")}`)
     }
-    if (agregados > 0) toast.success(`${agregados} colaborador${agregados > 1 ? "es" : ""} agregado${agregados > 1 ? "s" : ""}`)
+    if (agregados > 0) toast.success(
+      agregados === 1
+        ? "Colaborador incorporado correctamente al turno"
+        : `${agregados} colaboradores incorporados correctamente al turno`
+    )
     onAgregado()
   }
 
