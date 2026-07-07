@@ -63,7 +63,13 @@ export function getPuntos(empresaId: string) {
         include: {
           jornadas: {
             where: { activo: true },
-            include: { colaboradores: { where: jornadaActivaFiltro() } },
+            include: {
+              colaboradores: {
+                where: jornadaActivaFiltro(),
+                include: { colaborador: { select: { id: true, nombre: true, apellido: true } } },
+                orderBy: { fecha_desde: "desc" },
+              },
+            },
           },
         },
         orderBy: { created_at: "asc" },

@@ -5,7 +5,7 @@ import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { Plus, X } from "lucide-react"
+import { Plus, X, UserPlus, Search } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,11 +26,21 @@ const schema = z.object({
 
 type FormData = z.infer<typeof schema>
 
-type JornadaConColabs = Jornada & { colaboradores: ColaboradorJornada[] }
+interface ColabSimple { id: string; nombre: string; apellido: string }
+
+type ColaboradorJornadaConColaborador = ColaboradorJornada & {
+  colaborador: ColabSimple
+}
+
+type JornadaConColabs = Jornada & {
+  colaboradores: ColaboradorJornadaConColaborador[]
+}
+
 type PuntoConJornadas = PuntoFichaje & { jornadas: JornadaConColabs[] }
 
 interface JornadasDialogProps {
   punto: PuntoConJornadas
+  colaboradores: ColabSimple[]
   onClose: () => void
   onSuccess: () => void
 }
@@ -51,10 +61,87 @@ function DiaToggle({ dia, activo, onClick }: { dia: string; activo: boolean; onC
   )
 }
 
-export function JornadasDialog({ punto, onClose, onSuccess }: JornadasDialogProps) {
+function AgregarColaboradorPanel({
+  jornadaId,
+  colaboradoresDisponibles,
+  onAgregado,
+}: {
+  jornadaId: string
+  colaboradoresDisponibles: ColabSimple[]
+  onAgregado: () => void
+}) {
+  const [busqueda, setBusqueda] = useState("")
+  const [cargando, setCargando] = useState<string | null>(null)
+
+  const filtrados = colaboradoresDisponibles
+    .filter((c) => {
+      const q = busqueda.toLowerCase()
+      return `${c.apellido} ${c.nombre}`.toLowerCase().includes(q)
+    })
+    .slice(0, 8)
+
+  async function agregar(colaborador: ColabSimple) {
+    setCargando(colaborador.id)
+    const res = await fetch(`/api/puntos/jornadas/${jornadaId}/colaboradores`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ colaborador_id: colaborador.id }),
+    })
+    setCargando(null)
+    if (!res.ok) {
+      const data = await res.json() as { error?: string }
+      toast.error(data.error ?? "Error al agregar")
+      return
+    }
+    toast.success(`${colaborador.nombre} ${colaborador.apellido} agregado`)
+    onAgregado()
+  }
+
+  return (
+    <div className="mt-2 border border-dashed border-blue-200 rounded-lg p-3 bg-blue-50/40 space-y-2">
+      <div className="relative">
+        <Search size={13} className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" />
+        <input
+          autoFocus
+          type="text"
+          placeholder="Buscar colaborador..."
+          value={busqueda}
+          onChange={(e) => setBusqueda(e.target.value)}
+          className="w-full h-8 pl-8 pr-3 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20"
+        />
+      </div>
+      {filtrados.length === 0 ? (
+        <p className="text-xs text-gray-400 text-center py-1">
+          {busqueda ? "Sin resultados" : "Todos los colaboradores ya están asignados"}
+        </p>
+      ) : (
+        <div className="space-y-1 max-h-36 overflow-y-auto">
+          {filtrados.map((c) => (
+            <button
+              key={c.id}
+              onClick={() => void agregar(c)}
+              disabled={cargando === c.id}
+              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-blue-100 transition-colors text-left"
+            >
+              <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700 shrink-0">
+                {c.nombre[0]}{c.apellido[0]}
+              </div>
+              <span className="text-sm text-gray-800">{c.apellido}, {c.nombre}</span>
+              {cargando === c.id && <span className="ml-auto text-xs text-gray-400">...</span>}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
+export function JornadasDialog({ punto, colaboradores, onClose, onSuccess }: JornadasDialogProps) {
   const [mostrarForm, setMostrarForm] = useState(false)
   const [diasPresencial, setDiasPresencial] = useState<string[]>([])
   const [diasVirtual, setDiasVirtual] = useState<string[]>([])
+  const [agregandoEnJornada, setAgregandoEnJornada] = useState<string | null>(null)
+  const [quitando, setQuitando] = useState<string | null>(null)
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
     useForm<FormData>({
@@ -90,8 +177,8 @@ export function JornadasDialog({ punto, onClose, onSuccess }: JornadasDialogProp
       }),
     })
 
-    if (!res.ok) { toast.error("Error al crear jornada"); return }
-    toast.success("Jornada creada")
+    if (!res.ok) { toast.error("Error al crear turno"); return }
+    toast.success("Turno creado")
     reset()
     setDiasPresencial([])
     setDiasVirtual([])
@@ -100,45 +187,130 @@ export function JornadasDialog({ punto, onClose, onSuccess }: JornadasDialogProp
   }
 
   async function eliminarJornada(jornadaId: string) {
-    if (!confirm("¿Eliminar esta jornada?")) return
+    if (!confirm("¿Eliminar este turno?")) return
     await fetch(`/api/puntos/jornadas/${jornadaId}`, { method: "DELETE" })
+    onSuccess()
+  }
+
+  async function quitarColaborador(jornadaId: string, colaboradorId: string, nombre: string) {
+    setQuitando(`${jornadaId}-${colaboradorId}`)
+    const res = await fetch(`/api/puntos/jornadas/${jornadaId}/colaboradores`, {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ colaborador_id: colaboradorId }),
+    })
+    setQuitando(null)
+    if (!res.ok) { toast.error("Error al quitar colaborador"); return }
+    toast.success(`${nombre} quitado del turno`)
     onSuccess()
   }
 
   return (
     <Dialog open onOpenChange={(v) => !v && onClose()}>
-      <DialogContent className="max-w-lg max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-lg max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Turnos — {punto.nombre}</DialogTitle>
         </DialogHeader>
 
-        <div className="space-y-3 mt-2">
-          {punto.jornadas.map((j) => (
-            <div key={j.id} className="border border-gray-200 rounded-lg p-3">
-              <div className="flex items-start justify-between">
-                <div>
-                  <p className="font-medium text-sm text-gray-800">{j.nombre}</p>
-                  <p className="text-xs text-gray-500 mt-0.5">
-                    {j.hora_inicio} — {j.hora_fin} · tolerancia {j.tolerancia_min}min
-                  </p>
-                  <p className="text-xs text-gray-400 mt-1">
-                    {j.colaboradores.length} colaboradores asignados
-                  </p>
+        <div className="space-y-4 mt-2">
+          {punto.jornadas.map((j) => {
+            // IDs ya asignados a este turno
+            const idsEnJornada = new Set(j.colaboradores.map((cj) => cj.colaborador_id))
+            // Colaboradores disponibles para agregar (activos y no en este turno)
+            const disponibles = colaboradores.filter((c) => !idsEnJornada.has(c.id))
+
+            const diasLabel = DIAS
+              .filter((d) => j[`${d}_presencial` as keyof typeof j])
+              .map((d) => d.slice(0, 2))
+              .join(", ")
+
+            return (
+              <div key={j.id} className="border border-gray-200 rounded-xl p-3.5 space-y-3">
+                {/* Cabecera del turno */}
+                <div className="flex items-start justify-between">
+                  <div>
+                    <p className="font-semibold text-sm text-gray-900">{j.nombre}</p>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      {j.hora_inicio} — {j.hora_fin}
+                      {diasLabel && <span className="ml-2 text-gray-400">· {diasLabel}</span>}
+                      <span className="ml-2 text-gray-400">· {j.tolerancia_min}min tolerancia</span>
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => eliminarJornada(j.id)}
+                    className="text-gray-300 hover:text-red-400 transition-colors shrink-0 mt-0.5"
+                    title="Eliminar turno"
+                  >
+                    <X size={15} />
+                  </button>
                 </div>
-                <button
-                  onClick={() => eliminarJornada(j.id)}
-                  className="text-gray-300 hover:text-red-400 transition-colors"
-                >
-                  <X size={15} />
-                </button>
+
+                {/* Lista de colaboradores */}
+                <div className="space-y-1">
+                  {j.colaboradores.length === 0 ? (
+                    <p className="text-xs text-gray-400 italic px-1">Sin colaboradores asignados</p>
+                  ) : (
+                    j.colaboradores.map((cj) => (
+                      <div
+                        key={cj.id}
+                        className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 group"
+                      >
+                        <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700 shrink-0">
+                          {cj.colaborador.nombre[0]}{cj.colaborador.apellido[0]}
+                        </div>
+                        <span className="text-sm text-gray-800 flex-1 truncate">
+                          {cj.colaborador.apellido}, {cj.colaborador.nombre}
+                        </span>
+                        <button
+                          onClick={() => void quitarColaborador(
+                            j.id,
+                            cj.colaborador_id,
+                            `${cj.colaborador.nombre} ${cj.colaborador.apellido}`
+                          )}
+                          disabled={quitando === `${j.id}-${cj.colaborador_id}`}
+                          className="text-gray-300 hover:text-red-400 transition-colors opacity-0 group-hover:opacity-100 shrink-0"
+                          title="Quitar del turno"
+                        >
+                          <X size={13} />
+                        </button>
+                      </div>
+                    ))
+                  )}
+                </div>
+
+                {/* Agregar colaborador */}
+                {agregandoEnJornada === j.id ? (
+                  <div>
+                    <AgregarColaboradorPanel
+                      jornadaId={j.id}
+                      colaboradoresDisponibles={disponibles}
+                      onAgregado={() => { setAgregandoEnJornada(null); onSuccess() }}
+                    />
+                    <button
+                      onClick={() => setAgregandoEnJornada(null)}
+                      className="mt-1.5 text-xs text-gray-400 hover:text-gray-600 w-full text-center"
+                    >
+                      Cancelar
+                    </button>
+                  </div>
+                ) : (
+                  <button
+                    onClick={() => setAgregandoEnJornada(j.id)}
+                    className="flex items-center gap-1.5 text-xs text-[#2563EB] hover:text-[#1D4ED8] font-medium transition-colors"
+                  >
+                    <UserPlus size={13} />
+                    Agregar colaborador
+                  </button>
+                )}
               </div>
-            </div>
-          ))}
+            )
+          })}
 
           {punto.jornadas.length === 0 && !mostrarForm && (
             <p className="text-sm text-gray-400 text-center py-4">Sin turnos configurados</p>
           )}
 
+          {/* Formulario nuevo turno */}
           {!mostrarForm ? (
             <Button
               variant="outline"
@@ -150,7 +322,8 @@ export function JornadasDialog({ punto, onClose, onSuccess }: JornadasDialogProp
               Agregar turno
             </Button>
           ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="border border-gray-200 rounded-lg p-4 space-y-3">
+            <form onSubmit={handleSubmit(onSubmit)} className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-gray-800">Nuevo turno</p>
               <div className="space-y-1.5">
                 <Label className="text-xs">Nombre del turno</Label>
                 <Input className="h-8 text-sm" placeholder="Ej: L-V 9 a 17" {...register("nombre")} />

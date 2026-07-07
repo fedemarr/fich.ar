@@ -13,8 +13,14 @@ import { ImportarServiciosModal } from "@/components/puntos/importar-servicios-m
 import { toast } from "sonner"
 import type { PuntoFichaje, Jornada, ColaboradorJornada } from "@/generated/prisma/client"
 
+interface ColabSimple { id: string; nombre: string; apellido: string }
+
+type ColaboradorJornadaConColaborador = ColaboradorJornada & {
+  colaborador: ColabSimple
+}
+
 type JornadaConColabs = Jornada & {
-  colaboradores: ColaboradorJornada[]
+  colaboradores: ColaboradorJornadaConColaborador[]
 }
 
 type PuntoConJornadas = PuntoFichaje & {
@@ -23,12 +29,13 @@ type PuntoConJornadas = PuntoFichaje & {
 
 interface PuntosClienteProps {
   puntos: PuntoConJornadas[]
+  colaboradores: ColabSimple[]
   empresaId: string
   empresaNombre: string
   empresaLogoUrl: string | null
 }
 
-export function PuntosCliente({ puntos, empresaId, empresaNombre, empresaLogoUrl }: PuntosClienteProps) {
+export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre, empresaLogoUrl }: PuntosClienteProps) {
   const router = useRouter()
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   const [importarAbierto, setImportarAbierto] = useState(false)
@@ -229,8 +236,9 @@ export function PuntosCliente({ puntos, empresaId, empresaNombre, empresaLogoUrl
       {verJornadas && (
         <JornadasDialog
           punto={verJornadas}
+          colaboradores={colaboradores}
           onClose={() => setVerJornadas(null)}
-          onSuccess={() => { router.refresh(); setVerJornadas(null) }}
+          onSuccess={() => router.refresh()}
         />
       )}
     </div>
