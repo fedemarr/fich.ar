@@ -65,7 +65,7 @@ export async function GET(req: Request) {
       const numero = colab.celular.replace(/^\+/, "")
 
       try {
-        await enviarPlantilla(numero, "recordatorio_fichaje", [colab.nombre])
+        await enviarPlantilla(numero, "recordatorio_ingreso", [])
         totalEnviados++
       } catch {
         totalOmitidos++
