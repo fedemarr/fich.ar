@@ -5,7 +5,7 @@ import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { Plus, X, UserPlus, Search } from "lucide-react"
+import { Plus, X, UserPlus, Search, Check } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -71,29 +71,40 @@ function AgregarColaboradorPanel({
   onAgregado: () => void
 }) {
   const [busqueda, setBusqueda] = useState("")
-  const [cargando, setCargando] = useState<string | null>(null)
+  const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
+  const [cargando, setCargando] = useState(false)
 
-  const filtrados = colaboradoresDisponibles
-    .filter((c) => {
-      const q = busqueda.toLowerCase()
-      return `${c.apellido} ${c.nombre}`.toLowerCase().includes(q)
-    })
-    .slice(0, 8)
+  const filtrados = colaboradoresDisponibles.filter((c) => {
+    const q = busqueda.toLowerCase()
+    return `${c.apellido} ${c.nombre}`.toLowerCase().includes(q)
+  })
 
-  async function agregar(colaborador: ColabSimple) {
-    setCargando(colaborador.id)
-    const res = await fetch(`/api/puntos/jornadas/${jornadaId}/colaboradores`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ colaborador_id: colaborador.id }),
+  function toggleSeleccion(id: string) {
+    setSeleccionados((prev) => {
+      const next = new Set(prev)
+      next.has(id) ? next.delete(id) : next.add(id)
+      return next
     })
-    setCargando(null)
-    if (!res.ok) {
-      const data = await res.json() as { error?: string }
-      toast.error(data.error ?? "Error al agregar")
-      return
-    }
-    toast.success(`${colaborador.nombre} ${colaborador.apellido} agregado`)
+  }
+
+  async function confirmarAgregar() {
+    if (seleccionados.size === 0) return
+    setCargando(true)
+    const ids = Array.from(seleccionados)
+    const resultados = await Promise.all(
+      ids.map((id) =>
+        fetch(`/api/puntos/jornadas/${jornadaId}/colaboradores`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ colaborador_id: id }),
+        })
+      )
+    )
+    setCargando(false)
+    const errores = resultados.filter((r) => !r.ok).length
+    if (errores > 0) toast.error(`${errores} colaborador(es) no se pudieron agregar`)
+    const ok = ids.length - errores
+    if (ok > 0) toast.success(`${ok} colaborador${ok > 1 ? "es" : ""} agregado${ok > 1 ? "s" : ""}`)
     onAgregado()
   }
 
@@ -115,22 +126,39 @@ function AgregarColaboradorPanel({
           {busqueda ? "Sin resultados" : "Todos los colaboradores ya están asignados"}
         </p>
       ) : (
-        <div className="space-y-1 max-h-36 overflow-y-auto">
-          {filtrados.map((c) => (
-            <button
-              key={c.id}
-              onClick={() => void agregar(c)}
-              disabled={cargando === c.id}
-              className="w-full flex items-center gap-2 px-2 py-1.5 rounded-md hover:bg-blue-100 transition-colors text-left"
-            >
-              <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700 shrink-0">
-                {c.nombre[0]}{c.apellido[0]}
-              </div>
-              <span className="text-sm text-gray-800">{c.apellido}, {c.nombre}</span>
-              {cargando === c.id && <span className="ml-auto text-xs text-gray-400">...</span>}
-            </button>
-          ))}
+        <div className="space-y-1 max-h-48 overflow-y-auto">
+          {filtrados.map((c) => {
+            const seleccionado = seleccionados.has(c.id)
+            return (
+              <button
+                key={c.id}
+                onClick={() => toggleSeleccion(c.id)}
+                className={`w-full flex items-center gap-2 px-2 py-1.5 rounded-md transition-colors text-left ${
+                  seleccionado ? "bg-blue-100 hover:bg-blue-200" : "hover:bg-blue-50"
+                }`}
+              >
+                <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-colors ${
+                  seleccionado ? "bg-[#2563EB] border-[#2563EB]" : "border-gray-300 bg-white"
+                }`}>
+                  {seleccionado && <Check size={11} className="text-white" strokeWidth={3} />}
+                </div>
+                <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700 shrink-0">
+                  {c.nombre[0]}{c.apellido[0]}
+                </div>
+                <span className="text-sm text-gray-800">{c.apellido}, {c.nombre}</span>
+              </button>
+            )
+          })}
         </div>
+      )}
+      {seleccionados.size > 0 && (
+        <button
+          onClick={() => void confirmarAgregar()}
+          disabled={cargando}
+          className="w-full h-8 rounded-md bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-medium transition-colors disabled:opacity-60"
+        >
+          {cargando ? "Agregando..." : `Agregar ${seleccionados.size} colaborador${seleccionados.size > 1 ? "es" : ""}`}
+        </button>
       )}
     </div>
   )
