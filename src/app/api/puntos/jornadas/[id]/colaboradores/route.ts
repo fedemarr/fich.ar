@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verificarAcceso } from "@/lib/auth-helpers"
+import { invalidateTag, tags } from "@/lib/queries"
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -48,6 +49,7 @@ export async function POST(req: Request, { params }: Params) {
     data: { colaborador_id, jornada_id: jornadaId },
   })
 
+  invalidateTag(tags.puntos(session.user.empresaId))
   return NextResponse.json(asignacion, { status: 201 })
 }
 
@@ -75,5 +77,6 @@ export async function DELETE(req: Request, { params }: Params) {
     data: { fecha_hasta: new Date() },
   })
 
+  invalidateTag(tags.puntos(session.user.empresaId))
   return NextResponse.json({ ok: true })
 }
