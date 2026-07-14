@@ -98,7 +98,7 @@ export async function POST(req: Request) {
   const empresa = await prisma.empresa.findUnique({ where: { id: empresaId } })
   const hoy = new Date().toLocaleDateString("es-AR", { weekday: "long", day: "2-digit", month: "long", year: "numeric", timeZone: "America/Argentina/Buenos_Aires" })
 
-  const systemPrompt = `Sos el asistente de RRHH de *${empresa?.nombre ?? "la empresa"}* en el sistema Fich.ar.
+  const systemPrompt = `Sos el asistente de RRHH de *${empresa?.nombre ?? "la empresa"}* en el sistema Jornada.OH.
 Hoy es ${hoy} (zona horaria Argentina).
 Ayudás a gestionar fichadas, novedades, comunicaciones y colaboradores.
 Respondés siempre en español argentino, de forma concisa y profesional.

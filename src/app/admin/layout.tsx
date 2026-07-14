@@ -20,7 +20,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
       {/* ── TOP NAV (mobile) ── */}
       <nav className="lg:hidden sticky top-0 z-20 bg-white border-b border-[#E5E7EB] px-4 py-3 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <span className="text-lg font-bold text-[#E8593C]">Fich.ar</span>
+          <span className="text-lg font-bold text-[#E8593C]">Jornada.OH</span>
           <span className="text-xs text-[#6B7280] bg-[#F9FAFB] px-2 py-0.5 rounded-full">Admin</span>
         </div>
         <div className="flex items-center gap-1">
@@ -43,7 +43,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
         {/* Sidebar — solo desktop */}
         <aside className="hidden lg:flex w-56 bg-white border-r border-[#E5E7EB] flex-col shrink-0 min-h-screen sticky top-0 h-screen">
           <div className="px-5 py-5 border-b border-[#E5E7EB]">
-            <span className="text-xl font-bold text-[#E8593C]">Fich.ar</span>
+            <span className="text-xl font-bold text-[#E8593C]">Jornada.OH</span>
             <p className="text-xs text-[#6B7280] mt-0.5">Panel Super Admin</p>
           </div>
           <nav className="flex-1 py-4 px-3 space-y-1">

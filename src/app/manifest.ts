@@ -2,8 +2,8 @@ import type { MetadataRoute } from "next"
 
 export default function manifest(): MetadataRoute.Manifest {
   return {
-    name: "Fich.ar",
-    short_name: "Fich.ar",
+    name: "Jornada.OH",
+    short_name: "Jornada.OH",
     description: "Control de asistencia",
     start_url: "/",
     display: "standalone",

@@ -67,7 +67,7 @@ export function ChatWidget() {
               <Bot size={16} />
             </div>
             <div>
-              <p className="text-sm font-semibold">Asistente Fich.ar</p>
+              <p className="text-sm font-semibold">Asistente Jornada.OH</p>
               <p className="text-xs text-white/70">Impulsado por Claude</p>
             </div>
             <button

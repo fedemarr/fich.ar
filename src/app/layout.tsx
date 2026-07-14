@@ -8,12 +8,12 @@ const geistSans = Geist({
 })
 
 export const metadata: Metadata = {
-  title: "Fich.ar",
+  title: "Jornada.OH",
   description: "Sistema de control de asistencia y RRHH",
   appleWebApp: {
     capable: true,
     statusBarStyle: "default",
-    title: "Fich.ar",
+    title: "Jornada.OH",
   },
 }
 

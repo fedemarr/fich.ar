@@ -100,7 +100,7 @@ export default function LoginPage() {
         <div className="px-8 lg:px-12 pb-10 max-w-md mx-auto w-full">
           <div className="border-t border-slate-100 pt-8">
             <p className="text-slate-500 text-sm text-center mb-4">
-              ¿Querés <strong>Fich.ar</strong> para tu empresa?
+              ¿Querés <strong>Jornada.OH</strong> para tu empresa?
             </p>
 
             <a
@@ -139,7 +139,7 @@ export default function LoginPage() {
               <a href="https://fmcode.com.ar" target="_blank" rel="noopener noreferrer" className="text-blue-500 hover:underline font-medium">
                 FMCODE
               </a>
-              {" "}· © {new Date().getFullYear()} Fich.ar
+              {" "}· © {new Date().getFullYear()} Jornada.OH
             </p>
           </div>
         </div>

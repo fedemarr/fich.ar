@@ -116,10 +116,10 @@ export function Sidebar({ slug, rol, puedeGestionarPuntos }: SidebarProps) {
               className="h-12 max-w-[160px] object-contain"
               onError={() => setLogoError(true)}
             />
-            <span className="text-[10px] text-gray-400 tracking-wide">powered by Fich.ar</span>
+            <span className="text-[10px] text-gray-400 tracking-wide">powered by Jornada.OH</span>
           </div>
         ) : (
-          <span className="text-2xl font-bold text-[#2563EB] tracking-tight">Fich.ar</span>
+          <span className="text-2xl font-bold text-[#2563EB] tracking-tight">Jornada.OH</span>
         )}
       </div>
 

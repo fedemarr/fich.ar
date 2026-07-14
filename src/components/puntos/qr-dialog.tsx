@@ -255,13 +255,13 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
   <div class="ficha">
     <div class="header">
       ${logoHtml}
-      <span class="logo-fichar">powered by Fich.ar</span>
+      <span class="logo-fichar">powered by Jornada.OH</span>
       <span class="punto-nombre">📍 ${nombrePunto}</span>
     </div>
     <div class="cuerpo">
       <p class="titulo">Registrá tu<br/><em>asistencia</em></p>
       <div class="qr-wrap">
-        <img src="${qrDataUrl}" alt="QR Fich.ar" />
+        <img src="${qrDataUrl}" alt="QR Jornada.OH" />
       </div>
       <p class="url">${url}</p>
       <div class="pasos">
@@ -304,7 +304,7 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
       </div>
     </div>
     <div class="footer">
-      <p>Sistema de control de asistencia <strong>Fich.ar</strong></p>
+      <p>Sistema de control de asistencia <strong>Jornada.OH</strong></p>
     </div>
   </div>
   <script>
