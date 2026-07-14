@@ -26,7 +26,7 @@ export default function LoginPage() {
 
         {/* Logo texto */}
         <div className="relative z-10">
-          <span className="text-5xl font-black tracking-tighter text-white">FICH</span><span className="text-5xl font-black tracking-tighter text-blue-200">.AR</span>
+          <span className="text-5xl font-black tracking-tighter text-white">JORNADA</span><span className="text-5xl font-black tracking-tighter text-blue-200">.OH</span>
         </div>
 
         {/* Texto central */}
@@ -85,7 +85,7 @@ export default function LoginPage() {
 
           {/* Logo texto */}
           <div className="mb-10">
-            <span className="text-4xl font-black tracking-tighter text-slate-900">FICH</span><span className="text-4xl font-black tracking-tighter text-blue-600">.AR</span>
+            <span className="text-4xl font-black tracking-tighter text-slate-900">JORNADA</span><span className="text-4xl font-black tracking-tighter text-blue-600">.OH</span>
           </div>
 
           <div className="mb-8">
