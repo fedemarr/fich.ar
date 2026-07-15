@@ -32,6 +32,7 @@ export async function GET() {
 export async function POST(req: Request) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  if (session.user.rol === "SUPERVISOR") return NextResponse.json({ error: "Sin permisos" }, { status: 403 })
 
   const body = await req.json()
   const parsed = schema.safeParse(body)

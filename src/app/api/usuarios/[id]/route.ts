@@ -15,6 +15,7 @@ const editSchema = z.object({
 export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  if (session.user.rol === "SUPERVISOR") return NextResponse.json({ error: "Sin permisos" }, { status: 403 })
 
   const { id } = await params
   const body = await req.json()
@@ -47,6 +48,7 @@ export async function DELETE(
 ) {
   const session = await auth()
   if (!session?.user) return NextResponse.json({ error: "No autorizado" }, { status: 401 })
+  if (session.user.rol === "SUPERVISOR") return NextResponse.json({ error: "Sin permisos" }, { status: 403 })
 
   const { id } = await params
   if (id === session.user.id) {

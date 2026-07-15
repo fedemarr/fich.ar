@@ -96,7 +96,9 @@ function TabButton({ active, onClick, icon: Icon, label }: {
 
 export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosIniciales }: ConfiguracionClienteProps) {
   const router = useRouter()
-  const [tab, setTab] = useState<"empresa" | "cuenta" | "usuarios">("empresa")
+  const [tab, setTab] = useState<"empresa" | "cuenta" | "usuarios">(
+    usuario.rol === "SUPERVISOR" ? "cuenta" : "empresa"
+  )
   const [mostrarNuevoUsuario, setMostrarNuevoUsuario] = useState(false)
 
   // --- Empresa form ---
@@ -220,9 +222,13 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
 
       {/* Tabs */}
       <div className="flex border-b border-gray-200">
-        <TabButton active={tab === "empresa"} onClick={() => setTab("empresa")} icon={Building2} label="Empresa" />
+        {usuario.rol !== "SUPERVISOR" && (
+          <TabButton active={tab === "empresa"} onClick={() => setTab("empresa")} icon={Building2} label="Empresa" />
+        )}
         <TabButton active={tab === "cuenta"}  onClick={() => setTab("cuenta")}  icon={User}      label="Mi cuenta" />
-        <TabButton active={tab === "usuarios"} onClick={() => setTab("usuarios")} icon={Users}   label="Usuarios" />
+        {usuario.rol !== "SUPERVISOR" && (
+          <TabButton active={tab === "usuarios"} onClick={() => setTab("usuarios")} icon={Users}   label="Usuarios" />
+        )}
       </div>
 
       {/* EMPRESA */}
