@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { createHmac } from "crypto"
 import { prisma } from "@/lib/prisma"
 import { rateLimitWA } from "@/lib/rate-limit"
-import { redis, getEstadoBot, setEstadoBot, delEstadoBot, type EstadoBotWA } from "@/lib/redis"
+import { redis, getEstadoBot, setEstadoBot, delEstadoBot, TTL_POST_ENTRADA, type EstadoBotWA } from "@/lib/redis"
 import {
   enviarTexto,
   enviarBotones,
@@ -167,6 +167,117 @@ async function manejarMensaje(from: string, msg: WAMessage) {
       } else {
         await enviarTexto({ to, body: "Por favor seleccioná *Entrada* o *Salida* usando los botones." })
       }
+      return
+    }
+
+    // Paso: post-entrada — menú de descanso/salida
+    if (estado.paso === "post_entrada" && estado.colaborador_id) {
+      // Si escanea un nuevo QR en este estado, lo reseteamos
+      const textoRaw = extractTexto(msg).trim()
+      if (/FICHAR\s+\S+/i.test(textoRaw)) {
+        await delEstadoBot(from)
+        // dejar que caiga al flujo "sin sesión" relanzando
+        await manejarMensaje(from, msg)
+        return
+      }
+
+      const reply = msg.interactive?.button_reply?.id
+
+      if (reply === "WA_SALIDA") {
+        // Pedir ubicación para registrar salida
+        await setEstadoBot(from, { ...estado, paso: "esperando_ubicacion", tipo_fichada: "SALIDA", timestamp: Date.now() })
+        await solicitarUbicacion(to)
+        return
+      }
+
+      if (reply === "WA_DESCANSO_INICIO") {
+        // Iniciar descanso
+        const hoy = new Date().toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" }).split("/").reverse().join("-")
+        const descansoExiste = await prisma.descanso.findFirst({
+          where: {
+            colaborador_id: estado.colaborador_id,
+            empresa_id: estado.empresa_id,
+            inicio: { gte: new Date(hoy + "T00:00:00.000Z"), lte: new Date(hoy + "T23:59:59.999Z") },
+          },
+        })
+        if (descansoExiste) {
+          await enviarTexto({ to, body: "☕ Ya usaste tu descanso de hoy." })
+          return
+        }
+        const descanso = await prisma.descanso.create({
+          data: { empresa_id: estado.empresa_id, colaborador_id: estado.colaborador_id },
+        })
+        const hora = descanso.inicio.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" })
+        // Mantener estado post_entrada para que pueda terminar el descanso
+        await redis.set(`wa:state:${from}`, { ...estado, timestamp: Date.now() }, { ex: TTL_POST_ENTRADA })
+        await enviarTexto({ to, body: `☕ Descanso iniciado a las ${hora}. Cuando termines mandá cualquier mensaje para registrar el fin o tu salida.` })
+        return
+      }
+
+      if (reply === "WA_DESCANSO_FIN") {
+        // Terminar descanso activo
+        const hoy = new Date().toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" }).split("/").reverse().join("-")
+        const descanso = await prisma.descanso.findFirst({
+          where: {
+            colaborador_id: estado.colaborador_id,
+            empresa_id: estado.empresa_id,
+            inicio: { gte: new Date(hoy + "T00:00:00.000Z"), lte: new Date(hoy + "T23:59:59.999Z") },
+            fin: null,
+          },
+        })
+        if (!descanso) {
+          await enviarTexto({ to, body: "No tenés un descanso activo." })
+          return
+        }
+        const ahora = new Date()
+        await prisma.descanso.update({ where: { id: descanso.id }, data: { fin: ahora } })
+        const duracion = Math.round((ahora.getTime() - descanso.inicio.getTime()) / 60000)
+        const hora = ahora.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" })
+        await redis.set(`wa:state:${from}`, { ...estado, timestamp: Date.now() }, { ex: TTL_POST_ENTRADA })
+        await enviarTexto({ to, body: `✅ Descanso finalizado a las ${hora} (${duracion} min). ¡Bienvenido/a de vuelta!` })
+        return
+      }
+
+      // Cualquier otro mensaje: mostrar menú de opciones
+      const hoy = new Date().toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" }).split("/").reverse().join("-")
+      const descansoHoy = await prisma.descanso.findFirst({
+        where: {
+          colaborador_id: estado.colaborador_id,
+          empresa_id: estado.empresa_id,
+          inicio: { gte: new Date(hoy + "T00:00:00.000Z"), lte: new Date(hoy + "T23:59:59.999Z") },
+        },
+      })
+      const descansoActivo = descansoHoy && !descansoHoy.fin
+
+      if (descansoActivo) {
+        await enviarBotones({
+          to,
+          body: "☕ Estás en descanso. ¿Qué querés hacer?",
+          buttons: [
+            { id: "WA_SALIDA", title: "Registrar salida 🚪" },
+            { id: "WA_DESCANSO_FIN", title: "Terminar descanso ✅" },
+          ],
+        })
+      } else if (!descansoHoy) {
+        await enviarBotones({
+          to,
+          body: "¿Qué querés hacer?",
+          buttons: [
+            { id: "WA_SALIDA", title: "Registrar salida 🚪" },
+            { id: "WA_DESCANSO_INICIO", title: "Tomar descanso ☕" },
+          ],
+        })
+      } else {
+        // Ya usó el descanso
+        await enviarBotones({
+          to,
+          body: "¿Qué querés hacer?",
+          buttons: [
+            { id: "WA_SALIDA", title: "Registrar salida 🚪" },
+          ],
+        })
+      }
+      await redis.set(`wa:state:${from}`, { ...estado, timestamp: Date.now() }, { ex: TTL_POST_ENTRADA })
       return
     }
 
@@ -400,6 +511,18 @@ async function procesarFichada(
   if (avisoFranco) respuesta += `\n\n📅 Nota: hoy tenés franco registrado en la planilla. Consultá con tu supervisor.`
 
   await enviarTexto({ to, body: respuesta })
+
+  // Después de ENTRADA: mantener sesión post_entrada para ofrecer descanso/salida
+  if (tipo === "ENTRADA") {
+    await redis.set(`wa:state:${from}`, {
+      paso: "post_entrada",
+      qr_token: "",
+      punto_id: puntoId,
+      empresa_id: empresaId,
+      colaborador_id: colaboradorId,
+      timestamp: Date.now(),
+    } satisfies EstadoBotWA, { ex: TTL_POST_ENTRADA })
+  }
 
   if (analisis === "LLEGADA_TARDE" || analisis === "SALIDA_ANTICIPADA") {
     await prisma.notificacion.create({

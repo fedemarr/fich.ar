@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { CheckCircle2, Clock, XCircle, FileText, RefreshCw, MapPin } from "lucide-react"
+import { CheckCircle2, Clock, XCircle, FileText, RefreshCw, MapPin, Coffee } from "lucide-react"
 
 interface ColaboradorEquipo {
   id: string
@@ -13,6 +13,7 @@ interface ColaboradorEquipo {
   jornada: string | null
   punto: string | null
   estado: "presente" | "ausente" | "novedad" | "sin_registro"
+  enDescanso: boolean
   entrada: string | null
   salida: string | null
   analisisEntrada: string | null
@@ -25,7 +26,9 @@ const LABELS_NOVEDAD: Record<string, string> = {
   DES: "Descanso", VIR: "Virtual", P: "Presente", PT: "Tarde", ST: "Salida tarde",
 }
 
-function EstadoBadge({ estado }: { estado: ColaboradorEquipo["estado"] }) {
+function EstadoBadge({ estado, enDescanso }: { estado: ColaboradorEquipo["estado"]; enDescanso: boolean }) {
+  if (enDescanso)
+    return <Badge className="bg-amber-100 text-amber-700 border-amber-200 gap-1 text-xs"><Coffee size={11} /> En descanso</Badge>
   if (estado === "presente")
     return <Badge className="bg-green-50 text-green-700 border-green-200 gap-1 text-xs"><CheckCircle2 size={11} /> Presente</Badge>
   if (estado === "novedad")
@@ -123,7 +126,7 @@ export function EquipoCliente() {
                       </p>
                     )}
                   </div>
-                  <EstadoBadge estado={c.estado} />
+                  <EstadoBadge estado={c.estado} enDescanso={c.enDescanso} />
                 </div>
 
                 {c.novedad && (
@@ -186,7 +189,7 @@ export function EquipoCliente() {
                       {c.jornada && <p className="text-xs text-gray-400 mt-0.5">{c.jornada}</p>}
                     </td>
                     <td className="px-4 py-3">
-                      <EstadoBadge estado={c.estado} />
+                      <EstadoBadge estado={c.estado} enDescanso={c.enDescanso} />
                       {c.novedad && (
                         <p className="text-xs text-gray-400 mt-1">
                           {LABELS_NOVEDAD[c.novedad.tipo] ?? c.novedad.tipo}

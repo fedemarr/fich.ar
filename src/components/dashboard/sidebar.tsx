@@ -18,6 +18,7 @@ import {
   UserCog,
   UsersRound,
   ShieldCheck,
+  Coffee,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -34,6 +35,7 @@ const navAdmin = [
   { href: "puntos",         label: "Puntos QR",        icon: MapPin },
   { href: "proyeccion",     label: "Proyección",       icon: BarChart2 },
   { href: "novedades",      label: "Novedades",        icon: Calendar },
+  { href: "descansos",      label: "Descansos",        icon: Coffee },
   { href: "comunicaciones", label: "Comunicaciones",   icon: Megaphone },
   { href: "notificaciones", label: "Notificaciones",   icon: Bell },
 ]
@@ -43,6 +45,7 @@ const navSupervisor = [
   { href: "equipo",         label: "Mi equipo",        icon: UsersRound },
   { href: "listado",        label: "Listado del día",  icon: ClipboardList },
   { href: "novedades",      label: "Novedades",        icon: Calendar },
+  { href: "descansos",      label: "Descansos",        icon: Coffee },
   { href: "comunicaciones", label: "Comunicaciones",   icon: Megaphone },
   { href: "notificaciones", label: "Notificaciones",   icon: Bell },
 ]

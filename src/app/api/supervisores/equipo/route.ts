@@ -71,12 +71,24 @@ export async function GET() {
     },
   })
 
+  // Descansos activos hoy (fin = null)
+  const descansosActivos = await prisma.descanso.findMany({
+    where: {
+      empresa_id: empresaId,
+      colaborador_id: { in: colaboradores.map((c) => c.id) },
+      inicio: { gte: hoyInicio, lte: hoyFin },
+      fin: null,
+    },
+    select: { colaborador_id: true, inicio: true },
+  })
+
   const resultado = colaboradores.map((c) => {
     const fichadas = fichadasHoy.filter((f) => f.colaborador_id === c.id)
     const entrada = fichadas.find((f) => f.tipo === "ENTRADA")
     const salida = fichadas.find((f) => f.tipo === "SALIDA")
     const novedad = novedadesHoy.find((n) => n.colaborador_id === c.id)
     const jornadaActiva = c.jornadas[0]
+    const enDescanso = descansosActivos.some((d) => d.colaborador_id === c.id)
 
     let estado: "presente" | "ausente" | "novedad" | "sin_registro" = "sin_registro"
     if (novedad) estado = "novedad"
@@ -91,6 +103,7 @@ export async function GET() {
       jornada: jornadaActiva?.jornada.nombre ?? null,
       punto: jornadaActiva?.jornada.punto_fichaje.nombre ?? null,
       estado,
+      enDescanso,
       entrada: entrada
         ? entrada.timestamp.toLocaleTimeString("es-AR", {
             hour: "2-digit",

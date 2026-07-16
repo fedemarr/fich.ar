@@ -13,6 +13,7 @@ export async function GET(
       id: true,
       nombre: true,
       activo: true,
+      empresa_id: true,
       empresa: {
         select: { nombre: true, logo_url: true, slug: true },
       },

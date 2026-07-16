@@ -88,6 +88,7 @@ model Empresa {
   notificaciones Notificacion[]
   proyecciones   ProyeccionMensual[]
   asignaciones   AsignacionMensual[]
+  descansos      Descanso[]
 
   @@map("empresas")
 }
@@ -151,6 +152,7 @@ model Colaborador {
   notificaciones Notificacion[]
   jornadas       ColaboradorJornada[]
   asignaciones   AsignacionMensual[]
+  descansos      Descanso[]
 
   @@index([empresa_id])
   @@index([celular])
@@ -410,6 +412,23 @@ model AsignacionMensual {
   @@index([proyeccion_id])
   @@index([colaborador_id])
   @@map("asignaciones_mensuales")
+}
+
+model Descanso {
+  id             String    @id @default(uuid())
+  empresa_id     String
+  colaborador_id String
+  inicio         DateTime  @default(now())
+  fin            DateTime?
+  created_at     DateTime  @default(now())
+
+  empresa     Empresa     @relation(fields: [empresa_id], references: [id])
+  colaborador Colaborador @relation(fields: [colaborador_id], references: [id])
+
+  @@index([empresa_id])
+  @@index([colaborador_id])
+  @@index([empresa_id, inicio])
+  @@map("descansos")
 }
 
 model AuditLog {

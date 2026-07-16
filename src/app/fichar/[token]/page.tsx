@@ -2,13 +2,22 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
-import { MapPin, LogIn, LogOut, CheckCircle2, XCircle, Loader2, User } from "lucide-react"
+import { MapPin, LogIn, LogOut, CheckCircle2, XCircle, Loader2, User, Coffee } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface PuntoInfo {
   id: string
   nombre: string
+  empresa_id: string
   empresa: { nombre: string; logo_url: string | null; slug: string }
+}
+
+interface DescansoEstado {
+  usado: boolean
+  activo: boolean
+  hora_inicio?: string
+  hora_fin?: string
+  duracion_min?: number
 }
 
 interface FichadaOk {
@@ -52,6 +61,8 @@ export default function FicharPage() {
   const [dni, setDni] = useState("")
   const [dniError, setDniError] = useState("")
   const [fichada, setFichada] = useState<FichadaOk | null>(null)
+  const [descanso, setDescanso] = useState<DescansoEstado | null>(null)
+  const [accionandoDescanso, setAccionandoDescanso] = useState(false)
   const [errorGps, setErrorGps] = useState<{
     distancia: number
     radio: number
@@ -194,6 +205,10 @@ export default function FicharPage() {
         }
         setNextTipo(data.next_tipo ?? null)
         setEstado("eligiendo")
+        // Cargar estado de descanso si ya tiene entrada (nextTipo es SALIDA o null)
+        if (data.next_tipo === "SALIDA" || data.next_tipo === null) {
+          void cargarDescanso(storedId!, punto!.empresa_id)
+        }
       } catch {
         detenerGPS()
         setErrorMsg("Error de red al verificar ubicación. Intentá de nuevo.")
@@ -298,6 +313,9 @@ export default function FicharPage() {
       setColaborador(data.colaborador)
       setNextTipo(data.next_tipo ?? null)
       setEstado("eligiendo")
+      if (data.next_tipo === "SALIDA" || data.next_tipo === null) {
+        void cargarDescanso(data.colaborador.id, punto!.empresa_id)
+      }
     }
   }
 
@@ -355,6 +373,10 @@ export default function FicharPage() {
     if (data.colaborador) setColaborador(data.colaborador)
     setFichada(data.fichada!)
     setEstado("confirmado")
+    // Si registró entrada, cargar estado de descanso (debería ser vacío, pero listo para mostrar botón)
+    if (tipo === "ENTRADA" && colaborador && punto) {
+      void cargarDescanso(colaborador.id, punto.empresa_id)
+    }
   }
 
   function reintentar() {
@@ -365,6 +387,48 @@ export default function FicharPage() {
     bestAccuracyRef.current = Infinity
     setErrorGps(null)
     setEstado("pedir-ubicacion")
+  }
+
+  async function cargarDescanso(colabId: string, empresaId: string) {
+    try {
+      const res = await fetch(`/api/descansos/qr?colaborador_id=${colabId}&empresa_id=${empresaId}`)
+      if (res.ok) setDescanso(await res.json() as DescansoEstado)
+    } catch { /* silencioso */ }
+  }
+
+  async function tomarDescanso() {
+    if (!colaborador || !punto) return
+    setAccionandoDescanso(true)
+    try {
+      const res = await fetch("/api/descansos/qr", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ colaborador_id: colaborador.id, empresa_id: punto.empresa_id }),
+      })
+      const data = await res.json() as { ok?: boolean; error?: string; hora?: string }
+      if (res.ok && data.ok) {
+        await cargarDescanso(colaborador.id, punto.empresa_id)
+      }
+    } finally {
+      setAccionandoDescanso(false)
+    }
+  }
+
+  async function terminarDescanso() {
+    if (!colaborador || !punto) return
+    setAccionandoDescanso(true)
+    try {
+      const res = await fetch("/api/descansos/activo", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ colaborador_id: colaborador.id, empresa_id: punto.empresa_id }),
+      })
+      if (res.ok) {
+        await cargarDescanso(colaborador.id, punto.empresa_id)
+      }
+    } finally {
+      setAccionandoDescanso(false)
+    }
   }
 
   function olvidarIdentidad() {
@@ -399,8 +463,8 @@ export default function FicharPage() {
       <div style={{ background: "linear-gradient(135deg, #1D4ED8 0%, #3B82F6 100%)" }}
         className="px-6 pt-10 pb-8 text-white text-center">
         <div className="mb-1">
-          <span className="text-2xl font-black tracking-tighter">FICH</span>
-          <span className="text-2xl font-black tracking-tighter text-blue-200">.AR</span>
+          <span className="text-2xl font-black tracking-tighter">JORNADA</span>
+          <span className="text-2xl font-black tracking-tighter text-blue-200">.OH</span>
         </div>
         {punto && (
           <>
@@ -541,13 +605,46 @@ export default function FicharPage() {
                   <span className="font-bold text-2xl">Registrar Entrada</span>
                 </button>
               ) : (
-                <button
-                  onClick={() => void registrarFichada("SALIDA")}
-                  className="w-full bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-2xl p-8 flex flex-col items-center gap-2 transition-colors shadow-sm"
-                >
-                  <LogOut size={40} />
-                  <span className="font-bold text-2xl">Registrar Salida</span>
-                </button>
+                <div className="space-y-3">
+                  <button
+                    onClick={() => void registrarFichada("SALIDA")}
+                    className="w-full bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-2xl p-6 flex flex-col items-center gap-2 transition-colors shadow-sm"
+                  >
+                    <LogOut size={36} />
+                    <span className="font-bold text-xl">Registrar Salida</span>
+                  </button>
+
+                  {/* Botones de descanso */}
+                  {descanso?.activo ? (
+                    <button
+                      onClick={() => void terminarDescanso()}
+                      disabled={accionandoDescanso}
+                      className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-60 text-white rounded-2xl p-5 flex flex-col items-center gap-1.5 transition-colors shadow-sm"
+                    >
+                      <Coffee size={28} />
+                      <span className="font-bold text-lg">Terminar descanso</span>
+                      {descanso.hora_inicio && (
+                        <span className="text-amber-100 text-xs">Desde las {descanso.hora_inicio}</span>
+                      )}
+                    </button>
+                  ) : !descanso?.usado ? (
+                    <button
+                      onClick={() => void tomarDescanso()}
+                      disabled={accionandoDescanso}
+                      className="w-full bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:opacity-60 text-white rounded-2xl p-5 flex flex-col items-center gap-1.5 transition-colors shadow-sm"
+                    >
+                      <Coffee size={28} />
+                      <span className="font-bold text-lg">Tomar descanso</span>
+                      <span className="text-amber-100 text-xs">30 minutos · 1 vez por jornada</span>
+                    </button>
+                  ) : descanso.hora_inicio && descanso.hora_fin ? (
+                    <div className="bg-gray-50 rounded-2xl p-4 text-center border border-gray-100">
+                      <Coffee size={20} className="text-gray-400 mx-auto mb-1" />
+                      <p className="text-gray-500 text-sm font-medium">Descanso tomado hoy</p>
+                      <p className="text-gray-400 text-xs">{descanso.hora_inicio} → {descanso.hora_fin} · {descanso.duracion_min} min</p>
+                    </div>
+                  ) : null}
+                </div>
               )}
 
               <button
@@ -592,6 +689,29 @@ export default function FicharPage() {
                 <div className="bg-amber-50 rounded-xl px-4 py-2.5 text-amber-700 text-sm font-medium">
                   ⚠️ Salida anticipada
                 </div>
+              )}
+              {/* Botón de descanso tras entrada exitosa */}
+              {fichada.tipo === "ENTRADA" && !descanso?.usado && (
+                <button
+                  onClick={() => void tomarDescanso()}
+                  disabled={accionandoDescanso}
+                  className="w-full bg-amber-50 hover:bg-amber-100 border border-amber-200 text-amber-700 rounded-xl py-3 flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                >
+                  <Coffee size={18} />
+                  <span className="text-sm font-medium">
+                    {descanso?.activo ? "En descanso..." : "Tomar descanso (30 min)"}
+                  </span>
+                </button>
+              )}
+              {descanso?.activo && fichada.tipo === "ENTRADA" && (
+                <button
+                  onClick={() => void terminarDescanso()}
+                  disabled={accionandoDescanso}
+                  className="w-full bg-amber-500 hover:bg-amber-600 text-white rounded-xl py-3 flex items-center justify-center gap-2 transition-colors disabled:opacity-60"
+                >
+                  <Coffee size={18} />
+                  <span className="text-sm font-medium">Terminar descanso</span>
+                </button>
               )}
               <p className="text-gray-400 text-sm pt-2">Podés cerrar esta página</p>
               <button
