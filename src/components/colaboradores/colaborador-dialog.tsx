@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { CalendarDays } from "lucide-react"
+import { CalendarDays, BellOff } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -24,6 +24,7 @@ const schema = z.object({
   sector: z.string().optional(),
   domicilio: z.string().optional(),
   estado: z.enum(["ACTIVO", "INACTIVO", "DESACTIVADO"]),
+  omitir_recordatorio: z.boolean().default(false),
   jornada_id: z.string().optional(),
 })
 
@@ -101,10 +102,11 @@ export function ColaboradorDialog({
         sector: colaborador.sector ?? "",
         domicilio: colaborador.domicilio ?? "",
         estado: colaborador.estado,
+        omitir_recordatorio: colaborador.omitir_recordatorio ?? false,
         jornada_id: colaborador.jornadas[0]?.jornada_id ?? "",
       })
     } else {
-      reset({ estado: "ACTIVO", nombre: "", apellido: "", celular: "", identificacion: "" })
+      reset({ estado: "ACTIVO", nombre: "", apellido: "", celular: "", identificacion: "", omitir_recordatorio: false })
     }
   }, [colaborador, open, reset])
 
@@ -267,6 +269,30 @@ export function ColaboradorDialog({
                   {" "}— {colaborador.jornadas[0].jornada.punto_fichaje.nombre}
                 </p>
               )}
+            </div>
+
+            {/* Recordatorio WA */}
+            <div className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3 bg-gray-50">
+              <div className="flex items-center gap-2">
+                <BellOff size={15} className="text-gray-400 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Omitir recordatorio de fichada</p>
+                  <p className="text-xs text-gray-400">No recibe el WhatsApp diario de recordatorio</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={watch("omitir_recordatorio")}
+                onClick={() => setValue("omitir_recordatorio", !watch("omitir_recordatorio"))}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                  watch("omitir_recordatorio") ? "bg-orange-500" : "bg-gray-200"
+                }`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                  watch("omitir_recordatorio") ? "translate-x-4" : "translate-x-0"
+                }`} />
+              </button>
             </div>
 
             <div className="flex gap-2 pt-2">

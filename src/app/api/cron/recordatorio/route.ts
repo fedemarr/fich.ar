@@ -25,7 +25,7 @@ export async function GET(req: Request) {
 
   for (const empresa of empresas) {
     const colaboradores = await prisma.colaborador.findMany({
-      where: { empresa_id: empresa.id, estado: "ACTIVO", deleted_at: null },
+      where: { empresa_id: empresa.id, estado: "ACTIVO", deleted_at: null, omitir_recordatorio: false },
       include: {
         jornadas: {
           where: { fecha_hasta: null },
