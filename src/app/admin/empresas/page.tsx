@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Building2, Plus, Users, UserCheck, CheckCircle, XCircle, RefreshCw, ExternalLink } from "lucide-react"
+import { Building2, Plus, Users, UserCheck, CheckCircle, XCircle, RefreshCw, ExternalLink, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -27,6 +27,8 @@ export default function EmpresasPage() {
   const [abrirDialog, setAbrirDialog] = useState(false)
   const [guardando, setGuardando] = useState(false)
   const [error, setError] = useState("")
+  const [eliminarId, setEliminarId] = useState<string | null>(null)
+  const [eliminando, setEliminando] = useState(false)
 
   const [nombre, setNombre] = useState("")
   const [slug, setSlug] = useState("")
@@ -57,6 +59,18 @@ export default function EmpresasPage() {
         .replace(/[^a-z0-9-]/g, "")
     )
   }, [nombre])
+
+  async function eliminar() {
+    if (!eliminarId) return
+    setEliminando(true)
+    try {
+      await fetch(`/api/admin/empresas?id=${eliminarId}`, { method: "DELETE" })
+      setEliminarId(null)
+      cargar()
+    } finally {
+      setEliminando(false)
+    }
+  }
 
   async function crear() {
     setError("")
@@ -163,18 +177,51 @@ export default function EmpresasPage() {
 
               <div className="flex items-center justify-between text-xs text-[#6B7280]">
                 <span>Alta: {formatFecha(e.created_at)}</span>
-                <a
-                  href={`/${e.slug}/resumen`}
-                  className="flex items-center gap-1 text-[#E8593C] hover:underline font-medium"
-                >
-                  <ExternalLink className="w-3 h-3" />
-                  Ver dashboard
-                </a>
+                <div className="flex items-center gap-3">
+                  <a
+                    href={`/${e.slug}/resumen`}
+                    className="flex items-center gap-1 text-[#E8593C] hover:underline font-medium"
+                  >
+                    <ExternalLink className="w-3 h-3" />
+                    Ver dashboard
+                  </a>
+                  <button
+                    onClick={() => setEliminarId(e.id)}
+                    className="flex items-center gap-1 text-red-500 hover:text-red-700 font-medium transition-colors"
+                  >
+                    <Trash2 className="w-3 h-3" />
+                    Eliminar
+                  </button>
+                </div>
               </div>
             </div>
           ))}
         </div>
       )}
+
+      {/* Dialog confirmar eliminación */}
+      <Dialog open={!!eliminarId} onOpenChange={(v) => !v && setEliminarId(null)}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="text-red-600">Eliminar empresa</DialogTitle>
+          </DialogHeader>
+          <p className="text-sm text-[#6B7280] py-2">
+            ¿Estás seguro? Esta acción desactiva la empresa y oculta todos sus datos. No se borra información de la base de datos.
+          </p>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setEliminarId(null)} disabled={eliminando}>
+              Cancelar
+            </Button>
+            <Button
+              className="bg-red-600 hover:bg-red-700 text-white"
+              onClick={eliminar}
+              disabled={eliminando}
+            >
+              {eliminando ? "Eliminando…" : "Sí, eliminar"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Dialog nueva empresa */}
       <Dialog open={abrirDialog} onOpenChange={setAbrirDialog}>

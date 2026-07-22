@@ -63,3 +63,19 @@ export async function POST(req: Request) {
 
   return NextResponse.json({ empresa }, { status: 201 })
 }
+
+export async function DELETE(req: Request) {
+  const { error } = await verificarAcceso("VER_TODAS_EMPRESAS")
+  if (error) return error
+
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get("id")
+  if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 })
+
+  const empresa = await prisma.empresa.findFirst({ where: { id, deleted_at: null } })
+  if (!empresa) return NextResponse.json({ error: "No encontrada" }, { status: 404 })
+
+  await prisma.empresa.update({ where: { id }, data: { deleted_at: new Date(), activa: false } })
+
+  return NextResponse.json({ ok: true })
+}
