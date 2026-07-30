@@ -84,6 +84,14 @@ export default async function NovedadesPage({
     prisma.colaborador.findMany({
       where: colabWhere,
       orderBy: [{ apellido: "asc" }, { nombre: "asc" }],
+      include: {
+        jornadas: {
+          where: { OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }] },
+          include: { jornada: { select: { punto_fichaje: { select: { id: true, nombre: true } } } } },
+          orderBy: { fecha_desde: "desc" },
+          take: 1,
+        },
+      },
     }),
     prisma.fichada.findMany({
       where: {
@@ -220,6 +228,38 @@ export default async function NovedadesPage({
     }
   }
 
+  // Mapping colabId → punto
+  const puntoPorColabId: Record<string, { id: string; nombre: string }> = {}
+  const puntosMap = new Map<string, { id: string; nombre: string }>()
+  for (const c of colaboradores) {
+    const punto = c.jornadas[0]?.jornada.punto_fichaje
+    if (punto) {
+      puntoPorColabId[c.id] = punto
+      puntosMap.set(punto.id, punto)
+    }
+  }
+  const puntos = Array.from(puntosMap.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
+
+  // Horas trabajadas en el mes: agrupar fichadas por colabId+fecha, calcular duración
+  const fichadasPorDia = new Map<string, { entradas: Date[]; salidas: Date[] }>()
+  for (const f of fichadasMesRaw) {
+    const fechaStr = fechaARG(f.timestamp)
+    const key = `${f.colaborador_id}|${fechaStr}`
+    const entry = fichadasPorDia.get(key) ?? { entradas: [], salidas: [] }
+    if (f.tipo === "ENTRADA") entry.entradas.push(f.timestamp)
+    else if (f.tipo === "SALIDA") entry.salidas.push(f.timestamp)
+    fichadasPorDia.set(key, entry)
+  }
+  const minutosMes: Record<string, number> = {}
+  for (const [key, { entradas, salidas }] of fichadasPorDia) {
+    if (!entradas.length || !salidas.length) continue
+    const colabId = key.split("|")[0]
+    const entrada = new Date(Math.min(...entradas.map((d) => d.getTime())))
+    const salida = new Date(Math.max(...salidas.map((d) => d.getTime())))
+    const mins = Math.round((salida.getTime() - entrada.getTime()) / 60000)
+    if (mins > 0 && mins < 1440) minutosMes[colabId] = (minutosMes[colabId] ?? 0) + mins
+  }
+
   return (
     <NovedadesCliente
       slug={slug}
@@ -231,6 +271,9 @@ export default async function NovedadesPage({
       tabInicial={tab}
       mesInicial={mesActual}
       anioInicial={anioActual}
+      puntos={puntos}
+      puntoPorColabId={puntoPorColabId}
+      minutosMes={minutosMes}
     />
   )
 }

@@ -5,6 +5,7 @@ import { ChevronLeft, ChevronRight, Download, Info } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ETIQUETAS_NOVEDAD } from "@/types"
 import { toast } from "sonner"
+import * as XLSX from "xlsx-js-style"
 import type { Colaborador, Novedad, TipoNovedad } from "@/generated/prisma/client"
 import type { AnalisisDia } from "@/app/(dashboard)/[slug]/novedades/page"
 
@@ -19,6 +20,9 @@ interface CalendarioNovedadesProps {
   anio: number
   onCambiarMes: (mes: number, anio: number) => void
   onCeldaClick: (colaborador: Colaborador, dia: number) => void
+  puntos: { id: string; nombre: string }[]
+  puntoPorColabId: Record<string, { id: string; nombre: string }>
+  minutosMes: Record<string, number>
 }
 
 // Colores por tipo de novedad — paleta similar a Qontact
@@ -35,6 +39,28 @@ const COLORES_BG: Record<TipoNovedad, string> = {
   C:   "bg-cyan-400 text-white",
   DES: "bg-slate-200 text-slate-600",
   VIR: "bg-purple-100 text-purple-600 border border-purple-200",
+}
+
+// Colores XLSX (fgColor en hex sin #) por tipo de novedad
+const COLORES_XLSX: Record<string, string> = {
+  P:        "F0FDF4", // green-50
+  "P-S":    "DCFCE7", // green-100
+  "P-T":    "FFF7ED", // orange-50
+  "PT-S":   "FFF7ED",
+  "P--ST":  "FAF5FF", // purple-50
+  "P--STP": "FEFCE8", // yellow-50
+  "PT--ST": "FEE2E2", // red-100
+  "PT--STP":"FFEDD5", // orange-100
+  AU:       "B91C1C", // red-700
+  VAC:      "FCD34D", // amber-300
+  EN:       "FB923C", // orange-400
+  FR:       "FECDD3", // rose-200
+  FE:       "EDE9FE", // violet-100
+  HDO:      "22C55E", // green-500
+  C:        "22D3EE", // cyan-400
+  DES:      "E2E8F0", // slate-200
+  VIR:      "F3E8FF", // purple-100
+  ST:       "FAF5FF",
 }
 
 // Etiqueta visible en la celda (más corta para el grid)
@@ -85,13 +111,34 @@ function labelFontSize(label: string): string {
   return "8px"
 }
 
+function minutosAHHMM(minutos: number): string {
+  const h = Math.floor(minutos / 60)
+  const m = minutos % 60
+  return `${h}h ${String(m).padStart(2, "0")}m`
+}
+
+function xlsxCell(value: string, bgHex: string): XLSX.CellObject {
+  const dark = ["B91C1C","FB923C","22C55E","22D3EE"].includes(bgHex)
+  return {
+    v: value,
+    t: "s",
+    s: {
+      fill: { patternType: "solid", fgColor: { rgb: bgHex } },
+      font: { bold: true, sz: 8, color: { rgb: dark ? "FFFFFF" : "1F2937" } },
+      alignment: { horizontal: "center", vertical: "center" },
+    },
+  }
+}
+
 function exportarExcel(
   colaboradores: Colaborador[],
   novedadesMes: NovedadConColaborador[],
   presenciasMes: Set<string>,
   analisisMes: Record<string, AnalisisDia>,
   mes: number,
-  anio: number
+  anio: number,
+  puntoPorColabId: Record<string, { id: string; nombre: string }>,
+  minutosMes: Record<string, number>
 ) {
   const dias = diasEnMes(mes, anio)
   const mapa: Record<string, Record<number, TipoNovedad>> = {}
@@ -101,54 +148,105 @@ function exportarExcel(
     mapa[n.colaborador_id][dia] = n.tipo
   }
 
-  const headers = ["Colaborador", "Legajo", ...Array.from({ length: dias }, (_, i) => String(i + 1)), "P", "PT", "P-S", "P--ST", "P--STP", "AU"]
-  const rows = colaboradores.map((c) => {
-    const fila: string[] = [`${c.apellido}, ${c.nombre}`, c.legajo ?? "N/A"]
+  const headerRow: XLSX.CellObject[] = [
+    { v: "Colaborador", t: "s", s: { font: { bold: true }, fill: { patternType: "solid", fgColor: { rgb: "F3F4F6" } } } },
+    { v: "Legajo",      t: "s", s: { font: { bold: true }, fill: { patternType: "solid", fgColor: { rgb: "F3F4F6" } } } },
+    { v: "Punto QR",    t: "s", s: { font: { bold: true }, fill: { patternType: "solid", fgColor: { rgb: "F3F4F6" } } } },
+    ...Array.from({ length: dias }, (_, i) => ({
+      v: String(i + 1),
+      t: "s" as const,
+      s: { font: { bold: true }, fill: { patternType: "solid" as const, fgColor: { rgb: "F3F4F6" } }, alignment: { horizontal: "center" as const } },
+    })),
+    ...(["P","PT","P-S","P--ST","P--STP","AU","Horas"].map((h) => ({
+      v: h,
+      t: "s" as const,
+      s: { font: { bold: true }, fill: { patternType: "solid" as const, fgColor: { rgb: "F3F4F6" } }, alignment: { horizontal: "center" as const } },
+    }))),
+  ]
+
+  const dataRows: XLSX.CellObject[][] = colaboradores.map((c) => {
+    const puntoNombre = puntoPorColabId[c.id]?.nombre ?? "—"
+    const fila: XLSX.CellObject[] = [
+      { v: `${c.apellido}, ${c.nombre}`, t: "s" },
+      { v: c.legajo ?? "N/A", t: "s" },
+      { v: puntoNombre, t: "s" },
+    ]
     let totalP = 0, totalPT = 0, totalPS = 0, totalST = 0, totalSTP = 0, totalAU = 0
+
     for (let d = 1; d <= dias; d++) {
       const novedad = mapa[c.id]?.[d]
       const key = `${c.id}|${d}`
       const analisis = analisisMes[key]
+
       if (novedad) {
         if (novedad === "P" || novedad === "PT") {
           const badge = badgeEntradaSalida(novedad === "PT", analisis)
-          fila.push(badge.label)
+          const bg = COLORES_XLSX[badge.label] ?? "FFFFFF"
+          fila.push(xlsxCell(badge.label, bg))
           if (badge.label.includes("STP")) totalSTP++
           else if (badge.label.includes("ST")) totalST++
           else if (badge.label.includes("-S")) totalPS++
           else if (novedad === "PT") totalPT++
           else totalP++
         } else {
-          fila.push(LABEL_CELDA[novedad] ?? novedad)
+          const label = LABEL_CELDA[novedad] ?? novedad
+          const bg = COLORES_XLSX[novedad] ?? "FFFFFF"
+          fila.push(xlsxCell(label, bg))
           if (novedad === "AU") totalAU++
         }
       } else if (presenciasMes.has(key)) {
         const badge = badgeEntradaSalida(analisis?.tarde ?? false, analisis)
-        fila.push(badge.label)
+        const bg = COLORES_XLSX[badge.label] ?? "FFFFFF"
+        fila.push(xlsxCell(badge.label, bg))
         if (badge.label.includes("STP")) totalSTP++
         else if (badge.label.includes("ST")) totalST++
         else if (badge.label.includes("-S")) totalPS++
         else if (analisis?.tarde) totalPT++
         else totalP++
       } else {
-        fila.push("")
+        fila.push({ v: "", t: "s" })
       }
     }
-    fila.push(String(totalP), String(totalPT), String(totalPS), String(totalST), String(totalSTP), String(totalAU))
+
+    const mins = minutosMes[c.id] ?? 0
+    fila.push(
+      { v: totalP,   t: "n", s: { alignment: { horizontal: "center" } } },
+      { v: totalPT,  t: "n", s: { alignment: { horizontal: "center" } } },
+      { v: totalPS,  t: "n", s: { alignment: { horizontal: "center" } } },
+      { v: totalST,  t: "n", s: { alignment: { horizontal: "center" } } },
+      { v: totalSTP, t: "n", s: { alignment: { horizontal: "center" } } },
+      { v: totalAU,  t: "n", s: { alignment: { horizontal: "center" } } },
+      { v: mins > 0 ? minutosAHHMM(mins) : "—", t: "s", s: { alignment: { horizontal: "center" } } },
+    )
     return fila
   })
 
-  const csvContent = [headers, ...rows]
-    .map((row) => row.map((cell) => `"${cell}"`).join(","))
-    .join("\n")
+  const ws = XLSX.utils.aoa_to_sheet([[]])
+  XLSX.utils.sheet_add_aoa(ws, [[...headerRow.map((c) => c.v)]], { origin: "A1" })
 
-  const blob = new Blob(["﻿" + csvContent], { type: "text/csv;charset=utf-8;" })
-  const url = URL.createObjectURL(blob)
-  const link = document.createElement("a")
-  link.href = url
-  link.download = `novedades-${NOMBRES_MES[mes - 1].toLowerCase()}-${anio}.csv`
-  link.click()
-  URL.revokeObjectURL(url)
+  // Escribir celdas con estilo manualmente
+  const allRows = [headerRow, ...dataRows]
+  allRows.forEach((row, ri) => {
+    row.forEach((cell, ci) => {
+      const addr = XLSX.utils.encode_cell({ r: ri, c: ci })
+      ws[addr] = cell
+    })
+  })
+
+  ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: allRows.length - 1, c: headerRow.length - 1 } })
+
+  // Ancho de columnas
+  ws["!cols"] = [
+    { wch: 28 }, // Colaborador
+    { wch: 8 },  // Legajo
+    { wch: 18 }, // Punto QR
+    ...Array(dias).fill({ wch: 6 }),
+    { wch: 5 }, { wch: 5 }, { wch: 5 }, { wch: 6 }, { wch: 7 }, { wch: 5 }, { wch: 9 }, // totales + horas
+  ]
+
+  const wb = XLSX.utils.book_new()
+  XLSX.utils.book_append_sheet(wb, ws, NOMBRES_MES[mes - 1])
+  XLSX.writeFile(wb, `novedades-${NOMBRES_MES[mes - 1].toLowerCase()}-${anio}.xlsx`)
   toast.success("Reporte exportado")
 }
 
@@ -161,10 +259,14 @@ export function CalendarioNovedades({
   anio,
   onCambiarMes,
   onCeldaClick,
+  puntos,
+  puntoPorColabId,
+  minutosMes,
 }: CalendarioNovedadesProps) {
   const [mostrarRefs, setMostrarRefs] = useState(false)
   const [filtroBusqueda, setFiltroBusqueda] = useState("")
   const [filtroTipo, setFiltroTipo] = useState("")
+  const [filtroPunto, setFiltroPunto] = useState("")
 
   const dias = diasEnMes(mes, anio)
   const hoy = new Date()
@@ -187,6 +289,7 @@ export function CalendarioNovedades({
       const novedadesColab = mapa[c.id] ?? {}
       if (!Object.values(novedadesColab).includes(filtroTipo as TipoNovedad)) return false
     }
+    if (filtroPunto && puntoPorColabId[c.id]?.id !== filtroPunto) return false
     return true
   })
 
@@ -209,6 +312,19 @@ export function CalendarioNovedades({
           onChange={(e) => setFiltroBusqueda(e.target.value)}
           className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 w-52"
         />
+
+        {puntos.length > 0 && (
+          <select
+            value={filtroPunto}
+            onChange={(e) => setFiltroPunto(e.target.value)}
+            className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
+          >
+            <option value="">Todos los puntos</option>
+            {puntos.map((p) => (
+              <option key={p.id} value={p.id}>{p.nombre}</option>
+            ))}
+          </select>
+        )}
 
         <select
           value={filtroTipo}
@@ -404,7 +520,18 @@ export function CalendarioNovedades({
           variant="outline"
           size="sm"
           className="gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
-          onClick={() => exportarExcel(colaboradores, novedadesMes, presenciasMes, analisisMes, mes, anio)}
+          onClick={() =>
+            exportarExcel(
+              colaboradoresFiltrados,
+              novedadesMes,
+              presenciasMes,
+              analisisMes,
+              mes,
+              anio,
+              puntoPorColabId,
+              minutosMes
+            )
+          }
         >
           <Download size={14} />
           Exportar reporte a Excel

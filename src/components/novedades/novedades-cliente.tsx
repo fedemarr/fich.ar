@@ -24,6 +24,9 @@ interface NovedadesClienteProps {
   tabInicial: string
   mesInicial: number
   anioInicial: number
+  puntos: { id: string; nombre: string }[]
+  puntoPorColabId: Record<string, { id: string; nombre: string }>
+  minutosMes: Record<string, number>
 }
 
 function avatarLetras(nombre: string, apellido: string) {
@@ -70,6 +73,9 @@ export function NovedadesCliente({
   tabInicial,
   mesInicial,
   anioInicial,
+  puntos,
+  puntoPorColabId,
+  minutosMes,
 }: NovedadesClienteProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -411,6 +417,9 @@ export function NovedadesCliente({
           anio={anio}
           onCambiarMes={cambiarMes}
           onCeldaClick={abrirDesdeCalendario}
+          puntos={puntos}
+          puntoPorColabId={puntoPorColabId}
+          minutosMes={minutosMes}
         />
       )}
 
