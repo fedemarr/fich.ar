@@ -69,77 +69,119 @@ function TablaColaboradores({
   }
 
   return (
-    <table className="w-full text-sm">
-      <thead>
-        <tr className="border-b border-gray-200">
-          <th className="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Colaborador</th>
-          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Legajo</th>
-          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Celular</th>
-          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">DNI / Domicilio</th>
-          <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Sector / Puesto</th>
-          <th className="px-4 py-3 w-20" />
-        </tr>
-      </thead>
-      <tbody className="divide-y divide-gray-100">
+    <>
+      {/* Mobile: cards */}
+      <div className="md:hidden divide-y divide-gray-100">
         {colaboradores.map((c) => {
           const jornadaActual = c.jornadas[0]?.jornada
           const puntoNombre = jornadaActual?.punto_fichaje.nombre ?? null
-          const empresa = puntoNombre ?? c.sector ?? null
-          const [sectorLabel, puestoLabel] = empresa?.includes(" — ")
-            ? empresa.split(" — ")
-            : [empresa, null]
+          const sector = puntoNombre ?? c.sector ?? null
 
           return (
-            <tr key={c.id} className="hover:bg-gray-50/60 transition-colors">
-              <td className="px-5 py-3.5">
-                <div className="flex items-center gap-3">
-                  <AvatarColaborador nombre={c.nombre} apellido={c.apellido} />
-                  <span className="font-medium text-gray-800">
-                    {c.apellido} {c.nombre}
-                  </span>
+            <div key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/60">
+              <AvatarColaborador nombre={c.nombre} apellido={c.apellido} />
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-gray-800 truncate">{c.apellido} {c.nombre}</p>
+                <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                  {c.legajo && <span className="text-xs text-gray-400 font-mono">{c.legajo}</span>}
+                  <span className="text-xs text-gray-500">{c.celular}</span>
+                  {sector && <span className="text-xs text-gray-400 truncate max-w-[120px]">{sector}</span>}
                 </div>
-              </td>
-              <td className="px-4 py-3.5 text-gray-500 font-mono text-xs">{c.legajo ?? "—"}</td>
-              <td className="px-4 py-3.5 text-gray-600">{c.celular}</td>
-              <td className="px-4 py-3.5 text-gray-400 text-sm">
-                <div>{c.identificacion ?? "—"}</div>
-                {c.domicilio && (
-                  <div className="text-xs text-gray-300 mt-0.5 max-w-[160px] truncate" title={c.domicilio}>
-                    {c.domicilio}
-                  </div>
-                )}
-              </td>
-              <td className="px-4 py-3.5 text-sm">
-                {empresa ? (
-                  <div>
-                    <div className="text-gray-600">{sectorLabel}</div>
-                    {puestoLabel && <div className="text-xs text-gray-400 mt-0.5">{puestoLabel}</div>}
-                  </div>
-                ) : <span className="text-gray-300">—</span>}
-              </td>
-              <td className="px-4 py-3.5">
-                <div className="flex items-center gap-2.5 justify-end">
-                  <button
-                    onClick={() => onEditar(c)}
-                    className="text-gray-300 hover:text-[#2563EB] transition-colors"
-                    title="Editar"
-                  >
-                    <Pencil size={15} />
-                  </button>
-                  <button
-                    onClick={() => onEliminar(c)}
-                    className="text-gray-300 hover:text-gray-500 transition-colors"
-                    title="Gestionar"
-                  >
-                    <UserCog size={16} />
-                  </button>
-                </div>
-              </td>
-            </tr>
+              </div>
+              <div className="flex items-center gap-3 shrink-0">
+                <button
+                  onClick={() => onEditar(c)}
+                  className="text-gray-300 hover:text-[#2563EB] transition-colors p-1"
+                  title="Editar"
+                >
+                  <Pencil size={16} />
+                </button>
+                <button
+                  onClick={() => onEliminar(c)}
+                  className="text-gray-300 hover:text-gray-500 transition-colors p-1"
+                  title="Gestionar"
+                >
+                  <UserCog size={17} />
+                </button>
+              </div>
+            </div>
           )
         })}
-      </tbody>
-    </table>
+      </div>
+
+      {/* Desktop: tabla */}
+      <table className="hidden md:table w-full text-sm">
+        <thead>
+          <tr className="border-b border-gray-200">
+            <th className="text-left px-5 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Colaborador</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Legajo</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Celular</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">DNI / Domicilio</th>
+            <th className="text-left px-4 py-3 text-xs font-medium text-gray-400 uppercase tracking-wide">Sector / Puesto</th>
+            <th className="px-4 py-3 w-20" />
+          </tr>
+        </thead>
+        <tbody className="divide-y divide-gray-100">
+          {colaboradores.map((c) => {
+            const jornadaActual = c.jornadas[0]?.jornada
+            const puntoNombre = jornadaActual?.punto_fichaje.nombre ?? null
+            const empresa = puntoNombre ?? c.sector ?? null
+            const [sectorLabel, puestoLabel] = empresa?.includes(" — ")
+              ? empresa.split(" — ")
+              : [empresa, null]
+
+            return (
+              <tr key={c.id} className="hover:bg-gray-50/60 transition-colors">
+                <td className="px-5 py-3.5">
+                  <div className="flex items-center gap-3">
+                    <AvatarColaborador nombre={c.nombre} apellido={c.apellido} />
+                    <span className="font-medium text-gray-800">
+                      {c.apellido} {c.nombre}
+                    </span>
+                  </div>
+                </td>
+                <td className="px-4 py-3.5 text-gray-500 font-mono text-xs">{c.legajo ?? "—"}</td>
+                <td className="px-4 py-3.5 text-gray-600">{c.celular}</td>
+                <td className="px-4 py-3.5 text-gray-400 text-sm">
+                  <div>{c.identificacion ?? "—"}</div>
+                  {c.domicilio && (
+                    <div className="text-xs text-gray-300 mt-0.5 max-w-[160px] truncate" title={c.domicilio}>
+                      {c.domicilio}
+                    </div>
+                  )}
+                </td>
+                <td className="px-4 py-3.5 text-sm">
+                  {empresa ? (
+                    <div>
+                      <div className="text-gray-600">{sectorLabel}</div>
+                      {puestoLabel && <div className="text-xs text-gray-400 mt-0.5">{puestoLabel}</div>}
+                    </div>
+                  ) : <span className="text-gray-300">—</span>}
+                </td>
+                <td className="px-4 py-3.5">
+                  <div className="flex items-center gap-2.5 justify-end">
+                    <button
+                      onClick={() => onEditar(c)}
+                      className="text-gray-300 hover:text-[#2563EB] transition-colors"
+                      title="Editar"
+                    >
+                      <Pencil size={15} />
+                    </button>
+                    <button
+                      onClick={() => onEliminar(c)}
+                      className="text-gray-300 hover:text-gray-500 transition-colors"
+                      title="Gestionar"
+                    >
+                      <UserCog size={16} />
+                    </button>
+                  </div>
+                </td>
+              </tr>
+            )
+          })}
+        </tbody>
+      </table>
+    </>
   )
 }
 
@@ -220,7 +262,7 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
           disabled={vaciando}
         >
           <Trash2 size={13} />
-          {vaciando ? "Vaciando..." : "Vaciar nómina"}
+          <span className="hidden sm:inline">{vaciando ? "Vaciando..." : "Vaciar nómina"}</span>
         </Button>
         <Button
           variant="outline"
@@ -229,7 +271,7 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
           onClick={() => setImportarAbierto(true)}
         >
           <Upload size={13} />
-          Importar Excel
+          <span className="hidden sm:inline">Importar Excel</span>
         </Button>
       </div>
 
@@ -270,37 +312,32 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
       {/* Contenido */}
       <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
         {/* Sub-header de la tabla */}
-        <div className="flex items-center justify-between px-5 py-3.5 border-b border-gray-100">
-          <div className="flex items-center gap-2">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6B7280" strokeWidth="2">
-              <line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/>
-            </svg>
-            <h2 className="text-sm font-semibold text-gray-700">
-              {tab === "desactivados" ? "Colaboradores Desactivados" : "Nómina Colaboradores"}
-            </h2>
-          </div>
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="sm"
-              className="h-8 gap-1.5 text-xs text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
-              onClick={() => exportarCSV(tab === "desactivados" ? desactivados : activos)}
-            >
-              <Download size={13} />
-              Exportar datos
-            </Button>
-            <div className="relative">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 px-4 py-3 border-b border-gray-100">
+          <h2 className="text-sm font-semibold text-gray-700 hidden sm:block">
+            {tab === "desactivados" ? "Colaboradores Desactivados" : "Nómina Colaboradores"}
+          </h2>
+          <div className="flex items-center gap-2 w-full sm:w-auto">
+            <div className="relative flex-1 sm:flex-none">
               <svg className="absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-400" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
                 <circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/>
               </svg>
               <input
                 type="text"
-                placeholder="Search"
+                placeholder="Buscar..."
                 value={busqueda}
                 onChange={(e) => setBusqueda(e.target.value)}
-                className="h-8 pl-7 pr-3 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 w-44"
+                className="h-8 pl-7 pr-3 text-sm rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 w-full sm:w-44"
               />
             </div>
+            <Button
+              variant="outline"
+              size="sm"
+              className="h-8 gap-1.5 text-xs text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF] shrink-0"
+              onClick={() => exportarCSV(tab === "desactivados" ? desactivados : activos)}
+            >
+              <Download size={13} />
+              <span className="hidden sm:inline">Exportar</span>
+            </Button>
           </div>
         </div>
 
