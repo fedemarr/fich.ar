@@ -87,7 +87,7 @@ export default async function NovedadesPage({
       include: {
         jornadas: {
           where: { OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }] },
-          include: { jornada: { select: { punto_fichaje: { select: { id: true, nombre: true } } } } },
+          include: { jornada: { select: { punto_fichaje: { select: { id: true, nombre: true, activo: true } } } } },
           orderBy: { fecha_desde: "desc" },
           take: 1,
         },
@@ -228,14 +228,15 @@ export default async function NovedadesPage({
     }
   }
 
-  // Mapping colabId → punto
+  // Mapping colabId → punto (solo puntos activos en el selector)
   const puntoPorColabId: Record<string, { id: string; nombre: string }> = {}
   const puntosMap = new Map<string, { id: string; nombre: string }>()
   for (const c of colaboradores) {
     const punto = c.jornadas[0]?.jornada.punto_fichaje
     if (punto) {
-      puntoPorColabId[c.id] = punto
-      puntosMap.set(punto.id, punto)
+      const { activo: _activo, ...puntoData } = punto
+      puntoPorColabId[c.id] = puntoData
+      if (punto.activo) puntosMap.set(punto.id, puntoData)
     }
   }
   const puntos = Array.from(puntosMap.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
