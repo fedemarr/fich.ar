@@ -118,15 +118,15 @@ function minutosAHHMM(minutos: number): string {
   return `${h}h ${String(m).padStart(2, "0")}m`
 }
 
-function xlsxCell(value: string, bgHex: string): XLSX.CellObject {
+function xlsxCell(value: string, bgHex: string, tiempos?: string): XLSX.CellObject {
   const dark = ["B91C1C","FB923C","22C55E","22D3EE"].includes(bgHex)
   return {
-    v: value,
+    v: tiempos ? `${value}\n${tiempos}` : value,
     t: "s",
     s: {
       fill: { patternType: "solid", fgColor: { rgb: bgHex } },
-      font: { bold: true, sz: 8, color: { rgb: dark ? "FFFFFF" : "1F2937" } },
-      alignment: { horizontal: "center", vertical: "center" },
+      font: { bold: true, sz: tiempos ? 7 : 8, color: { rgb: dark ? "FFFFFF" : "1F2937" } },
+      alignment: { horizontal: "center", vertical: "center", wrapText: !!tiempos },
     },
   }
 }
@@ -166,6 +166,8 @@ function exportarExcel(
     }))),
   ]
 
+  const mesStr = String(mes).padStart(2, "0")
+
   const dataRows: XLSX.CellObject[][] = colaboradores.map((c) => {
     const puntoNombre = puntoPorColabId[c.id]?.nombre ?? "—"
     const fila: XLSX.CellObject[] = [
@@ -180,11 +182,18 @@ function exportarExcel(
       const key = `${c.id}|${d}`
       const analisis = analisisMes[key]
 
+      // Horarios reales del día
+      const fechaStr = `${anio}-${mesStr}-${String(d).padStart(2, "0")}`
+      const det = fichadasDetalle[`${c.id}|${fechaStr}`]
+      const tiempos = det
+        ? [det.entrada, det.salida].filter(Boolean).join(" - ")
+        : undefined
+
       if (novedad) {
         if (novedad === "P" || novedad === "PT") {
           const badge = badgeEntradaSalida(novedad === "PT", analisis)
           const bg = COLORES_XLSX[badge.label] ?? "FFFFFF"
-          fila.push(xlsxCell(badge.label, bg))
+          fila.push(xlsxCell(badge.label, bg, tiempos))
           if (badge.label.includes("STP")) totalSTP++
           else if (badge.label.includes("ST")) totalST++
           else if (badge.label.includes("-S")) totalPS++
@@ -193,13 +202,13 @@ function exportarExcel(
         } else {
           const label = LABEL_CELDA[novedad] ?? novedad
           const bg = COLORES_XLSX[novedad] ?? "FFFFFF"
-          fila.push(xlsxCell(label, bg))
+          fila.push(xlsxCell(label, bg, tiempos))
           if (novedad === "AU") totalAU++
         }
       } else if (presenciasMes.has(key)) {
         const badge = badgeEntradaSalida(analisis?.tarde ?? false, analisis)
         const bg = COLORES_XLSX[badge.label] ?? "FFFFFF"
-        fila.push(xlsxCell(badge.label, bg))
+        fila.push(xlsxCell(badge.label, bg, tiempos))
         if (badge.label.includes("STP")) totalSTP++
         else if (badge.label.includes("ST")) totalST++
         else if (badge.label.includes("-S")) totalPS++
@@ -237,13 +246,18 @@ function exportarExcel(
 
   ws["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: allRows.length - 1, c: headerRow.length - 1 } })
 
-  // Ancho de columnas
+  // Columnas: nombre ancho + días más anchos para mostrar horarios
   ws["!cols"] = [
     { wch: 28 }, // Colaborador
     { wch: 8 },  // Legajo
     { wch: 18 }, // Punto QR
-    ...Array(dias).fill({ wch: 6 }),
-    { wch: 5 }, { wch: 5 }, { wch: 5 }, { wch: 6 }, { wch: 7 }, { wch: 5 }, { wch: 9 }, // totales + horas
+    ...Array(dias).fill({ wch: 12 }), // cada día ahora muestra label + horario
+    { wch: 5 }, { wch: 5 }, { wch: 5 }, { wch: 6 }, { wch: 7 }, { wch: 5 }, { wch: 9 },
+  ]
+  // Altura de fila: header 18pt, datos 32pt (2 líneas: label + horario)
+  ws["!rows"] = [
+    { hpt: 18 },
+    ...dataRows.map(() => ({ hpt: 32 })),
   ]
 
   // --- Hoja 2: Detalle de fichadas (una fila por colaborador por día con horarios) ---
@@ -257,7 +271,6 @@ function exportarExcel(
 
   const detalleRows: XLSX.CellObject[][] = [headerDetalle]
 
-  const mesStr = String(mes).padStart(2, "0")
   for (const c of colaboradores) {
     for (let d = 1; d <= dias; d++) {
       const fechaStr = `${anio}-${mesStr}-${String(d).padStart(2, "0")}`
@@ -287,8 +300,9 @@ function exportarExcel(
   wsDetalle["!cols"] = [{ wch: 20 }, { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 18 }]
 
   const wb = XLSX.utils.book_new()
+  // "Horarios" va primero — Excel abre la primera hoja por defecto
+  XLSX.utils.book_append_sheet(wb, wsDetalle, "Horarios")
   XLSX.utils.book_append_sheet(wb, ws, NOMBRES_MES[mes - 1])
-  XLSX.utils.book_append_sheet(wb, wsDetalle, "Detalle Fichadas")
   XLSX.writeFile(wb, `novedades-${NOMBRES_MES[mes - 1].toLowerCase()}-${anio}.xlsx`)
   toast.success("Reporte exportado")
 }
