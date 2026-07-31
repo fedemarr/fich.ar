@@ -1,9 +1,10 @@
 import { auth } from "@/lib/auth"
 import { redirect } from "next/navigation"
-import { Building2, Shield, DollarSign } from "lucide-react"
+import { Building2, Shield, DollarSign, LayoutDashboard } from "lucide-react"
 import Link from "next/link"
 
 const NAV = [
+  { href: "/admin/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/admin/auditoria", label: "Auditoría", icon: Shield },
   { href: "/admin/empresas", label: "Empresas", icon: Building2 },
   { href: "/admin/finanzas", label: "Finanzas", icon: DollarSign },
