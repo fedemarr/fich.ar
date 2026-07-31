@@ -158,7 +158,7 @@ export default function FinanzasPage() {
 
       {/* Filtros */}
       <div className="flex flex-wrap gap-3">
-        <Select value={filtroEmpresa} onValueChange={setFiltroEmpresa}>
+        <Select value={filtroEmpresa} onValueChange={v => setFiltroEmpresa(v ?? "all")}>
           <SelectTrigger className="w-52">
             <Building2 className="w-4 h-4 mr-2 text-[#6B7280]" />
             <SelectValue placeholder="Todas las empresas" />
@@ -170,7 +170,7 @@ export default function FinanzasPage() {
             ))}
           </SelectContent>
         </Select>
-        <Select value={filtroEstado} onValueChange={setFiltroEstado}>
+        <Select value={filtroEstado} onValueChange={v => setFiltroEstado(v ?? "all")}>
           <SelectTrigger className="w-44">
             <ChevronDown className="w-4 h-4 mr-2 text-[#6B7280]" />
             <SelectValue placeholder="Todos los estados" />
@@ -359,7 +359,7 @@ function NuevoCobroDialog({
         <form onSubmit={submit} className="space-y-4 pt-1">
           <div className="space-y-1.5">
             <Label>Empresa *</Label>
-            <Select value={form.empresa_id} onValueChange={v => set("empresa_id", v)}>
+            <Select value={form.empresa_id} onValueChange={v => set("empresa_id", v ?? "")}>
               <SelectTrigger>
                 <SelectValue placeholder="Seleccionar empresa" />
               </SelectTrigger>
@@ -392,7 +392,7 @@ function NuevoCobroDialog({
             </div>
             <div className="space-y-1.5">
               <Label>Moneda</Label>
-              <Select value={form.moneda} onValueChange={v => set("moneda", v)}>
+              <Select value={form.moneda} onValueChange={v => set("moneda", v ?? "ARS")}>
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
