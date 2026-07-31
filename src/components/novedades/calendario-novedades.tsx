@@ -23,6 +23,7 @@ interface CalendarioNovedadesProps {
   puntos: { id: string; nombre: string }[]
   puntoPorColabId: Record<string, { id: string; nombre: string }>
   minutosMes: Record<string, number>
+  fichadasDetalle: Record<string, { entrada?: string; salida?: string; minutos?: number }>
 }
 
 // Colores por tipo de novedad — paleta similar a Qontact
@@ -138,7 +139,8 @@ function exportarExcel(
   mes: number,
   anio: number,
   puntoPorColabId: Record<string, { id: string; nombre: string }>,
-  minutosMes: Record<string, number>
+  minutosMes: Record<string, number>,
+  fichadasDetalle: Record<string, { entrada?: string; salida?: string; minutos?: number }>
 ) {
   const dias = diasEnMes(mes, anio)
   const mapa: Record<string, Record<number, TipoNovedad>> = {}
@@ -244,8 +246,49 @@ function exportarExcel(
     { wch: 5 }, { wch: 5 }, { wch: 5 }, { wch: 6 }, { wch: 7 }, { wch: 5 }, { wch: 9 }, // totales + horas
   ]
 
+  // --- Hoja 2: Detalle de fichadas (una fila por colaborador por día con horarios) ---
+  const headerDetalle: XLSX.CellObject[] = [
+    "Apellido", "Nombre", "Punto QR", "Fecha", "Hora Entrada", "Hora Salida", "Horas trabajadas",
+  ].map((v) => ({
+    v,
+    t: "s" as const,
+    s: { font: { bold: true }, fill: { patternType: "solid" as const, fgColor: { rgb: "F3F4F6" } } },
+  }))
+
+  const detalleRows: XLSX.CellObject[][] = [headerDetalle]
+
+  const mesStr = String(mes).padStart(2, "0")
+  for (const c of colaboradores) {
+    for (let d = 1; d <= dias; d++) {
+      const fechaStr = `${anio}-${mesStr}-${String(d).padStart(2, "0")}`
+      const det = fichadasDetalle[`${c.id}|${fechaStr}`]
+      if (!det?.entrada && !det?.salida) continue
+      const horas = det.minutos ? minutosAHHMM(det.minutos) : "—"
+      detalleRows.push([
+        { v: c.apellido, t: "s" },
+        { v: c.nombre,   t: "s" },
+        { v: puntoPorColabId[c.id]?.nombre ?? "—", t: "s" },
+        { v: fechaStr,   t: "s", s: { alignment: { horizontal: "center" } } },
+        { v: det.entrada ?? "—", t: "s", s: { alignment: { horizontal: "center" } } },
+        { v: det.salida  ?? "—", t: "s", s: { alignment: { horizontal: "center" } } },
+        { v: horas,      t: "s", s: { alignment: { horizontal: "center" } } },
+      ])
+    }
+  }
+
+  const wsDetalle = XLSX.utils.aoa_to_sheet([[]])
+  detalleRows.forEach((row, ri) => {
+    row.forEach((cell, ci) => {
+      const addr = XLSX.utils.encode_cell({ r: ri, c: ci })
+      wsDetalle[addr] = cell
+    })
+  })
+  wsDetalle["!ref"] = XLSX.utils.encode_range({ s: { r: 0, c: 0 }, e: { r: detalleRows.length - 1, c: 6 } })
+  wsDetalle["!cols"] = [{ wch: 20 }, { wch: 16 }, { wch: 18 }, { wch: 12 }, { wch: 14 }, { wch: 12 }, { wch: 18 }]
+
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, NOMBRES_MES[mes - 1])
+  XLSX.utils.book_append_sheet(wb, wsDetalle, "Detalle Fichadas")
   XLSX.writeFile(wb, `novedades-${NOMBRES_MES[mes - 1].toLowerCase()}-${anio}.xlsx`)
   toast.success("Reporte exportado")
 }
@@ -262,6 +305,7 @@ export function CalendarioNovedades({
   puntos,
   puntoPorColabId,
   minutosMes,
+  fichadasDetalle,
 }: CalendarioNovedadesProps) {
   const [mostrarRefs, setMostrarRefs] = useState(false)
   const [filtroBusqueda, setFiltroBusqueda] = useState("")
@@ -457,6 +501,13 @@ export function CalendarioNovedades({
                       const presente = presenciasMes.has(key)
                       const analisis = analisisMes[key]
 
+                      const mesStr = String(mes).padStart(2, "0")
+                      const fechaStr = `${anio}-${mesStr}-${String(dia).padStart(2, "0")}`
+                      const det = fichadasDetalle[`${c.id}|${fechaStr}`]
+                      const tooltipHorario = det
+                        ? [det.entrada ? `Entrada: ${det.entrada}` : null, det.salida ? `Salida: ${det.salida}` : null].filter(Boolean).join(" / ")
+                        : undefined
+
                       // Para P y PT combinamos con análisis de salida; el resto usa el color fijo del tipo
                       const esPT = tipo === "P" || tipo === "PT"
                       const badge = (esPT || (!tipo && presente))
@@ -473,7 +524,7 @@ export function CalendarioNovedades({
                               onClick={() => onCeldaClick(c, dia)}
                               className={`w-full h-7 rounded font-bold transition-opacity hover:opacity-75 ${badge.cls}`}
                               style={{ fontSize: labelFontSize(badge.label) }}
-                              title={badge.label}
+                              title={tooltipHorario ?? badge.label}
                             >
                               {badge.label}
                             </button>
@@ -481,7 +532,7 @@ export function CalendarioNovedades({
                             <button
                               onClick={() => onCeldaClick(c, dia)}
                               className={`w-full h-7 rounded text-xs font-bold transition-opacity hover:opacity-75 ${COLORES_BG[tipo]}`}
-                              title={ETIQUETAS_NOVEDAD[tipo]}
+                              title={tooltipHorario ?? ETIQUETAS_NOVEDAD[tipo]}
                             >
                               {LABEL_CELDA[tipo] ?? tipo}
                             </button>
@@ -529,7 +580,8 @@ export function CalendarioNovedades({
               mes,
               anio,
               puntoPorColabId,
-              minutosMes
+              minutosMes,
+              fichadasDetalle
             )
           }
         >

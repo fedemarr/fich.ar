@@ -241,7 +241,13 @@ export default async function NovedadesPage({
   }
   const puntos = Array.from(puntosMap.values()).sort((a, b) => a.nombre.localeCompare(b.nombre))
 
-  // Horas trabajadas en el mes: agrupar fichadas por colabId+fecha, calcular duración
+  // Argentina es UTC-3 fijo (sin DST desde 2008)
+  function formatHoraARG(d: Date): string {
+    const arg = new Date(d.getTime() - 3 * 60 * 60 * 1000)
+    return `${String(arg.getUTCHours()).padStart(2, "0")}:${String(arg.getUTCMinutes()).padStart(2, "0")}`
+  }
+
+  // Horas trabajadas en el mes + detalle de horarios por día
   const fichadasPorDia = new Map<string, { entradas: Date[]; salidas: Date[] }>()
   for (const f of fichadasMesRaw) {
     const fechaStr = fechaARG(f.timestamp)
@@ -252,13 +258,20 @@ export default async function NovedadesPage({
     fichadasPorDia.set(key, entry)
   }
   const minutosMes: Record<string, number> = {}
+  const fichadasDetalle: Record<string, { entrada?: string; salida?: string; minutos?: number }> = {}
   for (const [key, { entradas, salidas }] of fichadasPorDia) {
-    if (!entradas.length || !salidas.length) continue
     const colabId = key.split("|")[0]
-    const entrada = new Date(Math.min(...entradas.map((d) => d.getTime())))
-    const salida = new Date(Math.max(...salidas.map((d) => d.getTime())))
-    const mins = Math.round((salida.getTime() - entrada.getTime()) / 60000)
-    if (mins > 0 && mins < 1440) minutosMes[colabId] = (minutosMes[colabId] ?? 0) + mins
+    const primeraEntrada = entradas.length ? new Date(Math.min(...entradas.map((d) => d.getTime()))) : undefined
+    const ultimaSalida = salidas.length ? new Date(Math.max(...salidas.map((d) => d.getTime()))) : undefined
+    const mins = primeraEntrada && ultimaSalida
+      ? Math.round((ultimaSalida.getTime() - primeraEntrada.getTime()) / 60000)
+      : undefined
+    if (mins && mins > 0 && mins < 1440) minutosMes[colabId] = (minutosMes[colabId] ?? 0) + mins
+    fichadasDetalle[key] = {
+      entrada: primeraEntrada ? formatHoraARG(primeraEntrada) : undefined,
+      salida: ultimaSalida ? formatHoraARG(ultimaSalida) : undefined,
+      minutos: mins && mins > 0 && mins < 1440 ? mins : undefined,
+    }
   }
 
   return (
@@ -275,6 +288,7 @@ export default async function NovedadesPage({
       puntos={puntos}
       puntoPorColabId={puntoPorColabId}
       minutosMes={minutosMes}
+      fichadasDetalle={fichadasDetalle}
     />
   )
 }

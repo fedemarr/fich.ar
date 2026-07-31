@@ -2,10 +2,11 @@
 
 import { useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { Calendar, AlertCircle, FileText, Plus, RefreshCw, CheckCircle2, Trash2, Zap } from "lucide-react"
+import { Calendar, AlertCircle, FileText, Plus, CheckCircle2, Trash2, Zap, CalendarCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { CalendarioNovedades } from "@/components/novedades/calendario-novedades"
 import { NovedadDialog } from "@/components/novedades/novedad-dialog"
+import { NovedadMasivaDialog } from "@/components/novedades/novedad-masiva-dialog"
 import { AutoRefresh } from "@/components/resumen/auto-refresh"
 import { ETIQUETAS_NOVEDAD } from "@/types"
 import { toast } from "sonner"
@@ -27,6 +28,7 @@ interface NovedadesClienteProps {
   puntos: { id: string; nombre: string }[]
   puntoPorColabId: Record<string, { id: string; nombre: string }>
   minutosMes: Record<string, number>
+  fichadasDetalle: Record<string, { entrada?: string; salida?: string; minutos?: number }>
 }
 
 function avatarLetras(nombre: string, apellido: string) {
@@ -76,6 +78,7 @@ export function NovedadesCliente({
   puntos,
   puntoPorColabId,
   minutosMes,
+  fichadasDetalle,
 }: NovedadesClienteProps) {
   const router = useRouter()
   const pathname = usePathname()
@@ -93,6 +96,7 @@ export function NovedadesCliente({
   // Local state for inasistencias (optimistic updates)
   const [inasistencias, setInasistencias] = useState<InasistenciaDetectada[]>(inasistenciasIniciales)
   const [sincronizando, setSincronizando] = useState(false)
+  const [masivaAbierto, setMasivaAbierto] = useState(false)
 
   function cambiarTab(t: "inasistencias" | "reporte") {
     setTab(t)
@@ -223,6 +227,15 @@ export function NovedadesCliente({
         </div>
         <div className="flex items-center gap-2 flex-wrap justify-end">
           <AutoRefresh intervalSeconds={15} />
+          <Button
+            variant="outline"
+            size="sm"
+            className="h-9 gap-1.5 border-[#2563EB]/40 text-[#2563EB] hover:bg-[#EFF6FF] text-xs sm:text-sm"
+            onClick={() => setMasivaAbierto(true)}
+          >
+            <CalendarCheck size={14} />
+            <span className="hidden sm:inline">Novedad masiva</span>
+          </Button>
           <Button
             variant="outline"
             size="sm"
@@ -420,8 +433,19 @@ export function NovedadesCliente({
           puntos={puntos}
           puntoPorColabId={puntoPorColabId}
           minutosMes={minutosMes}
+          fichadasDetalle={fichadasDetalle}
         />
       )}
+
+      {/* Dialog Novedad Masiva */}
+      <NovedadMasivaDialog
+        open={masivaAbierto}
+        onClose={() => setMasivaAbierto(false)}
+        onSuccess={() => { setMasivaAbierto(false); router.refresh() }}
+        colaboradores={colaboradores}
+        puntos={puntos}
+        puntoPorColabId={puntoPorColabId}
+      />
 
       {/* Dialog */}
       <NovedadDialog
