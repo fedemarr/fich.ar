@@ -89,6 +89,7 @@ model Empresa {
   proyecciones   ProyeccionMensual[]
   asignaciones   AsignacionMensual[]
   descansos      Descanso[]
+  cobros         Cobro[]
 
   @@map("empresas")
 }
@@ -449,4 +450,26 @@ model AuditLog {
   @@index([created_at])
   @@index([accion])
   @@map("audit_logs")
+}
+
+model Cobro {
+  id                String    @id @default(uuid())
+  empresa_id        String
+  concepto          String
+  monto             Float
+  moneda            String    @default("ARS")
+  periodo           String?
+  estado            String    @default("PENDIENTE")
+  fecha_emision     DateTime  @default(now())
+  fecha_vencimiento DateTime?
+  fecha_pago        DateTime?
+  nota              String?
+  created_at        DateTime  @default(now())
+  updated_at        DateTime  @updatedAt
+
+  empresa Empresa @relation(fields: [empresa_id], references: [id])
+
+  @@index([empresa_id])
+  @@index([estado])
+  @@map("cobros")
 }
