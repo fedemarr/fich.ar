@@ -246,7 +246,7 @@ export default function FinanzasPage() {
                 width={40}
               />
               <Tooltip
-                formatter={(value: number) => [`$ ${value.toLocaleString("es-AR")}`, "Cobrado"]}
+                formatter={(value) => [`$ ${Number(value ?? 0).toLocaleString("es-AR")}`, "Cobrado"]}
                 labelStyle={{ color: "#111827", fontWeight: 600 }}
                 contentStyle={{ border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 12 }}
                 cursor={{ fill: "#F9FAFB" }}
