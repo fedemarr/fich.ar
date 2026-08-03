@@ -90,6 +90,12 @@ model Empresa {
   asignaciones   AsignacionMensual[]
   descansos      Descanso[]
   cobros         Cobro[]
+  sedes              Sede[]
+  turnos             Turno[]
+  procedimientos     Procedimiento[]
+  ejecuciones_proc   EjecucionProcedimiento[]
+  ejecuciones_tarea  EjecucionTarea[]
+  fotos_op           FotoOperacion[]
 
   @@map("empresas")
 }
@@ -155,6 +161,8 @@ model Colaborador {
   jornadas       ColaboradorJornada[]
   asignaciones   AsignacionMensual[]
   descansos      Descanso[]
+  ejecuciones_tarea EjecucionTarea[]
+  fotos_op          FotoOperacion[]
 
   @@index([empresa_id])
   @@index([celular])
@@ -164,6 +172,7 @@ model Colaborador {
 model PuntoFichaje {
   id           String   @id @default(uuid())
   empresa_id   String
+  sede_id      String?
   nombre       String
   latitud      Float
   longitud     Float
@@ -174,10 +183,12 @@ model PuntoFichaje {
   updated_at   DateTime @updatedAt
 
   empresa           Empresa        @relation(fields: [empresa_id], references: [id])
+  sede              Sede?          @relation(fields: [sede_id], references: [id])
   fichadas          Fichada[]
   jornadas          Jornada[]
   asignaciones      AsignacionMensual[]
   supervisores      UsuarioPunto[]
+  tareas_op         Tarea[]
 
   @@index([empresa_id])
   @@index([qr_token])
@@ -472,4 +483,173 @@ model Cobro {
   @@index([empresa_id])
   @@index([estado])
   @@map("cobros")
+}
+
+// ─── MÓDULO OPERACIONES ───────────────────────────────────────────────────────
+
+model Sede {
+  id         String   @id @default(uuid())
+  empresa_id String
+  nombre     String
+  activo     Boolean  @default(true)
+  created_at DateTime @default(now())
+  updated_at DateTime @updatedAt
+
+  empresa Empresa        @relation(fields: [empresa_id], references: [id])
+  puntos  PuntoFichaje[]
+
+  @@index([empresa_id])
+  @@map("sedes")
+}
+
+model Turno {
+  id          String   @id @default(uuid())
+  empresa_id  String
+  nombre      String
+  hora_inicio String
+  hora_fin    String
+  activo      Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  empresa        Empresa                  @relation(fields: [empresa_id], references: [id])
+  procedimientos Procedimiento[]
+  ejecuciones    EjecucionProcedimiento[]
+
+  @@index([empresa_id])
+  @@map("turnos")
+}
+
+model Procedimiento {
+  id          String   @id @default(uuid())
+  empresa_id  String
+  turno_id    String
+  nombre      String
+  descripcion String?
+  lunes       Boolean  @default(false)
+  martes      Boolean  @default(false)
+  miercoles   Boolean  @default(false)
+  jueves      Boolean  @default(false)
+  viernes     Boolean  @default(false)
+  sabado      Boolean  @default(false)
+  domingo     Boolean  @default(false)
+  activo      Boolean  @default(true)
+  created_at  DateTime @default(now())
+  updated_at  DateTime @updatedAt
+
+  empresa     Empresa                  @relation(fields: [empresa_id], references: [id])
+  turno       Turno                    @relation(fields: [turno_id], references: [id])
+  tareas      Tarea[]
+  ejecuciones EjecucionProcedimiento[]
+
+  @@index([empresa_id])
+  @@index([turno_id])
+  @@map("procedimientos")
+}
+
+model Tarea {
+  id                  String   @id @default(uuid())
+  procedimiento_id    String
+  punto_fichaje_id    String?
+  nombre              String
+  descripcion         String?
+  orden               Int
+  es_critica          Boolean  @default(false)
+  es_omitible         Boolean  @default(true)
+  tiempo_estimado_min Int?
+  foto_min            Int      @default(0)
+  foto_max            Int      @default(0)
+  foto_instruccion    String?
+  requiere_comentario Boolean  @default(false)
+  checklist_items     Json?
+  activo              Boolean  @default(true)
+  created_at          DateTime @default(now())
+  updated_at          DateTime @updatedAt
+
+  procedimiento Procedimiento    @relation(fields: [procedimiento_id], references: [id])
+  punto_fichaje PuntoFichaje?    @relation(fields: [punto_fichaje_id], references: [id])
+  ejecuciones   EjecucionTarea[]
+
+  @@index([procedimiento_id])
+  @@map("tareas")
+}
+
+model EjecucionProcedimiento {
+  id               String   @id @default(uuid())
+  empresa_id       String
+  procedimiento_id String
+  turno_id         String
+  fecha            DateTime @db.Date
+  estado           String   @default("PENDIENTE")
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  empresa       Empresa        @relation(fields: [empresa_id], references: [id])
+  procedimiento Procedimiento  @relation(fields: [procedimiento_id], references: [id])
+  turno         Turno          @relation(fields: [turno_id], references: [id])
+  tareas        EjecucionTarea[]
+
+  @@unique([procedimiento_id, fecha])
+  @@index([empresa_id])
+  @@index([empresa_id, fecha])
+  @@map("ejecuciones_procedimiento")
+}
+
+model EjecucionTarea {
+  id                         String    @id @default(uuid())
+  empresa_id                 String
+  ejecucion_procedimiento_id String
+  tarea_id                   String
+  colaborador_id             String?
+  estado                     String    @default("PENDIENTE")
+  hora_inicio                DateTime?
+  hora_fin                   DateTime?
+  latitud_completado         Float?
+  longitud_completado        Float?
+  comentario                 String?
+  checklist_completado       Json?
+  se_salteo_orden            Boolean   @default(false)
+  motivo_salteo              String?
+  validacion_estado          String    @default("PENDIENTE")
+  validado_por_id            String?
+  motivo_rechazo             String?
+  created_at                 DateTime  @default(now())
+  updated_at                 DateTime  @updatedAt
+
+  empresa               Empresa                @relation(fields: [empresa_id], references: [id])
+  ejecucion_procedimiento EjecucionProcedimiento @relation(fields: [ejecucion_procedimiento_id], references: [id])
+  tarea                 Tarea                  @relation(fields: [tarea_id], references: [id])
+  colaborador           Colaborador?           @relation(fields: [colaborador_id], references: [id])
+  fotos                 FotoOperacion[]
+
+  @@index([empresa_id])
+  @@index([ejecucion_procedimiento_id])
+  @@index([tarea_id])
+  @@map("ejecuciones_tarea")
+}
+
+model FotoOperacion {
+  id                 String    @id @default(uuid())
+  empresa_id         String
+  ejecucion_tarea_id String
+  colaborador_id     String
+  key                String?
+  thumbnail_key      String?
+  bytes              Int?
+  ancho              Int?
+  alto               Int?
+  timestamp_captura  DateTime?
+  latitud_captura    Float?
+  longitud_captura   Float?
+  estado_subida      String    @default("PENDIENTE")
+  hash               String?
+  created_at         DateTime  @default(now())
+
+  empresa         Empresa        @relation(fields: [empresa_id], references: [id])
+  ejecucion_tarea EjecucionTarea @relation(fields: [ejecucion_tarea_id], references: [id])
+  colaborador     Colaborador    @relation(fields: [colaborador_id], references: [id])
+
+  @@index([empresa_id])
+  @@index([ejecucion_tarea_id])
+  @@map("fotos_operaciones")
 }
