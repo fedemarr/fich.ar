@@ -1,27 +1,24 @@
 import { NextResponse } from "next/server"
-import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
+import { verificarAcceso } from "@/lib/auth-helpers"
 import { z } from "zod"
-import { tags, invalidateTag } from "@/lib/queries"
 
 const schema = z.object({
-  nombre: z.string().min(1),
-  latitud: z.number().min(-90).max(90),
-  longitud: z.number().min(-180).max(180),
-  radio_metros: z.number().min(50).max(2000),
+  nombre: z.string().min(1).max(100),
+  hora_inicio: z.string().regex(/^\d{2}:\d{2}$/),
+  hora_fin: z.string().regex(/^\d{2}:\d{2}$/),
 })
 
 export async function GET() {
   const { error, session } = await verificarAcceso("VER_PUNTOS")
   if (error) return error
 
-  const puntos = await prisma.puntoFichaje.findMany({
+  const turnos = await prisma.turno.findMany({
     where: { empresa_id: session.user.empresaId, activo: true },
-    select: { id: true, nombre: true },
-    orderBy: { nombre: "asc" },
+    orderBy: { hora_inicio: "asc" },
   })
 
-  return NextResponse.json({ puntos })
+  return NextResponse.json({ turnos })
 }
 
 export async function POST(req: Request) {
@@ -32,10 +29,9 @@ export async function POST(req: Request) {
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
 
-  const punto = await prisma.puntoFichaje.create({
+  const turno = await prisma.turno.create({
     data: { ...parsed.data, empresa_id: session.user.empresaId },
   })
 
-  invalidateTag(tags.puntos(session.user.empresaId))
-  return NextResponse.json(punto, { status: 201 })
+  return NextResponse.json({ turno }, { status: 201 })
 }

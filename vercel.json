@@ -1,6 +1,7 @@
 {
   "crons": [
     { "path": "/api/cron/alertas",      "schedule": "0 13 * * 1-5" },
-    { "path": "/api/cron/recordatorio", "schedule": "45 11 * * 1-5" }
+    { "path": "/api/cron/recordatorio", "schedule": "45 11 * * 1-5" },
+    { "path": "/api/cron/operaciones",  "schedule": "0 6 * * *" }
   ]
 }

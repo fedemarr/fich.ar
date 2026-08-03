@@ -19,6 +19,7 @@ import {
   UsersRound,
   ShieldCheck,
   Coffee,
+  ClipboardCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -34,6 +35,7 @@ const navAdmin = [
   { href: "colaboradores",  label: "Colaboradores",    icon: Users },
   { href: "puntos",         label: "Puntos QR",        icon: MapPin },
   { href: "proyeccion",     label: "Proyección",       icon: BarChart2 },
+  { href: "operaciones",    label: "Operaciones",      icon: ClipboardCheck },
   { href: "novedades",      label: "Novedades",        icon: Calendar },
   { href: "descansos",      label: "Descansos",        icon: Coffee },
   { href: "comunicaciones", label: "Comunicaciones",   icon: Megaphone },
@@ -44,6 +46,7 @@ const navSupervisor = [
   { href: "resumen",        label: "Resumen",          icon: LayoutDashboard },
   { href: "equipo",         label: "Mi equipo",        icon: UsersRound },
   { href: "listado",        label: "Listado del día",  icon: ClipboardList },
+  { href: "operaciones",    label: "Operaciones",      icon: ClipboardCheck },
   { href: "novedades",      label: "Novedades",        icon: Calendar },
   { href: "descansos",      label: "Descansos",        icon: Coffee },
   { href: "comunicaciones", label: "Comunicaciones",   icon: Megaphone },
