@@ -98,13 +98,24 @@ function AgregarColaboradorPanel({
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ colaborador_id: id }),
         })
-        return { id, status: r.status }
+        const data = await r.json() as { error?: string }
+        return { id, status: r.status, error: data.error }
       })
     )
     setCargando(false)
     // 409 = ya estaba asignado, se trata como éxito
-    const fallidos = resultados.filter((r) => r.status !== 201 && r.status !== 409)
+    const solapados = resultados.filter((r) => r.status === 400)
+    const fallidos = resultados.filter((r) => r.status !== 201 && r.status !== 409 && r.status !== 400)
     const agregados = resultados.filter((r) => r.status === 201).length
+
+    // Mostrar solapamientos con el mensaje exacto del backend
+    solapados.forEach((f) => {
+      const colab = colaboradoresDisponibles.find((c) => c.id === f.id)
+      const nombre = colab ? `${colab.apellido}, ${colab.nombre}` : ""
+      toast.error(`${nombre ? `${nombre}: ` : ""}${f.error ?? "Horario superpuesto"}`, {
+        duration: 6000,
+      })
+    })
     if (fallidos.length > 0) {
       const nombres = fallidos.map((f) => {
         const c = colaboradoresDisponibles.find((c) => c.id === f.id)

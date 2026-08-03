@@ -10,7 +10,7 @@ import {
   identificarColaborador,
   identificarPorDNI,
 } from "@/lib/whatsapp"
-import { calcularAnalisis } from "@/lib/jornadas"
+import { calcularAnalisis, encontrarJornadaParaFichada } from "@/lib/jornadas"
 import { calcularDistanciaMetros } from "@/lib/geo"
 
 // GET — Meta webhook verification
@@ -461,13 +461,13 @@ async function procesarFichada(
     }
   }
 
-  // Obtener jornada activa para calcular análisis de puntualidad
-  const jornadaActiva = await prisma.colaboradorJornada.findFirst({
+  // Obtener jornadas activas para calcular análisis de puntualidad
+  const jornadasActivas = await prisma.colaboradorJornada.findMany({
     where: { colaborador_id: colaboradorId, fecha_hasta: null },
     include: { jornada: true },
   })
-
-  const analisis = calcularAnalisis(ahora, tipo, jornadaActiva?.jornada)
+  const jornadaActiva = encontrarJornadaParaFichada(jornadasActivas.map((j) => j.jornada), ahora)
+  const analisis = calcularAnalisis(ahora, tipo, jornadaActiva)
 
   await prisma.fichada.create({
     data: {

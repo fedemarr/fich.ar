@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { invalidateTag, tags } from "@/lib/queries"
+import { jornadasSeSolapan, type JornadaConFlags } from "@/lib/jornadas"
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -26,25 +27,50 @@ export async function POST(req: Request, { params }: Params) {
   })
   if (!colaborador) return NextResponse.json({ error: "Colaborador no encontrado" }, { status: 404 })
 
-  // Si ya tiene una asignación activa en esta jornada, no duplicar
-  const existe = await prisma.colaboradorJornada.findFirst({
+  // Verificar que no esté ya asignado a esta jornada
+  const yaEnEstaJornada = await prisma.colaboradorJornada.findFirst({
     where: {
       colaborador_id,
       jornada_id: jornadaId,
       OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }],
     },
   })
-  if (existe) return NextResponse.json({ error: "El colaborador ya está en este turno" }, { status: 409 })
+  if (yaEnEstaJornada) return NextResponse.json({ error: "El colaborador ya está en este turno" }, { status: 409 })
 
-  // Cerrar cualquier otra jornada activa del mismo colaborador (un colaborador = un turno activo)
-  await prisma.colaboradorJornada.updateMany({
+  // Obtener todas sus jornadas activas en CUALQUIER punto para validar solapamiento
+  const asignacionesActivas = await prisma.colaboradorJornada.findMany({
     where: {
       colaborador_id,
+      jornada_id: { not: jornadaId },
       OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }],
     },
-    data: { fecha_hasta: new Date() },
+    include: {
+      jornada: {
+        include: { punto_fichaje: { select: { nombre: true } } },
+      },
+    },
   })
 
+  // Detectar solapamiento con cada jornada existente
+  for (const asig of asignacionesActivas) {
+    if (jornadasSeSolapan(jornada as JornadaConFlags, asig.jornada as JornadaConFlags)) {
+      const punto = asig.jornada.punto_fichaje?.nombre ?? ""
+      return NextResponse.json(
+        {
+          error: `El horario se superpone con "${asig.jornada.nombre}" (${asig.jornada.hora_inicio}–${asig.jornada.hora_fin})${punto ? ` en ${punto}` : ""}. Revisá los días y horarios antes de asignar.`,
+          conflicto: {
+            nombre: asig.jornada.nombre,
+            hora_inicio: asig.jornada.hora_inicio,
+            hora_fin: asig.jornada.hora_fin,
+            punto,
+          },
+        },
+        { status: 400 }
+      )
+    }
+  }
+
+  // Todo ok — crear la asignación (sin cerrar las demás)
   const asignacion = await prisma.colaboradorJornada.create({
     data: { colaborador_id, jornada_id: jornadaId },
   })

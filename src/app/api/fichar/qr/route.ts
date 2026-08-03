@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { calcularDistanciaMetros } from "@/lib/geo"
-import { calcularAnalisis } from "@/lib/jornadas"
+import { calcularAnalisis, encontrarJornadaParaFichada } from "@/lib/jornadas"
 import { rateLimitQR } from "@/lib/rate-limit"
 import { hoyARG, inicioDiaARG } from "@/lib/utils"
 
@@ -107,12 +107,14 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Primero debés registrar tu entrada" }, { status: 400 })
   }
 
-  // 6. Calcular análisis
-  const jornadaActiva = await prisma.colaboradorJornada.findFirst({
+  // 6. Calcular análisis — soporta múltiples jornadas activas
+  const jornadasActivas = await prisma.colaboradorJornada.findMany({
     where: { colaborador_id: colaborador.id, fecha_hasta: null },
     include: { jornada: true },
   })
-  const analisis = calcularAnalisis(new Date(), tipoFichada, jornadaActiva?.jornada)
+  const ahora = new Date()
+  const jornadaActiva = encontrarJornadaParaFichada(jornadasActivas.map((j) => j.jornada), ahora)
+  const analisis = calcularAnalisis(ahora, tipoFichada, jornadaActiva)
 
   // 7. Registrar fichada
   const fichada = await prisma.fichada.create({
