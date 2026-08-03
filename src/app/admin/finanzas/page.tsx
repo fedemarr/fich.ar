@@ -1,12 +1,15 @@
 "use client"
 
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useMemo } from "react"
 import {
   DollarSign, Plus, CheckCircle, Clock, AlertCircle,
-  ChevronDown, X, Loader2, Building2, CalendarDays, Trash2
+  ChevronDown, X, Loader2, Building2, Trash2, TrendingUp,
 } from "lucide-react"
+import {
+  BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip,
+  ResponsiveContainer, Cell,
+} from "recharts"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog"
@@ -41,6 +44,8 @@ interface Cobro {
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
 
+const MESES_CORTO = ["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"]
+
 const formatMonto = (monto: number, moneda: string) =>
   `${moneda === "USD" ? "USD " : "$ "}${monto.toLocaleString("es-AR", { minimumFractionDigits: 0, maximumFractionDigits: 0 })}`
 
@@ -52,8 +57,19 @@ const formatFecha = (iso: string | null) => {
 
 const ESTADO_CONFIG: Record<string, { label: string; color: string; icon: typeof Clock }> = {
   PENDIENTE: { label: "Pendiente", color: "bg-yellow-100 text-yellow-800", icon: Clock },
-  PAGADO:    { label: "Pagado",    color: "bg-green-100 text-green-800",  icon: CheckCircle },
-  VENCIDO:   { label: "Vencido",   color: "bg-red-100 text-red-800",     icon: AlertCircle },
+  PAGADO:    { label: "Pagado",    color: "bg-green-100 text-green-800",   icon: CheckCircle },
+  VENCIDO:   { label: "Vencido",   color: "bg-red-100 text-red-800",      icon: AlertCircle },
+}
+
+// Genera los últimos N meses como claves "YYYY-MM"
+function ultimosMeses(n: number): string[] {
+  const meses: string[] = []
+  const now = new Date()
+  for (let i = n - 1; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1)
+    meses.push(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`)
+  }
+  return meses
 }
 
 // ─── Main Component ───────────────────────────────────────────────────────────
@@ -88,6 +104,40 @@ export default function FinanzasPage() {
   const countPendiente = cobros.filter(c => c.estado === "PENDIENTE").length
   const countVencido   = cobros.filter(c => c.estado === "VENCIDO").length
 
+  // Gráfico: ingresos cobrados por mes (últimos 12 meses)
+  const datosGrafico = useMemo(() => {
+    const meses = ultimosMeses(12)
+    const porMes: Record<string, number> = {}
+    for (const key of meses) porMes[key] = 0
+
+    for (const c of cobros) {
+      if (c.estado !== "PAGADO" || !c.fecha_pago) continue
+      const d = new Date(c.fecha_pago)
+      const key = `${d.getUTCFullYear()}-${String(d.getUTCMonth() + 1).padStart(2, "0")}`
+      if (key in porMes) porMes[key] += c.monto
+    }
+
+    return meses.map(key => {
+      const [anio, mes] = key.split("-")
+      return {
+        key,
+        label: `${MESES_CORTO[parseInt(mes) - 1]} ${anio.slice(2)}`,
+        monto: porMes[key],
+      }
+    })
+  }, [cobros])
+
+  const mesActualKey = (() => {
+    const now = new Date()
+    return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`
+  })()
+
+  // Acumulado año en curso
+  const anioActual = new Date().getFullYear()
+  const totalAnio = cobros
+    .filter(c => c.estado === "PAGADO" && c.fecha_pago && new Date(c.fecha_pago).getUTCFullYear() === anioActual)
+    .reduce((s, c) => s + c.monto, 0)
+
   const filtrados = cobros.filter(c => {
     if (filtroEmpresa !== "all" && c.empresa_id !== filtroEmpresa) return false
     if (filtroEstado !== "all" && c.estado !== filtroEstado) return false
@@ -114,6 +164,7 @@ export default function FinanzasPage() {
 
   return (
     <div className="max-w-6xl mx-auto space-y-6">
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
@@ -130,21 +181,30 @@ export default function FinanzasPage() {
       </div>
 
       {/* KPIs */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
           <div className="flex items-center gap-3 mb-2">
-            <div className="p-2 rounded-lg bg-yellow-50"><Clock className="w-5 h-5 text-yellow-600" /></div>
-            <span className="text-sm font-medium text-[#6B7280]">Pendiente</span>
+            <div className="p-2 rounded-lg bg-green-50"><TrendingUp className="w-5 h-5 text-green-600" /></div>
+            <span className="text-sm font-medium text-[#6B7280]">Acumulado {anioActual}</span>
           </div>
-          <p className="text-2xl font-bold text-[#111827]">$ {totalPendiente.toLocaleString("es-AR")}</p>
-          <p className="text-xs text-[#6B7280] mt-1">{countPendiente} cobro{countPendiente !== 1 ? "s" : ""}</p>
+          <p className="text-2xl font-bold text-[#111827]">$ {totalAnio.toLocaleString("es-AR")}</p>
+          <p className="text-xs text-[#6B7280] mt-1">Total cobrado este año</p>
         </div>
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
           <div className="flex items-center gap-3 mb-2">
             <div className="p-2 rounded-lg bg-green-50"><CheckCircle className="w-5 h-5 text-green-600" /></div>
-            <span className="text-sm font-medium text-[#6B7280]">Cobrado</span>
+            <span className="text-sm font-medium text-[#6B7280]">Cobrado total</span>
           </div>
           <p className="text-2xl font-bold text-[#111827]">$ {totalPagado.toLocaleString("es-AR")}</p>
+          <p className="text-xs text-[#6B7280] mt-1">Histórico acumulado</p>
+        </div>
+        <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
+          <div className="flex items-center gap-3 mb-2">
+            <div className="p-2 rounded-lg bg-yellow-50"><Clock className="w-5 h-5 text-yellow-600" /></div>
+            <span className="text-sm font-medium text-[#6B7280]">Por cobrar</span>
+          </div>
+          <p className="text-2xl font-bold text-[#111827]">$ {totalPendiente.toLocaleString("es-AR")}</p>
+          <p className="text-xs text-[#6B7280] mt-1">{countPendiente} cobro{countPendiente !== 1 ? "s" : ""} pendiente{countPendiente !== 1 ? "s" : ""}</p>
         </div>
         <div className="bg-white rounded-xl border border-[#E5E7EB] p-5">
           <div className="flex items-center gap-3 mb-2">
@@ -154,6 +214,59 @@ export default function FinanzasPage() {
           <p className="text-2xl font-bold text-[#111827]">$ {totalVencido.toLocaleString("es-AR")}</p>
           <p className="text-xs text-[#6B7280] mt-1">{countVencido} cobro{countVencido !== 1 ? "s" : ""}</p>
         </div>
+      </div>
+
+      {/* Gráfico ingresos por mes */}
+      <div className="bg-white rounded-xl border border-[#E5E7EB] p-6">
+        <h2 className="text-sm font-semibold text-[#111827] mb-5">Ingresos cobrados — últimos 12 meses</h2>
+        {loading ? (
+          <div className="h-48 flex items-center justify-center text-[#9CA3AF]">
+            <Loader2 className="w-5 h-5 animate-spin mr-2" /> Cargando…
+          </div>
+        ) : totalPagado === 0 ? (
+          <div className="h-48 flex flex-col items-center justify-center text-[#9CA3AF]">
+            <DollarSign className="w-8 h-8 mb-2 opacity-30" />
+            <p className="text-sm">Sin cobros pagados aún</p>
+          </div>
+        ) : (
+          <ResponsiveContainer width="100%" height={200}>
+            <BarChart data={datosGrafico} margin={{ top: 0, right: 0, left: 0, bottom: 0 }}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#F3F4F6" vertical={false} />
+              <XAxis
+                dataKey="label"
+                tick={{ fontSize: 11, fill: "#9CA3AF" }}
+                axisLine={false}
+                tickLine={false}
+              />
+              <YAxis
+                tick={{ fontSize: 11, fill: "#9CA3AF" }}
+                axisLine={false}
+                tickLine={false}
+                tickFormatter={v => v === 0 ? "" : `$${(v / 1000).toFixed(0)}k`}
+                width={40}
+              />
+              <Tooltip
+                formatter={(value: number) => [`$ ${value.toLocaleString("es-AR")}`, "Cobrado"]}
+                labelStyle={{ color: "#111827", fontWeight: 600 }}
+                contentStyle={{ border: "1px solid #E5E7EB", borderRadius: 8, fontSize: 12 }}
+                cursor={{ fill: "#F9FAFB" }}
+              />
+              <Bar dataKey="monto" radius={[4, 4, 0, 0]}>
+                {datosGrafico.map((entry) => (
+                  <Cell
+                    key={entry.key}
+                    fill={entry.key === mesActualKey ? "#E8593C" : "#FBBF24"}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        )}
+        {!loading && totalPagado > 0 && (
+          <p className="text-xs text-[#9CA3AF] mt-3">
+            El mes actual se muestra en coral. Los montos son en ARS.
+          </p>
+        )}
       </div>
 
       {/* Filtros */}
@@ -374,7 +487,7 @@ function NuevoCobroDialog({
           <div className="space-y-1.5">
             <Label>Concepto *</Label>
             <Input
-              placeholder="Ej: Suscripción mensual julio 2026"
+              placeholder="Ej: Suscripción mensual agosto 2026"
               value={form.concepto}
               onChange={e => set("concepto", e.target.value)}
             />
@@ -393,9 +506,7 @@ function NuevoCobroDialog({
             <div className="space-y-1.5">
               <Label>Moneda</Label>
               <Select value={form.moneda} onValueChange={v => set("moneda", v ?? "ARS")}>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
+                <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ARS">ARS $</SelectItem>
                   <SelectItem value="USD">USD $</SelectItem>
@@ -408,7 +519,7 @@ function NuevoCobroDialog({
             <div className="space-y-1.5">
               <Label>Período</Label>
               <Input
-                placeholder="Julio 2026"
+                placeholder="Agosto 2026"
                 value={form.periodo}
                 onChange={e => set("periodo", e.target.value)}
               />
