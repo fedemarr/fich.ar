@@ -7,9 +7,9 @@ const checklistItemSchema = z.object({ texto: z.string().min(1), orden: z.number
 
 const crearSchema = z.object({
   nombre: z.string().min(1).max(150),
-  descripcion: z.string().max(500).optional(),
+  descripcion: z.string().max(500).optional().nullable(),
   criterio_verificacion: z.string().max(500).optional().nullable(),
-  orden: z.number().int().min(0),
+  orden: z.number().int().min(0).optional(),
   punto_fichaje_id: z.string().uuid().optional().nullable(),
   es_critica: z.boolean().default(false),
   es_omitible: z.boolean().default(true),
@@ -76,12 +76,24 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
 
   // Crear tarea
   const parsed = crearSchema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: "Datos inválidos", detalles: parsed.error.flatten() }, { status: 400 })
 
-  const { checklist_items, ...rest } = parsed.data
+  const { checklist_items, orden, ...rest } = parsed.data
+
+  // Si no viene orden, ponerla al final
+  let ordenFinal = orden
+  if (ordenFinal === undefined) {
+    const ultima = await prisma.tarea.aggregate({
+      where: { procedimiento_id: id, activo: true },
+      _max: { orden: true },
+    })
+    ordenFinal = (ultima._max.orden ?? -1) + 1
+  }
+
   const tarea = await prisma.tarea.create({
     data: {
       ...rest,
+      orden: ordenFinal,
       procedimiento_id: id,
       checklist_items: checklist_items ? JSON.parse(JSON.stringify(checklist_items)) : null,
     },

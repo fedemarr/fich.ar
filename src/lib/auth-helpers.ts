@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import type { RolUsuario } from "@/generated/prisma/client"
 
 const PERMISOS = {
@@ -83,11 +84,17 @@ export async function verificarAcceso(
     }
   }
 
-  // Verificar que el módulo opcional esté activo para la empresa
-  if (requiereModulo === "operaciones" && !session.user.moduloOperaciones) {
-    return {
-      error: Response.json({ error: "Módulo Operaciones no está activo para esta empresa" }, { status: 403 }),
-      session: null,
+  // Verificar que el módulo opcional esté activo — consulta DB en vivo para evitar JWT desactualizado
+  if (requiereModulo === "operaciones") {
+    const empresa = await prisma.empresa.findUnique({
+      where: { id: session.user.empresaId },
+      select: { modulo_operaciones: true },
+    })
+    if (!empresa?.modulo_operaciones) {
+      return {
+        error: Response.json({ error: "Módulo Operaciones no está activo para esta empresa" }, { status: 403 }),
+        session: null,
+      }
     }
   }
 
