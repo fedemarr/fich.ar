@@ -21,12 +21,12 @@ export async function GET() {
   if (error) return error
 
   const procedimientos = await prisma.procedimiento.findMany({
-    where: { empresa_id: session.user.empresaId },
+    where: { empresa_id: session.user.empresaId, activo: true },
     include: {
       turno: { select: { id: true, nombre: true, hora_inicio: true, hora_fin: true } },
       _count: { select: { tareas: { where: { activo: true } } } },
     },
-    orderBy: [{ activo: "desc" }, { nombre: "asc" }],
+    orderBy: { nombre: "asc" },
   })
 
   return NextResponse.json({ procedimientos })
