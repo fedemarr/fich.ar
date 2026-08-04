@@ -25,7 +25,7 @@ export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string; tareaId: string }> }
 ) {
-  const { error, session } = await verificarAcceso("EDITAR_PUNTO")
+  const { error, session } = await verificarAcceso("EDITAR_PUNTO", "operaciones")
   if (error) return error
 
   const { id, tareaId } = await params
@@ -58,7 +58,7 @@ export async function DELETE(
   _req: Request,
   { params }: { params: Promise<{ id: string; tareaId: string }> }
 ) {
-  const { error, session } = await verificarAcceso("ELIMINAR_PUNTO")
+  const { error, session } = await verificarAcceso("ELIMINAR_PUNTO", "operaciones")
   if (error) return error
 
   const { id, tareaId } = await params

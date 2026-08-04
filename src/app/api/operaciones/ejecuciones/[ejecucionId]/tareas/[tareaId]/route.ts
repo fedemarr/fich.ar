@@ -132,7 +132,7 @@ export async function PATCH(
   }
 
   // Acciones del supervisor — requieren sesión
-  const { error: sessionError, session } = await verificarAcceso("APROBAR_NOVEDAD")
+  const { error: sessionError, session } = await verificarAcceso("APROBAR_NOVEDAD", "operaciones")
   if (sessionError) return sessionError
 
   if (session.user.empresaId !== empresaId) {
