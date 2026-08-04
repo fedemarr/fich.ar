@@ -35,6 +35,7 @@ interface Turno {
   hora_inicio: string
   hora_fin: string
   activo: boolean
+  punto_nombre: string | null
 }
 
 interface Tarea {
@@ -347,15 +348,15 @@ function ProcedimientoDialog({
           <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Limpieza diaria" />
         </div>
         <div className="space-y-1">
-          <Label>Turno</Label>
+          <Label>Jornada</Label>
           <Select value={turnoId} onValueChange={(v) => setTurnoId(v ?? "")}>
             <SelectTrigger>
-              <SelectValue placeholder="Seleccionar turno" />
+              <SelectValue placeholder="Seleccionar jornada" />
             </SelectTrigger>
             <SelectContent>
               {turnos.map((t) => (
                 <SelectItem key={t.id} value={t.id}>
-                  {t.nombre} ({t.hora_inicio}–{t.hora_fin})
+                  {t.nombre} ({t.hora_inicio}–{t.hora_fin}){t.punto_nombre ? ` · ${t.punto_nombre}` : ""}
                 </SelectItem>
               ))}
             </SelectContent>
@@ -638,35 +639,28 @@ export function OperacionesConfig() {
   const [puntos, setPuntos] = useState<PuntoFichaje[]>([])
   const [loading, setLoading] = useState(true)
 
-  const [nuevoTurno, setNuevoTurno] = useState(false)
-  const [turnoEditando, setTurnoEditando] = useState<Turno | null>(null)
   const [nuevoProcedimiento, setNuevoProcedimiento] = useState(false)
   const [puntoQr, setPuntoQr] = useState<PuntoFichaje | null>(null)
 
   const cargar = useCallback(async () => {
-    const [rTurnos, rProcs, rPuntos] = await Promise.all([
-      fetch("/api/operaciones/turnos"),
+    // /api/operaciones/jornadas auto-sincroniza Jornadas → Turnos y devuelve los turnos enriquecidos
+    const [rJornadas, rProcs, rPuntos] = await Promise.all([
+      fetch("/api/operaciones/jornadas"),
       fetch("/api/operaciones/procedimientos"),
       fetch("/api/puntos"),
     ])
-    const [dTurnos, dProcs, dPuntos] = await Promise.all([
-      rTurnos.json() as Promise<{ turnos: Turno[] }>,
+    const [dJornadas, dProcs, dPuntos] = await Promise.all([
+      rJornadas.json() as Promise<{ turnos: Turno[] }>,
       rProcs.json() as Promise<{ procedimientos: Procedimiento[] }>,
       rPuntos.json() as Promise<{ puntos: PuntoFichaje[] }>,
     ])
-    setTurnos(dTurnos.turnos ?? [])
+    setTurnos(dJornadas.turnos ?? [])
     setProcedimientos(dProcs.procedimientos ?? [])
     setPuntos(dPuntos.puntos ?? [])
     setLoading(false)
   }, [])
 
   useEffect(() => { cargar() }, [cargar])
-
-  const handleDeleteTurno = useCallback(async (id: string) => {
-    if (!confirm("¿Eliminar este turno?")) return
-    await fetch(`/api/operaciones/turnos/${id}`, { method: "DELETE" })
-    cargar()
-  }, [cargar])
 
   return (
     <div className="space-y-8">
@@ -686,31 +680,31 @@ export function OperacionesConfig() {
         </div>
       ) : (
         <>
-          {/* Turnos */}
+          {/* Jornadas sincronizadas como turnos */}
           <section className="space-y-3">
-            <div className="flex items-center justify-between">
-              <h2 className="text-base font-semibold text-gray-800">Turnos</h2>
-              <Button size="sm" variant="outline" className="gap-1.5" onClick={() => setNuevoTurno(true)}>
-                <Plus size={14} />
-                Nuevo turno
-              </Button>
+            <div>
+              <h2 className="text-base font-semibold text-gray-800">Jornadas disponibles</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Se sincronizan automáticamente desde las jornadas configuradas en Puntos QR.
+                Usalas para crear procedimientos.
+              </p>
             </div>
             {turnos.length === 0 ? (
-              <p className="text-sm text-gray-400">Sin turnos configurados.</p>
+              <p className="text-sm text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
+                No hay jornadas configuradas. Creá una en <strong>Puntos QR → Jornadas</strong> primero.
+              </p>
             ) : (
               <div className="space-y-2">
                 {turnos.map((t) => (
-                  <div key={t.id} className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3">
+                  <div key={t.id} className="flex items-center gap-3 bg-white border border-gray-100 rounded-xl px-4 py-3">
+                    <div className="w-2 h-2 rounded-full bg-green-400 shrink-0" />
                     <div className="flex-1">
                       <p className="text-sm font-medium text-gray-900">{t.nombre}</p>
-                      <p className="text-xs text-gray-400">{t.hora_inicio} – {t.hora_fin}</p>
+                      <p className="text-xs text-gray-400">
+                        {t.hora_inicio} – {t.hora_fin}
+                        {t.punto_nombre && <span className="ml-2">· {t.punto_nombre}</span>}
+                      </p>
                     </div>
-                    <Button variant="ghost" size="icon" className="h-7 w-7" onClick={() => setTurnoEditando(t)}>
-                      <Pencil size={13} />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="h-7 w-7 text-red-500 hover:text-red-700" onClick={() => handleDeleteTurno(t.id)}>
-                      <Trash2 size={13} />
-                    </Button>
                   </div>
                 ))}
               </div>
@@ -766,7 +760,7 @@ export function OperacionesConfig() {
             </div>
             {turnos.length === 0 && (
               <p className="text-sm text-amber-600 bg-amber-50 rounded-lg px-3 py-2">
-                Primero creá al menos un turno para poder agregar procedimientos.
+                Primero configurá jornadas en <strong>Puntos QR</strong> para poder agregar procedimientos.
               </p>
             )}
             {procedimientos.length === 0 && turnos.length > 0 ? (
@@ -786,18 +780,6 @@ export function OperacionesConfig() {
             )}
           </section>
         </>
-      )}
-
-      {nuevoTurno && (
-        <Dialog open onOpenChange={() => setNuevoTurno(false)}>
-          <TurnoDialog onClose={() => setNuevoTurno(false)} onSaved={cargar} />
-        </Dialog>
-      )}
-
-      {turnoEditando && (
-        <Dialog open onOpenChange={() => setTurnoEditando(null)}>
-          <TurnoDialog turno={turnoEditando} onClose={() => setTurnoEditando(null)} onSaved={cargar} />
-        </Dialog>
       )}
 
       {nuevoProcedimiento && (
