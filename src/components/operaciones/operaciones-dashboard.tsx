@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { format } from "date-fns"
+import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
-import { RefreshCw, Settings, ChevronDown, ChevronUp, CheckCircle2, Clock, XCircle, AlertTriangle, Circle, ClipboardCheck } from "lucide-react"
+import { RefreshCw, Settings, ChevronDown, ChevronUp, CheckCircle2, Clock, XCircle, AlertTriangle, Circle, ClipboardCheck, BarChart2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -13,6 +13,158 @@ import {
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { cn } from "@/lib/utils"
+
+// ─── Historial ────────────────────────────────────────────────────────────────
+
+interface DiaReporte {
+  fecha: string
+  total: number
+  completados: number
+  en_curso: number
+  pendientes: number
+  tareas_total: number
+  tareas_completadas: number
+  tareas_criticas_no_completadas: number
+  compliance_pct: number
+}
+
+function HistorialTab() {
+  const [dias, setDias] = useState<DiaReporte[] | null>(null)
+  const [loading, setLoading] = useState(true)
+  const [rango, setRango] = useState(7)
+
+  const cargar = useCallback(async () => {
+    setLoading(true)
+    const res = await fetch(`/api/operaciones/reporte?dias=${rango}`)
+    if (res.ok) {
+      const d = await res.json() as { dias: DiaReporte[] }
+      setDias(d.dias)
+    }
+    setLoading(false)
+  }, [rango])
+
+  useEffect(() => { cargar() }, [cargar])
+
+  const totalDias = dias?.length ?? 0
+  const diasConDatos = dias?.filter((d) => d.total > 0).length ?? 0
+  const promedio = diasConDatos > 0
+    ? Math.round(
+        (dias ?? []).filter((d) => d.total > 0).reduce((acc, d) => acc + d.compliance_pct, 0) / diasConDatos
+      )
+    : null
+
+  return (
+    <div className="space-y-5">
+      <div className="flex items-center justify-between flex-wrap gap-3">
+        <div>
+          <p className="text-sm text-gray-500">
+            {diasConDatos > 0
+              ? `${diasConDatos} de ${totalDias} días con actividad · promedio ${promedio}% completado`
+              : "Sin actividad en el período"}
+          </p>
+        </div>
+        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+          {[7, 14, 30].map((n) => (
+            <button
+              key={n}
+              onClick={() => setRango(n)}
+              className={cn(
+                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                rango === n ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+              )}
+            >
+              {n} días
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5].map((i) => <Skeleton key={i} className="h-12 w-full rounded-xl" />)}
+        </div>
+      ) : !dias || dias.every((d) => d.total === 0) ? (
+        <div className="text-center py-12 text-gray-400">
+          <BarChart2 size={36} className="mx-auto mb-3 opacity-30" />
+          <p className="text-sm">Sin ejecuciones en los últimos {rango} días.</p>
+        </div>
+      ) : (
+        <div className="space-y-2">
+          {[...dias].reverse().map((d) => {
+            const label = format(parseISO(d.fecha), "EEE d MMM", { locale: es })
+            const esHoy = d.fecha === new Date().toISOString().slice(0, 10)
+            const sinDatos = d.total === 0
+
+            return (
+              <div
+                key={d.fecha}
+                className={cn(
+                  "bg-white border rounded-xl px-4 py-3",
+                  esHoy ? "border-[#E8593C]/40" : "border-gray-200",
+                  sinDatos && "opacity-50"
+                )}
+              >
+                <div className="flex items-center gap-4">
+                  <div className="w-24 shrink-0">
+                    <p className={cn("text-sm font-medium capitalize", esHoy && "text-[#E8593C]")}>{label}</p>
+                    {esHoy && <span className="text-[10px] text-[#E8593C] font-semibold">hoy</span>}
+                  </div>
+
+                  {sinDatos ? (
+                    <p className="text-xs text-gray-400 flex-1">Sin procedimientos</p>
+                  ) : (
+                    <>
+                      <div className="flex-1">
+                        <div className="flex items-center gap-1 mb-1">
+                          <div className="flex-1 bg-gray-100 rounded-full h-1.5">
+                            <div
+                              className={cn(
+                                "h-1.5 rounded-full transition-all",
+                                d.compliance_pct >= 90 ? "bg-green-500" :
+                                d.compliance_pct >= 70 ? "bg-amber-400" : "bg-red-400"
+                              )}
+                              style={{ width: `${d.compliance_pct}%` }}
+                            />
+                          </div>
+                          <span className={cn(
+                            "text-xs font-bold w-9 text-right",
+                            d.compliance_pct >= 90 ? "text-green-600" :
+                            d.compliance_pct >= 70 ? "text-amber-600" : "text-red-600"
+                          )}>
+                            {d.compliance_pct}%
+                          </span>
+                        </div>
+                        <div className="flex gap-3 text-[10px] text-gray-400">
+                          <span>{d.tareas_completadas}/{d.tareas_total} tareas</span>
+                          {d.tareas_criticas_no_completadas > 0 && (
+                            <span className="text-red-500 font-medium">
+                              {d.tareas_criticas_no_completadas} crítica{d.tareas_criticas_no_completadas !== 1 ? "s" : ""} pendiente{d.tareas_criticas_no_completadas !== 1 ? "s" : ""}
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                      <div className="flex gap-2 shrink-0 text-xs">
+                        {d.completados > 0 && (
+                          <span className="bg-green-100 text-green-700 rounded px-1.5 py-0.5">{d.completados} ✓</span>
+                        )}
+                        {d.en_curso > 0 && (
+                          <span className="bg-blue-100 text-blue-700 rounded px-1.5 py-0.5">{d.en_curso} ⟳</span>
+                        )}
+                        {d.pendientes > 0 && (
+                          <span className="bg-gray-100 text-gray-600 rounded px-1.5 py-0.5">{d.pendientes} —</span>
+                        )}
+                      </div>
+                    </>
+                  )}
+                </div>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
 
 type EstadoTarea = "PENDIENTE" | "EN_CURSO" | "COMPLETADA" | "OMITIDA" | "NO_REALIZADA"
 type ValidacionEstado = "PENDIENTE" | "APROBADA" | "RECHAZADA"
@@ -316,6 +468,7 @@ export function OperacionesDashboard() {
   const pathname = usePathname()
   const slug = pathname.split("/")[1]
 
+  const [tab, setTab] = useState<"hoy" | "historial">("hoy")
   const [fecha, setFecha] = useState(() => {
     const d = new Date()
     d.setTime(d.getTime() - 3 * 60 * 60 * 1000)
@@ -366,27 +519,33 @@ export function OperacionesDashboard() {
       <div className="flex items-center justify-between flex-wrap gap-3">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Operaciones</h1>
-          <p className="text-sm text-gray-500 mt-0.5 capitalize">
-            {format(new Date(fecha + "T12:00:00"), "EEEE d 'de' MMMM", { locale: es })}
-          </p>
+          {tab === "hoy" && (
+            <p className="text-sm text-gray-500 mt-0.5 capitalize">
+              {format(new Date(fecha + "T12:00:00"), "EEEE d 'de' MMMM", { locale: es })}
+            </p>
+          )}
         </div>
         <div className="flex items-center gap-2">
-          <input
-            type="date"
-            value={fecha}
-            onChange={(e) => setFecha(e.target.value)}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
-          />
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => cargar(true)}
-            disabled={refreshing}
-            className="gap-1.5"
-          >
-            <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
-            Actualizar
-          </Button>
+          {tab === "hoy" && (
+            <>
+              <input
+                type="date"
+                value={fecha}
+                onChange={(e) => setFecha(e.target.value)}
+                className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm"
+              />
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => cargar(true)}
+                disabled={refreshing}
+                className="gap-1.5"
+              >
+                <RefreshCw size={14} className={refreshing ? "animate-spin" : ""} />
+                Actualizar
+              </Button>
+            </>
+          )}
           <Button
             size="sm"
             variant="outline"
@@ -399,6 +558,32 @@ export function OperacionesDashboard() {
         </div>
       </div>
 
+      {/* Tabs */}
+      <div className="flex gap-1 bg-gray-100 rounded-lg p-1 w-fit">
+        <button
+          onClick={() => setTab("hoy")}
+          className={cn(
+            "px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
+            tab === "hoy" ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+          )}
+        >
+          Hoy
+        </button>
+        <button
+          onClick={() => setTab("historial")}
+          className={cn(
+            "flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-md transition-colors",
+            tab === "historial" ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+          )}
+        >
+          <BarChart2 size={14} />
+          Historial
+        </button>
+      </div>
+
+      {tab === "historial" && <HistorialTab />}
+
+      {tab === "hoy" && <>
       {/* KPIs */}
       {kpis && (
         <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
@@ -448,6 +633,7 @@ export function OperacionesDashboard() {
           ))}
         </div>
       )}
+      </>}
     </div>
   )
 }
