@@ -4,7 +4,8 @@ import { useCallback, useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
-import { RefreshCw, Settings, ChevronDown, ChevronUp, CheckCircle2, Clock, XCircle, AlertTriangle, Circle, ClipboardCheck, BarChart2 } from "lucide-react"
+import { RefreshCw, Settings, ChevronDown, ChevronUp, CheckCircle2, Clock, XCircle, AlertTriangle, Circle, ClipboardCheck, BarChart2, Download } from "lucide-react"
+import { exportarHistorialOperacionesExcel } from "@/lib/export"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Skeleton } from "@/components/ui/skeleton"
@@ -63,19 +64,32 @@ function HistorialTab() {
               : "Sin actividad en el período"}
           </p>
         </div>
-        <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
-          {[7, 14, 30].map((n) => (
-            <button
-              key={n}
-              onClick={() => setRango(n)}
-              className={cn(
-                "px-3 py-1 text-xs font-medium rounded-md transition-colors",
-                rango === n ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
-              )}
+        <div className="flex items-center gap-2">
+          {dias && dias.some((d) => d.total > 0) && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="gap-1.5"
+              onClick={() => exportarHistorialOperacionesExcel(dias)}
             >
-              {n} días
-            </button>
-          ))}
+              <Download size={13} />
+              Excel
+            </Button>
+          )}
+          <div className="flex items-center gap-1 bg-gray-100 rounded-lg p-1">
+            {[7, 14, 30].map((n) => (
+              <button
+                key={n}
+                onClick={() => setRango(n)}
+                className={cn(
+                  "px-3 py-1 text-xs font-medium rounded-md transition-colors",
+                  rango === n ? "bg-white shadow text-gray-900" : "text-gray-500 hover:text-gray-700"
+                )}
+              >
+                {n} días
+              </button>
+            ))}
+          </div>
         </div>
       </div>
 
