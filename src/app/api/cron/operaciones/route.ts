@@ -20,7 +20,7 @@ export async function GET(req: Request) {
   const diaKey = DIAS[dowIndex]
 
   const empresas = await prisma.empresa.findMany({
-    where: { activa: true, deleted_at: null },
+    where: { activa: true, deleted_at: null, modulo_operaciones: true },
     select: { id: true },
   })
 
@@ -79,5 +79,41 @@ export async function GET(req: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, fecha: hoyStr, generadas: totalGeneradas, omitidas: totalOmitidas })
+  // Alertas de ayer: ejecuciones con tareas críticas sin completar
+  const ayerDate = new Date(fechaDate)
+  ayerDate.setDate(ayerDate.getDate() - 1)
+
+  let alertasGeneradas = 0
+  for (const empresa of empresas) {
+    const ejecucionesAyer = await prisma.ejecucionProcedimiento.findMany({
+      where: { empresa_id: empresa.id, fecha: ayerDate, estado: { not: "COMPLETADO" } },
+      include: {
+        procedimiento: { select: { nombre: true } },
+        tareas: {
+          where: { tarea: { es_critica: true }, estado: { notIn: ["COMPLETADA", "OMITIDA"] } },
+          select: { id: true, tarea: { select: { nombre: true } } },
+        },
+      },
+    })
+
+    const conCriticas = ejecucionesAyer.filter((e) => e.tareas.length > 0)
+    if (conCriticas.length === 0) continue
+
+    const nombres = conCriticas
+      .map((e) => `${e.procedimiento.nombre}: ${e.tareas.map((t) => t.tarea.nombre).join(", ")}`)
+      .join(" | ")
+
+    await prisma.notificacion.create({
+      data: {
+        empresa_id: empresa.id,
+        tipo: "SISTEMA",
+        titulo: `Tareas críticas sin completar ayer (${conCriticas.length} procedimiento${conCriticas.length !== 1 ? "s" : ""})`,
+        descripcion: nombres,
+        estado: "NO_LEIDA",
+      },
+    })
+    alertasGeneradas++
+  }
+
+  return NextResponse.json({ ok: true, fecha: hoyStr, generadas: totalGeneradas, omitidas: totalOmitidas, alertas: alertasGeneradas })
 }
