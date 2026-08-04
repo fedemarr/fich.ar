@@ -9,6 +9,7 @@ interface PuntoInfo {
   id: string
   nombre: string
   empresa_id: string
+  operaciones_token: string
   empresa: { nombre: string; logo_url: string | null; slug: string; modulo_operaciones: boolean }
 }
 
@@ -713,10 +714,10 @@ export default function FicharPage() {
                   <span className="text-sm font-medium">Terminar descanso</span>
                 </button>
               )}
-              {fichada.tipo === "ENTRADA" && punto?.empresa.modulo_operaciones && (
+              {fichada.tipo === "ENTRADA" && punto?.empresa.modulo_operaciones && punto.operaciones_token && (
                 <a
-                  href={`/fichar/${token}/tareas`}
-                  className="block w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-xl py-3 text-center text-sm font-medium transition-colors"
+                  href={`/op/${punto.operaciones_token}`}
+                  className="block w-full bg-orange-50 hover:bg-orange-100 border border-orange-200 text-orange-700 rounded-xl py-3 text-center text-sm font-medium transition-colors"
                 >
                   Ver tareas del día →
                 </a>
