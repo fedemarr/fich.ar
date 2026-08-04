@@ -8,6 +8,7 @@ const checklistItemSchema = z.object({ texto: z.string().min(1), orden: z.number
 const schema = z.object({
   nombre: z.string().min(1).max(150).optional(),
   descripcion: z.string().max(500).optional().nullable(),
+  criterio_verificacion: z.string().max(500).optional().nullable(),
   orden: z.number().int().min(0).optional(),
   punto_fichaje_id: z.string().uuid().optional().nullable(),
   es_critica: z.boolean().optional(),
@@ -19,6 +20,8 @@ const schema = z.object({
   requiere_comentario: z.boolean().optional(),
   checklist_items: z.array(checklistItemSchema).optional().nullable(),
   activo: z.boolean().optional(),
+  estado: z.string().optional(),
+  colaborador_id: z.string().uuid().optional(),
 })
 
 export async function PATCH(

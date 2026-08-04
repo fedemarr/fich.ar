@@ -17,7 +17,7 @@ export async function GET() {
 
   const puntos = await prisma.puntoFichaje.findMany({
     where: { empresa_id: session.user.empresaId, activo: true },
-    select: { id: true, nombre: true },
+    select: { id: true, nombre: true, operaciones_token: true },
     orderBy: { nombre: "asc" },
   })
 

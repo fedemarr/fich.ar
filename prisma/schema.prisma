@@ -178,7 +178,8 @@ model PuntoFichaje {
   latitud      Float
   longitud     Float
   radio_metros Int      @default(200)
-  qr_token     String   @unique @default(uuid())
+  qr_token           String   @unique @default(uuid())
+  operaciones_token  String   @unique @default(uuid())
   activo       Boolean  @default(true)
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
@@ -193,6 +194,7 @@ model PuntoFichaje {
 
   @@index([empresa_id])
   @@index([qr_token])
+  @@index([operaciones_token])
   @@map("puntos_fichaje")
 }
 
@@ -560,10 +562,11 @@ model Tarea {
   tiempo_estimado_min Int?
   foto_min            Int      @default(0)
   foto_max            Int      @default(0)
-  foto_instruccion    String?
-  requiere_comentario Boolean  @default(false)
-  checklist_items     Json?
-  activo              Boolean  @default(true)
+  foto_instruccion      String?
+  criterio_verificacion String?
+  requiere_comentario   Boolean  @default(false)
+  checklist_items       Json?
+  activo                Boolean  @default(true)
   created_at          DateTime @default(now())
   updated_at          DateTime @updatedAt
 
@@ -644,6 +647,7 @@ model FotoOperacion {
   longitud_captura   Float?
   estado_subida      String    @default("PENDIENTE")
   hash               String?
+  verificacion_ia    Json?
   created_at         DateTime  @default(now())
 
   empresa         Empresa        @relation(fields: [empresa_id], references: [id])

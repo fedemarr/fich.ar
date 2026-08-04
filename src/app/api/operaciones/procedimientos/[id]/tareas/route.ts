@@ -8,6 +8,7 @@ const checklistItemSchema = z.object({ texto: z.string().min(1), orden: z.number
 const crearSchema = z.object({
   nombre: z.string().min(1).max(150),
   descripcion: z.string().max(500).optional(),
+  criterio_verificacion: z.string().max(500).optional().nullable(),
   orden: z.number().int().min(0),
   punto_fichaje_id: z.string().uuid().optional().nullable(),
   es_critica: z.boolean().default(false),

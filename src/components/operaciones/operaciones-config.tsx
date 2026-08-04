@@ -1,8 +1,9 @@
 "use client"
 
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
-import { ArrowLeft, Plus, Pencil, Trash2, GripVertical, ChevronDown, ChevronRight } from "lucide-react"
+import { ArrowLeft, Plus, Pencil, Trash2, GripVertical, ChevronDown, ChevronRight, QrCode, Download } from "lucide-react"
+import { QRCodeSVG } from "qrcode.react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -48,6 +49,7 @@ interface Tarea {
   requiere_comentario: boolean
   tiempo_estimado_min: number | null
   punto_fichaje: { id: string; nombre: string } | null
+  criterio_verificacion: string | null
   activo: boolean
 }
 
@@ -67,6 +69,7 @@ interface ProcedimientoDetalle extends Procedimiento {
 interface PuntoFichaje {
   id: string
   nombre: string
+  operaciones_token: string
 }
 
 // ─── Turnos ───────────────────────────────────────────────────────────────────
@@ -156,6 +159,7 @@ function TareaDialog({
 }) {
   const [nombre, setNombre] = useState(tarea?.nombre ?? "")
   const [descripcion, setDescripcion] = useState(tarea?.descripcion ?? "")
+  const [criterioVerificacion, setCriterioVerificacion] = useState(tarea?.criterio_verificacion ?? "")
   const [esCritica, setEsCritica] = useState(tarea?.es_critica ?? false)
   const [esOmitible, setEsOmitible] = useState(tarea?.es_omitible ?? true)
   const [fotoMin, setFotoMin] = useState(String(tarea?.foto_min ?? 0))
@@ -173,6 +177,7 @@ function TareaDialog({
     const body: Record<string, unknown> = {
       nombre: nombre.trim(),
       descripcion: descripcion.trim() || null,
+      criterio_verificacion: criterioVerificacion.trim() || null,
       es_critica: esCritica,
       es_omitible: esOmitible,
       foto_min: Number(fotoMin),
@@ -198,7 +203,7 @@ function TareaDialog({
     }
     onSaved()
     onClose()
-  }, [nombre, descripcion, esCritica, esOmitible, fotoMin, fotoMax, requiereComentario, tiempoEst, puntoId, tarea, procedimientoId, onClose, onSaved])
+  }, [nombre, descripcion, criterioVerificacion, esCritica, esOmitible, fotoMin, fotoMax, requiereComentario, tiempoEst, puntoId, tarea, procedimientoId, onClose, onSaved])
 
   return (
     <DialogContent className="max-w-lg">
@@ -213,6 +218,16 @@ function TareaDialog({
         <div className="space-y-1">
           <Label>Descripción (opcional)</Label>
           <Textarea value={descripcion} onChange={(e) => setDescripcion(e.target.value)} rows={2} />
+        </div>
+        <div className="space-y-1">
+          <Label>Criterio de verificación IA (opcional)</Label>
+          <Textarea
+            value={criterioVerificacion}
+            onChange={(e) => setCriterioVerificacion(e.target.value)}
+            rows={2}
+            placeholder="Ej: El piso debe estar limpio y seco, sin residuos visibles"
+          />
+          <p className="text-xs text-gray-400">Le indica a la IA qué verificar en la foto del colaborador</p>
         </div>
         <div className="space-y-1">
           <Label>Punto de fichaje (opcional)</Label>
@@ -537,6 +552,82 @@ function ProcedimientoRow({
 
 // ─── Main Config ──────────────────────────────────────────────────────────────
 
+// ─── QR Operaciones Dialog ────────────────────────────────────────────────────
+
+function QrOperacionesDialog({
+  punto,
+  onClose,
+}: {
+  punto: PuntoFichaje
+  onClose: () => void
+}) {
+  const svgRef = useRef<SVGSVGElement>(null)
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.fich.ar"
+  const url = `${appUrl}/op/${punto.operaciones_token}`
+
+  function svgToPngDataUrl(size: number): Promise<string> {
+    return new Promise((resolve) => {
+      const svg = svgRef.current
+      if (!svg) { resolve(""); return }
+      const xml = new XMLSerializer().serializeToString(svg)
+      const canvas = document.createElement("canvas")
+      canvas.width = size; canvas.height = size
+      const ctx = canvas.getContext("2d")!
+      const img = new Image()
+      img.onload = () => {
+        ctx.fillStyle = "white"
+        ctx.fillRect(0, 0, size, size)
+        ctx.drawImage(img, 0, 0, size, size)
+        resolve(canvas.toDataURL("image/png"))
+      }
+      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(xml)))
+    })
+  }
+
+  async function descargar() {
+    const dataUrl = await svgToPngDataUrl(320)
+    const link = document.createElement("a")
+    link.download = `qr-op-${punto.nombre.toLowerCase().replace(/\s+/g, "-")}.png`
+    link.href = dataUrl
+    link.click()
+  }
+
+  return (
+    <Dialog open onOpenChange={(v) => !v && onClose()}>
+      <DialogContent className="max-w-sm">
+        <DialogHeader>
+          <DialogTitle>QR Operaciones — {punto.nombre}</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col items-center gap-4 py-2">
+          <div className="rounded-xl border border-gray-100 p-4 bg-white">
+            <QRCodeSVG
+              ref={svgRef}
+              value={url}
+              size={240}
+              bgColor="#ffffff"
+              fgColor="#E8593C"
+              level="H"
+            />
+          </div>
+          <p className="text-xs text-gray-400 text-center break-all">{url}</p>
+          <p className="text-xs text-gray-500 bg-orange-50 border border-orange-100 rounded-lg px-3 py-2 text-center w-full">
+            El asociado escanea este QR para ver y completar las tareas del día con verificación por foto
+          </p>
+          <Button
+            className="w-full gap-2 bg-[#E8593C] hover:bg-[#D04828] text-white"
+            onClick={descargar}
+          >
+            <Download size={15} />
+            Descargar PNG
+          </Button>
+        </div>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
+// ─── Main Config ──────────────────────────────────────────────────────────────
+
 export function OperacionesConfig() {
   const router = useRouter()
   const pathname = usePathname()
@@ -550,6 +641,7 @@ export function OperacionesConfig() {
   const [nuevoTurno, setNuevoTurno] = useState(false)
   const [turnoEditando, setTurnoEditando] = useState<Turno | null>(null)
   const [nuevoProcedimiento, setNuevoProcedimiento] = useState(false)
+  const [puntoQr, setPuntoQr] = useState<PuntoFichaje | null>(null)
 
   const cargar = useCallback(async () => {
     const [rTurnos, rProcs, rPuntos] = await Promise.all([
@@ -625,6 +717,39 @@ export function OperacionesConfig() {
             )}
           </section>
 
+          {/* QRs de Operaciones por punto */}
+          <section className="space-y-3">
+            <div>
+              <h2 className="text-base font-semibold text-gray-800">QR Operaciones por punto</h2>
+              <p className="text-xs text-gray-400 mt-0.5">
+                Imprimí y pegá el QR en cada punto. El asociado lo escanea para ver sus tareas del día.
+              </p>
+            </div>
+            {puntos.length === 0 ? (
+              <p className="text-sm text-gray-400">Sin puntos de fichaje activos.</p>
+            ) : (
+              <div className="space-y-2">
+                {puntos.map((p) => (
+                  <div key={p.id} className="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3">
+                    <div className="flex-1">
+                      <p className="text-sm font-medium text-gray-900">{p.nombre}</p>
+                      <p className="text-xs text-gray-400 font-mono">/op/{p.operaciones_token.slice(0, 8)}…</p>
+                    </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="gap-1.5 border-[#E8593C] text-[#E8593C] hover:bg-orange-50"
+                      onClick={() => setPuntoQr(p)}
+                    >
+                      <QrCode size={13} />
+                      Ver QR
+                    </Button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+
           {/* Procedimientos */}
           <section className="space-y-3">
             <div className="flex items-center justify-between">
@@ -679,6 +804,10 @@ export function OperacionesConfig() {
         <Dialog open onOpenChange={() => setNuevoProcedimiento(false)}>
           <ProcedimientoDialog turnos={turnos} onClose={() => setNuevoProcedimiento(false)} onSaved={cargar} />
         </Dialog>
+      )}
+
+      {puntoQr && (
+        <QrOperacionesDialog punto={puntoQr} onClose={() => setPuntoQr(null)} />
       )}
     </div>
   )

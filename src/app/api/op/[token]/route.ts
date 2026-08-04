@@ -1,0 +1,83 @@
+import { NextResponse } from "next/server"
+import { prisma } from "@/lib/prisma"
+import { hoyARG } from "@/lib/utils"
+
+// Endpoint público — autenticado via operaciones_token (QR separado del de fichadas)
+export async function GET(
+  req: Request,
+  { params }: { params: Promise<{ token: string }> }
+) {
+  const { token } = await params
+  const { searchParams } = new URL(req.url)
+  const fechaParam = searchParams.get("fecha") ?? hoyARG()
+
+  const punto = await prisma.puntoFichaje.findFirst({
+    where: { operaciones_token: token, activo: true },
+    select: {
+      id: true,
+      nombre: true,
+      empresa_id: true,
+      empresa: { select: { nombre: true, logo_url: true, slug: true, modulo_operaciones: true } },
+    },
+  })
+
+  if (!punto) return NextResponse.json({ error: "QR inválido" }, { status: 404 })
+  if (!punto.empresa.modulo_operaciones) {
+    return NextResponse.json({ error: "Módulo de operaciones no activo" }, { status: 403 })
+  }
+
+  const fechaDate = new Date(fechaParam + "T12:00:00.000Z")
+
+  const ejecuciones = await prisma.ejecucionProcedimiento.findMany({
+    where: {
+      empresa_id: punto.empresa_id,
+      fecha: fechaDate,
+    },
+    include: {
+      procedimiento: { select: { nombre: true } },
+      turno: { select: { nombre: true, hora_inicio: true, hora_fin: true } },
+      tareas: {
+        where: {
+          tarea: {
+            OR: [
+              { punto_fichaje_id: punto.id },
+              { punto_fichaje_id: null },
+            ],
+          },
+        },
+        include: {
+          tarea: {
+            select: {
+              id: true,
+              nombre: true,
+              descripcion: true,
+              orden: true,
+              es_critica: true,
+              es_omitible: true,
+              foto_min: true,
+              foto_max: true,
+              foto_instruccion: true,
+              requiere_comentario: true,
+              checklist_items: true,
+              tiempo_estimado_min: true,
+              criterio_verificacion: true,
+            },
+          },
+          colaborador: { select: { id: true, nombre: true, apellido: true } },
+          fotos: { select: { id: true, estado_subida: true, verificacion_ia: true } },
+        },
+        orderBy: { tarea: { orden: "asc" } },
+      },
+    },
+    orderBy: { turno: { hora_inicio: "asc" } },
+  })
+
+  const filtradas = ejecuciones.filter((e) => e.tareas.length > 0)
+
+  return NextResponse.json({
+    punto: { id: punto.id, nombre: punto.nombre },
+    empresa: { nombre: punto.empresa.nombre, logo_url: punto.empresa.logo_url },
+    ejecuciones: filtradas,
+    fecha: fechaParam,
+  })
+}
