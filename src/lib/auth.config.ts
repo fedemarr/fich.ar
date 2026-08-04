@@ -30,6 +30,7 @@ export const authConfig: NextAuthConfig = {
       // Rutas API y públicas — siempre permitir
       if (pathname.startsWith("/api/")) return true
       if (pathname.startsWith("/fichar/")) return true
+      if (pathname.startsWith("/op/")) return true
       if (pathname.startsWith("/api/webhooks")) return true
 
       const isAuthPage = pathname === "/login"
