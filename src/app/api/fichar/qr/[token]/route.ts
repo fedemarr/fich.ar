@@ -15,7 +15,7 @@ export async function GET(
       activo: true,
       empresa_id: true,
       empresa: {
-        select: { nombre: true, logo_url: true, slug: true },
+        select: { nombre: true, logo_url: true, slug: true, modulo_operaciones: true },
       },
     },
   })

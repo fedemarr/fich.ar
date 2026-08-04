@@ -9,7 +9,7 @@ interface PuntoInfo {
   id: string
   nombre: string
   empresa_id: string
-  empresa: { nombre: string; logo_url: string | null; slug: string }
+  empresa: { nombre: string; logo_url: string | null; slug: string; modulo_operaciones: boolean }
 }
 
 interface DescansoEstado {
@@ -713,7 +713,7 @@ export default function FicharPage() {
                   <span className="text-sm font-medium">Terminar descanso</span>
                 </button>
               )}
-              {fichada.tipo === "ENTRADA" && (
+              {fichada.tipo === "ENTRADA" && punto?.empresa.modulo_operaciones && (
                 <a
                   href={`/fichar/${token}/tareas`}
                   className="block w-full bg-blue-50 hover:bg-blue-100 border border-blue-200 text-blue-700 rounded-xl py-3 text-center text-sm font-medium transition-colors"
