@@ -1,10 +1,10 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { hoyARG } from "@/lib/utils"
 
 export async function GET(req: Request) {
-  const { error, session } = await verificarAcceso("VER_PUNTOS")
+  const { error, session } = await verificarAcceso("VER_PUNTOS", "operaciones")
   if (error) return error
 
   const { searchParams } = new URL(req.url)

@@ -50,6 +50,8 @@ const PERMISOS = {
 
 export type Permiso = keyof typeof PERMISOS
 
+export type Modulo = "operaciones"
+
 export interface SesionVerificada {
   user: {
     id: string
@@ -60,6 +62,7 @@ export interface SesionVerificada {
     rol: RolUsuario
     puedeGestionarPuntos: boolean
     puntosIds: string[]
+    moduloOperaciones: boolean
   }
 }
 
@@ -67,12 +70,23 @@ type ResultadoAcceso =
   | { error: Response; session: null }
   | { error: null; session: SesionVerificada }
 
-export async function verificarAcceso(permiso: Permiso): Promise<ResultadoAcceso> {
+export async function verificarAcceso(
+  permiso: Permiso,
+  requiereModulo?: Modulo
+): Promise<ResultadoAcceso> {
   const session = await auth()
 
   if (!session?.user) {
     return {
       error: Response.json({ error: "No autenticado" }, { status: 401 }),
+      session: null,
+    }
+  }
+
+  // Verificar que el módulo opcional esté activo para la empresa
+  if (requiereModulo === "operaciones" && !session.user.moduloOperaciones) {
+    return {
+      error: Response.json({ error: "Módulo Operaciones no está activo para esta empresa" }, { status: 403 }),
       session: null,
     }
   }

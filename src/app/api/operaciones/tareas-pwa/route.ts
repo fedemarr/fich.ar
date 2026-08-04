@@ -13,9 +13,10 @@ export async function GET(req: Request) {
 
   const punto = await prisma.puntoFichaje.findFirst({
     where: { qr_token: qrToken, activo: true },
-    select: { id: true, nombre: true, empresa_id: true },
+    select: { id: true, nombre: true, empresa_id: true, empresa: { select: { modulo_operaciones: true } } },
   })
   if (!punto) return NextResponse.json({ error: "QR inválido" }, { status: 404 })
+  if (!punto.empresa.modulo_operaciones) return NextResponse.json({ error: "Módulo no activo" }, { status: 403 })
 
   const fechaDate = new Date(fechaParam + "T12:00:00.000Z")
 

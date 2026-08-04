@@ -64,6 +64,31 @@ export async function POST(req: Request) {
   return NextResponse.json({ empresa }, { status: 201 })
 }
 
+const patchSchema = z.object({
+  modulo_operaciones: z.boolean().optional(),
+  activa: z.boolean().optional(),
+})
+
+export async function PATCH(req: Request) {
+  const { error } = await verificarAcceso("VER_TODAS_EMPRESAS")
+  if (error) return error
+
+  const { searchParams } = new URL(req.url)
+  const id = searchParams.get("id")
+  if (!id) return NextResponse.json({ error: "id requerido" }, { status: 400 })
+
+  const body = await req.json()
+  const parsed = patchSchema.safeParse(body)
+  if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
+
+  const empresa = await prisma.empresa.findFirst({ where: { id, deleted_at: null } })
+  if (!empresa) return NextResponse.json({ error: "No encontrada" }, { status: 404 })
+
+  const updated = await prisma.empresa.update({ where: { id }, data: parsed.data })
+
+  return NextResponse.json({ empresa: updated })
+}
+
 export async function DELETE(req: Request) {
   const { error } = await verificarAcceso("VER_TODAS_EMPRESAS")
   if (error) return error

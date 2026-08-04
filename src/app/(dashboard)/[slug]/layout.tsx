@@ -31,6 +31,7 @@ export default async function DashboardLayout({ children, params }: DashboardLay
           slug={slug}
           rol={session.user.rol}
           puedeGestionarPuntos={session.user.puedeGestionarPuntos}
+          moduloOperaciones={session.user.moduloOperaciones}
         />
       </div>
 

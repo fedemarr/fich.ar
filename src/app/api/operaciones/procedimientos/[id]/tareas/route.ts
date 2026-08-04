@@ -25,7 +25,7 @@ const reorderSchema = z.object({
 })
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { error, session } = await verificarAcceso("VER_PUNTOS")
+  const { error, session } = await verificarAcceso("VER_PUNTOS", "operaciones")
   if (error) return error
 
   const { id } = await params
@@ -45,7 +45,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
 }
 
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
-  const { error, session } = await verificarAcceso("CREAR_PUNTO")
+  const { error, session } = await verificarAcceso("CREAR_PUNTO", "operaciones")
   if (error) return error
 
   const { id } = await params

@@ -14,6 +14,7 @@ declare module "next-auth" {
     rol: RolUsuario
     puedeGestionarPuntos: boolean
     puntosIds: string[]
+    moduloOperaciones: boolean
   }
   interface Session {
     user: {
@@ -26,6 +27,7 @@ declare module "next-auth" {
       rol: RolUsuario
       puedeGestionarPuntos: boolean
       puntosIds: string[]
+      moduloOperaciones: boolean
     }
   }
 }
@@ -48,7 +50,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const usuario = await prisma.usuario.findFirst({
           where: { email, deleted_at: null },
           include: {
-            empresa: { select: { slug: true, nombre: true } },
+            empresa: { select: { slug: true, nombre: true, modulo_operaciones: true } },
             puntos_asignados: { select: { punto_fichaje_id: true } },
           },
         })
@@ -67,6 +69,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           rol: usuario.rol,
           puedeGestionarPuntos: usuario.puede_gestionar_puntos,
           puntosIds: usuario.puntos_asignados.map((p) => p.punto_fichaje_id),
+          moduloOperaciones: usuario.empresa.modulo_operaciones,
         }
       },
     }),
@@ -82,6 +85,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         token.rol = user.rol as string
         token.puedeGestionarPuntos = user.puedeGestionarPuntos
         token.puntosIds = user.puntosIds
+        token.moduloOperaciones = user.moduloOperaciones
       }
       return token
     },
@@ -97,6 +101,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
           rol: token.rol as RolUsuario,
           puedeGestionarPuntos: (token.puedeGestionarPuntos as boolean) ?? false,
           puntosIds: (token.puntosIds as string[]) ?? [],
+          moduloOperaciones: (token.moduloOperaciones as boolean) ?? false,
         },
       }
     },

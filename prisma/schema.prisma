@@ -72,9 +72,10 @@ model Empresa {
   id         String    @id @default(uuid())
   nombre     String
   slug       String    @unique
-  logo_url   String?
-  activa     Boolean   @default(true)
-  created_at DateTime  @default(now())
+  logo_url             String?
+  activa               Boolean   @default(true)
+  modulo_operaciones   Boolean   @default(false)
+  created_at           DateTime  @default(now())
   updated_at DateTime  @updatedAt
   deleted_at DateTime?
 

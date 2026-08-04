@@ -27,6 +27,7 @@ interface SidebarProps {
   slug: string
   rol?: string
   puedeGestionarPuntos?: boolean
+  moduloOperaciones?: boolean
 }
 
 const navAdmin = [
@@ -84,7 +85,7 @@ function NavLink({ href, label, icon: Icon, slug, badge }: { href: string; label
   )
 }
 
-export function Sidebar({ slug, rol, puedeGestionarPuntos }: SidebarProps) {
+export function Sidebar({ slug, rol, puedeGestionarPuntos, moduloOperaciones }: SidebarProps) {
   const pathname = usePathname()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoError, setLogoError] = useState(false)
@@ -132,28 +133,32 @@ export function Sidebar({ slug, rol, puedeGestionarPuntos }: SidebarProps) {
       <nav className="flex-1 px-3 py-4 space-y-1">
         {rol === "SUPERVISOR" ? (
           <>
-            {navSupervisor.map((item) => (
-              <NavLink
-                key={item.href}
-                {...item}
-                slug={slug}
-                badge={item.href === "notificaciones" ? notifCount : undefined}
-              />
-            ))}
+            {navSupervisor
+              .filter((item) => item.href !== "operaciones" || moduloOperaciones)
+              .map((item) => (
+                <NavLink
+                  key={item.href}
+                  {...item}
+                  slug={slug}
+                  badge={item.href === "notificaciones" ? notifCount : undefined}
+                />
+              ))}
             {puedeGestionarPuntos && (
               <NavLink href="puntos" label="Puntos QR" icon={MapPin} slug={slug} />
             )}
           </>
         ) : (
           <>
-            {navAdmin.map((item) => (
-              <NavLink
-                key={item.href}
-                {...item}
-                slug={slug}
-                badge={item.href === "notificaciones" ? notifCount : undefined}
-              />
-            ))}
+            {navAdmin
+              .filter((item) => item.href !== "operaciones" || moduloOperaciones)
+              .map((item) => (
+                <NavLink
+                  key={item.href}
+                  {...item}
+                  slug={slug}
+                  badge={item.href === "notificaciones" ? notifCount : undefined}
+                />
+              ))}
             {(rol === "ADMIN" || rol === "SUPER_ADMIN") && (
               <>
                 <NavLink href="usuarios" label="Usuarios" icon={UserCog} slug={slug} />

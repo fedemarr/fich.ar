@@ -1,4 +1,4 @@
-import { NextResponse } from "next/server"
+﻿import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { z } from "zod"
@@ -10,7 +10,7 @@ const schema = z.object({
 })
 
 export async function GET() {
-  const { error, session } = await verificarAcceso("VER_PUNTOS")
+  const { error, session } = await verificarAcceso("VER_PUNTOS", "operaciones")
   if (error) return error
 
   const turnos = await prisma.turno.findMany({
@@ -22,12 +22,12 @@ export async function GET() {
 }
 
 export async function POST(req: Request) {
-  const { error, session } = await verificarAcceso("CREAR_PUNTO")
+  const { error, session } = await verificarAcceso("CREAR_PUNTO", "operaciones")
   if (error) return error
 
   const body = await req.json()
   const parsed = schema.safeParse(body)
-  if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
+  if (!parsed.success) return NextResponse.json({ error: "Datos invÃ¡lidos" }, { status: 400 })
 
   const turno = await prisma.turno.create({
     data: { ...parsed.data, empresa_id: session.user.empresaId },
