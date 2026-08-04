@@ -15,15 +15,18 @@ export async function GET() {
     orderBy: { nombre: "asc" },
   })
 
-  // Sincronizar: crear Turno para cada Jornada que no tenga uno con el mismo nombre
+  // Sincronizar: crear Turno para cada Jornada que no tenga uno activo con el mismo nombre
+  // No re-crear los que fueron borrados manualmente (activo=false)
   if (jornadas.length > 0) {
-    const turnosExistentes = await prisma.turno.findMany({
-      where: { empresa_id: empresaId, activo: true },
-      select: { nombre: true, hora_inicio: true, hora_fin: true },
+    const turnosTodos = await prisma.turno.findMany({
+      where: { empresa_id: empresaId },
+      select: { nombre: true, hora_inicio: true, hora_fin: true, activo: true },
     })
-    const existentes = new Map(turnosExistentes.map((t) => [t.nombre, t]))
+    const activos = new Map(turnosTodos.filter((t) => t.activo).map((t) => [t.nombre, t]))
+    const borrados = new Set(turnosTodos.filter((t) => !t.activo).map((t) => t.nombre))
 
-    const nuevos = jornadas.filter((j) => !existentes.has(j.nombre))
+    // Solo crear los que nunca existieron (ni activos ni borrados)
+    const nuevos = jornadas.filter((j) => !activos.has(j.nombre) && !borrados.has(j.nombre))
     if (nuevos.length > 0) {
       await prisma.turno.createMany({
         data: nuevos.map((j) => ({
@@ -36,12 +39,12 @@ export async function GET() {
       })
     }
 
-    // Actualizar horarios si cambiaron
+    // Actualizar horarios si cambiaron en los activos
     for (const j of jornadas) {
-      const t = existentes.get(j.nombre)
+      const t = activos.get(j.nombre)
       if (t && (t.hora_inicio !== j.hora_inicio || t.hora_fin !== j.hora_fin)) {
         await prisma.turno.updateMany({
-          where: { empresa_id: empresaId, nombre: j.nombre },
+          where: { empresa_id: empresaId, nombre: j.nombre, activo: true },
           data: { hora_inicio: j.hora_inicio, hora_fin: j.hora_fin },
         })
       }

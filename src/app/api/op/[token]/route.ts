@@ -2,6 +2,11 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { hoyARG } from "@/lib/utils"
 
+const DIAS: Record<number, string> = {
+  0: "domingo", 1: "lunes", 2: "martes", 3: "miercoles",
+  4: "jueves", 5: "viernes", 6: "sabado",
+}
+
 // Endpoint público — autenticado via operaciones_token (QR separado del de fichadas)
 export async function GET(
   req: Request,
@@ -27,6 +32,48 @@ export async function GET(
   }
 
   const fechaDate = new Date(fechaParam + "T12:00:00.000Z")
+  const diaKey = DIAS[new Date(fechaParam + "T12:00:00Z").getUTCDay()]
+
+  // Si no hay ejecuciones para hoy, generarlas on-demand (el cron puede no haber corrido aún)
+  const existentes = await prisma.ejecucionProcedimiento.count({
+    where: { empresa_id: punto.empresa_id, fecha: fechaDate },
+  })
+
+  if (existentes === 0) {
+    const procedimientos = await prisma.procedimiento.findMany({
+      where: { empresa_id: punto.empresa_id, activo: true, [diaKey]: true },
+      include: { tareas: { where: { activo: true }, orderBy: { orden: "asc" } } },
+    })
+
+    for (const proc of procedimientos) {
+      const yaExiste = await prisma.ejecucionProcedimiento.findUnique({
+        where: { procedimiento_id_fecha: { procedimiento_id: proc.id, fecha: fechaDate } },
+      })
+      if (yaExiste) continue
+
+      await prisma.$transaction(async (tx) => {
+        const ejecucion = await tx.ejecucionProcedimiento.create({
+          data: {
+            empresa_id: punto.empresa_id,
+            procedimiento_id: proc.id,
+            turno_id: proc.turno_id,
+            fecha: fechaDate,
+            estado: "PENDIENTE",
+          },
+        })
+        if (proc.tareas.length > 0) {
+          await tx.ejecucionTarea.createMany({
+            data: proc.tareas.map((t) => ({
+              empresa_id: punto.empresa_id,
+              ejecucion_procedimiento_id: ejecucion.id,
+              tarea_id: t.id,
+              estado: "PENDIENTE",
+            })),
+          })
+        }
+      })
+    }
+  }
 
   const ejecuciones = await prisma.ejecucionProcedimiento.findMany({
     where: {

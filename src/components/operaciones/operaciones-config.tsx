@@ -685,8 +685,7 @@ export function OperacionesConfig() {
             <div>
               <h2 className="text-base font-semibold text-gray-800">Jornadas disponibles</h2>
               <p className="text-xs text-gray-400 mt-0.5">
-                Se sincronizan automáticamente desde las jornadas configuradas en Puntos QR.
-                Usalas para crear procedimientos.
+                Se sincronizan desde las jornadas de Puntos QR. Podés quitar las que no uses en operaciones.
               </p>
             </div>
             {turnos.length === 0 ? (
@@ -705,6 +704,18 @@ export function OperacionesConfig() {
                         {t.punto_nombre && <span className="ml-2">· {t.punto_nombre}</span>}
                       </p>
                     </div>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      className="h-7 w-7 text-red-400 hover:text-red-600"
+                      onClick={async () => {
+                        if (!confirm(`¿Quitar "${t.nombre}" de operaciones?`)) return
+                        await fetch(`/api/operaciones/turnos/${t.id}`, { method: "DELETE" })
+                        cargar()
+                      }}
+                    >
+                      <Trash2 size={13} />
+                    </Button>
                   </div>
                 ))}
               </div>
