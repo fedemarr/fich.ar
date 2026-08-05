@@ -5,6 +5,8 @@ import { z } from "zod"
 
 const client = new Anthropic()
 
+export const maxDuration = 60
+
 const schema = z.object({
   ejecucion_tarea_id: z.string().uuid(),
   colaborador_id: z.string().uuid(),
@@ -80,7 +82,7 @@ Respondé ÚNICAMENTE con este JSON exacto sin texto adicional:
 
   try {
     const response = await client.messages.create({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-haiku-4-5-20251001",
       max_tokens: 300,
       messages: [
         {
