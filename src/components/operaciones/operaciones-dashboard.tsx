@@ -187,6 +187,8 @@ type EstadoProc = "PENDIENTE" | "EN_CURSO" | "COMPLETADO"
 interface Foto {
   id: string
   key: string | null
+  imagen_url: string | null
+  verificacion_ia: unknown
   estado_subida: string
   created_at: string
 }
@@ -302,12 +304,51 @@ function AprobarRechazarDialog({
     }
   }, [accion, motivo, ejecucionId, tarea.id, onClose, onSuccess])
 
+  const fotoConImagen = tarea.fotos.find((f) => f.imagen_url)
+  const iaResult = fotoConImagen?.verificacion_ia as {
+    aprobada?: boolean; confianza?: string; observacion?: string; requiere_revision_humana?: boolean
+  } | null ?? null
+
   return (
     <DialogContent className="max-w-md">
       <DialogHeader>
         <DialogTitle>Validar tarea: {tarea.tarea.nombre}</DialogTitle>
       </DialogHeader>
       <div className="space-y-3 py-2">
+        {/* Foto subida por el colaborador */}
+        {fotoConImagen?.imagen_url && (
+          <div className="rounded-xl overflow-hidden border border-gray-100">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={fotoConImagen.imagen_url}
+              alt="Foto de la tarea"
+              className="w-full max-h-64 object-cover"
+            />
+          </div>
+        )}
+
+        {/* Resultado IA */}
+        {iaResult && (
+          <div className={`rounded-lg px-3 py-2 text-sm border ${
+            iaResult.aprobada
+              ? "bg-green-50 border-green-100 text-green-700"
+              : "bg-amber-50 border-amber-100 text-amber-700"
+          }`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-semibold text-xs uppercase">IA:</span>
+              <span className="text-xs font-medium">
+                {iaResult.aprobada ? "Aprobó automáticamente" : "Requiere revisión manual"}
+              </span>
+              {iaResult.confianza && (
+                <span className="text-xs text-gray-400">· confianza {iaResult.confianza}</span>
+              )}
+            </div>
+            {iaResult.observacion && (
+              <p className="text-xs">{iaResult.observacion}</p>
+            )}
+          </div>
+        )}
+
         {tarea.comentario && (
           <p className="text-sm text-gray-600 bg-gray-50 rounded p-2">
             Comentario: {tarea.comentario}
@@ -378,12 +419,9 @@ function TareaRow({
         <TareaEstadoIcon estado={et.estado} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2">
-            <span className={cn("font-medium truncate", et.tarea.es_critica && "text-red-600")}>
+            <span className="font-medium truncate">
               {et.tarea.nombre}
             </span>
-            {et.tarea.es_critica && (
-              <Badge variant="destructive" className="text-[10px] py-0 px-1">crítica</Badge>
-            )}
             {et.tarea.punto_fichaje && (
               <span className="text-xs text-gray-400">{et.tarea.punto_fichaje.nombre}</span>
             )}

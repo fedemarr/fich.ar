@@ -58,10 +58,11 @@ export async function GET() {
   })
 
   // Enriquecer con info del punto de la jornada correspondiente
-  const jornadasMap = new Map(jornadas.map((j) => [j.nombre, j.punto_fichaje.nombre]))
+  const jornadasInfoMap = new Map(jornadas.map((j) => [j.nombre, { nombre: j.punto_fichaje.nombre, id: j.punto_fichaje_id }]))
   const turnosEnriquecidos = turnos.map((t) => ({
     ...t,
-    punto_nombre: jornadasMap.get(t.nombre) ?? null,
+    punto_nombre: jornadasInfoMap.get(t.nombre)?.nombre ?? null,
+    punto_id: jornadasInfoMap.get(t.nombre)?.id ?? null,
   }))
 
   return NextResponse.json({ turnos: turnosEnriquecidos, jornadas })

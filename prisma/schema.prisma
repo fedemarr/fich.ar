@@ -191,6 +191,7 @@ model PuntoFichaje {
   asignaciones      AsignacionMensual[]
   supervisores      UsuarioPunto[]
   tareas_op         Tarea[]
+  procedimientos    Procedimiento[]
 
   @@index([empresa_id])
   @@index([qr_token])
@@ -524,11 +525,12 @@ model Turno {
 }
 
 model Procedimiento {
-  id          String   @id @default(uuid())
-  empresa_id  String
-  turno_id    String
-  nombre      String
-  descripcion String?
+  id               String   @id @default(uuid())
+  empresa_id       String
+  turno_id         String
+  punto_fichaje_id String?
+  nombre           String
+  descripcion      String?
   lunes       Boolean  @default(false)
   martes      Boolean  @default(false)
   miercoles   Boolean  @default(false)
@@ -540,13 +542,15 @@ model Procedimiento {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  empresa     Empresa                  @relation(fields: [empresa_id], references: [id])
-  turno       Turno                    @relation(fields: [turno_id], references: [id])
-  tareas      Tarea[]
-  ejecuciones EjecucionProcedimiento[]
+  empresa       Empresa                  @relation(fields: [empresa_id], references: [id])
+  turno         Turno                    @relation(fields: [turno_id], references: [id])
+  punto_fichaje PuntoFichaje?            @relation(fields: [punto_fichaje_id], references: [id])
+  tareas        Tarea[]
+  ejecuciones   EjecucionProcedimiento[]
 
   @@index([empresa_id])
   @@index([turno_id])
+  @@index([punto_fichaje_id])
   @@map("procedimientos")
 }
 
@@ -647,6 +651,7 @@ model FotoOperacion {
   longitud_captura   Float?
   estado_subida      String    @default("PENDIENTE")
   hash               String?
+  imagen_url         String?
   verificacion_ia    Json?
   created_at         DateTime  @default(now())
 

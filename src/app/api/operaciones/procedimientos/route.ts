@@ -5,6 +5,7 @@ import { z } from "zod"
 
 const schema = z.object({
   turno_id: z.string().uuid(),
+  punto_fichaje_id: z.string().uuid().optional().nullable(),
   nombre: z.string().min(1).max(150),
   descripcion: z.string().max(500).optional(),
   lunes: z.boolean().default(false),

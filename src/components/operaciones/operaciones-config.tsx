@@ -36,6 +36,7 @@ interface Turno {
   hora_fin: string
   activo: boolean
   punto_nombre: string | null
+  punto_id: string | null
 }
 
 interface Tarea {
@@ -43,8 +44,6 @@ interface Tarea {
   nombre: string
   descripcion: string | null
   orden: number
-  es_critica: boolean
-  es_omitible: boolean
   foto_min: number
   foto_max: number
   requiere_comentario: boolean
@@ -161,9 +160,7 @@ function TareaDialog({
   const [nombre, setNombre] = useState(tarea?.nombre ?? "")
   const [descripcion, setDescripcion] = useState(tarea?.descripcion ?? "")
   const [criterioVerificacion, setCriterioVerificacion] = useState(tarea?.criterio_verificacion ?? "")
-  const [esCritica, setEsCritica] = useState(tarea?.es_critica ?? false)
-  const [esOmitible, setEsOmitible] = useState(tarea?.es_omitible ?? true)
-  const [fotoMin, setFotoMin] = useState(String(tarea?.foto_min ?? 0))
+  const [fotoMin, setFotoMin] = useState(String(tarea?.foto_min ?? 1))
   const [fotoMax, setFotoMax] = useState(String(tarea?.foto_max ?? 5))
   const [requiereComentario, setRequiereComentario] = useState(tarea?.requiere_comentario ?? false)
   const [tiempoEst, setTiempoEst] = useState(String(tarea?.tiempo_estimado_min ?? ""))
@@ -179,8 +176,8 @@ function TareaDialog({
       nombre: nombre.trim(),
       descripcion: descripcion.trim() || null,
       criterio_verificacion: criterioVerificacion.trim() || null,
-      es_critica: esCritica,
-      es_omitible: esOmitible,
+      es_critica: false,
+      es_omitible: false,
       foto_min: Number(fotoMin),
       foto_max: Number(fotoMax),
       requiere_comentario: requiereComentario,
@@ -204,7 +201,7 @@ function TareaDialog({
     }
     onSaved()
     onClose()
-  }, [nombre, descripcion, criterioVerificacion, esCritica, esOmitible, fotoMin, fotoMax, requiereComentario, tiempoEst, puntoId, tarea, procedimientoId, onClose, onSaved])
+  }, [nombre, descripcion, criterioVerificacion, fotoMin, fotoMax, requiereComentario, tiempoEst, puntoId, tarea, procedimientoId, onClose, onSaved])
 
   return (
     <DialogContent className="max-w-lg">
@@ -258,19 +255,9 @@ function TareaDialog({
           <Label>Tiempo estimado (min)</Label>
           <Input type="number" min={1} value={tiempoEst} onChange={(e) => setTiempoEst(e.target.value)} placeholder="Opcional" />
         </div>
-        <div className="space-y-3">
-          <div className="flex items-center justify-between">
-            <Label>Tarea crítica</Label>
-            <Switch checked={esCritica} onCheckedChange={setEsCritica} />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label>Se puede omitir</Label>
-            <Switch checked={esOmitible} onCheckedChange={setEsOmitible} />
-          </div>
-          <div className="flex items-center justify-between">
-            <Label>Requiere comentario</Label>
-            <Switch checked={requiereComentario} onCheckedChange={setRequiereComentario} />
-          </div>
+        <div className="flex items-center justify-between">
+          <Label>Requiere comentario</Label>
+          <Switch checked={requiereComentario} onCheckedChange={setRequiereComentario} />
         </div>
         {error && <p className="text-sm text-red-500">{error}</p>}
       </div>
@@ -317,15 +304,18 @@ function ProcedimientoDialog({
 
   const handleSave = useCallback(async () => {
     if (!nombre.trim()) return setError("El nombre es requerido")
-    if (!turnoId) return setError("Seleccioná un turno")
+    if (!turnoId) return setError("Seleccioná una jornada")
     setLoading(true)
     setError("")
+    // Auto-derivar punto_fichaje_id del turno seleccionado
+    const turnoSeleccionado = turnos.find((t) => t.id === turnoId)
+    const puntoFichajeId = turnoSeleccionado?.punto_id ?? null
     const url = proc ? `/api/operaciones/procedimientos/${proc.id}` : "/api/operaciones/procedimientos"
     const method = proc ? "PATCH" : "POST"
     const res = await fetch(url, {
       method,
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ nombre: nombre.trim(), turno_id: turnoId, ...dias }),
+      body: JSON.stringify({ nombre: nombre.trim(), turno_id: turnoId, punto_fichaje_id: puntoFichajeId, ...dias }),
     })
     setLoading(false)
     if (!res.ok) {
@@ -335,7 +325,7 @@ function ProcedimientoDialog({
     }
     onSaved()
     onClose()
-  }, [nombre, turnoId, dias, proc, onClose, onSaved])
+  }, [nombre, turnoId, dias, turnos, proc, onClose, onSaved])
 
   return (
     <DialogContent className="max-w-sm">
@@ -488,7 +478,6 @@ function ProcedimientoRow({
                     <div className="flex-1 min-w-0">
                       <div className="flex items-center gap-2">
                         <span className="text-sm font-medium text-gray-800">{tarea.nombre}</span>
-                        {tarea.es_critica && <Badge variant="destructive" className="text-[10px] py-0">crítica</Badge>}
                         {tarea.punto_fichaje && <span className="text-xs text-gray-400">{tarea.punto_fichaje.nombre}</span>}
                       </div>
                       <div className="text-xs text-gray-400 mt-0.5 flex gap-2">

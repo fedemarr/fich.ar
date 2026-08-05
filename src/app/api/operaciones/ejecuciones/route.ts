@@ -32,7 +32,7 @@ export async function GET(req: Request) {
           },
           colaborador: { select: { id: true, nombre: true, apellido: true } },
           fotos: {
-            select: { id: true, key: true, estado_subida: true, created_at: true },
+            select: { id: true, key: true, estado_subida: true, created_at: true, imagen_url: true, verificacion_ia: true },
             orderBy: { created_at: "asc" },
           },
         },

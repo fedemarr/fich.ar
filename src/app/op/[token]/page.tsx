@@ -9,7 +9,6 @@ import {
   Camera,
   ChevronRight,
   AlertTriangle,
-  SkipForward,
   ClipboardList,
   User,
   RefreshCw,
@@ -22,8 +21,6 @@ interface Tarea {
   nombre: string
   descripcion: string | null
   orden: number
-  es_critica: boolean
-  es_omitible: boolean
   foto_min: number
   foto_max: number
   foto_instruccion: string | null
@@ -199,16 +196,11 @@ export default function OpPage() {
   function onFotoSeleccionada(e: React.ChangeEvent<HTMLInputElement>) {
     const file = e.target.files?.[0]
     if (!file) { setFase("tarea-intro"); return }
-    const reader = new FileReader()
-    reader.onload = (ev) => {
-      const dataUrl = ev.target?.result as string
-      const base64 = dataUrl.split(",")[1]
-      setFoto({ base64, preview: dataUrl, mime: file.type || "image/jpeg" })
-      setFase("tarea-preview")
-    }
-    reader.readAsDataURL(file)
-    // Reset input para poder volver a seleccionar el mismo archivo
     e.target.value = ""
+    comprimirImagen(file).then((result) => {
+      setFoto(result)
+      setFase("tarea-preview")
+    }).catch(() => setFase("tarea-intro"))
   }
 
   async function analizarFoto() {
@@ -273,17 +265,6 @@ export default function OpPage() {
       setComentario("")
       setFase("tarea-intro")
     }
-  }
-
-  async function omitirTarea() {
-    const et = tareasFlat[tareaIdx]?.et
-    if (!et || !colaborador) return
-    await fetch(`/api/op/${token}/tareas/${et.id}`, {
-      method: "PATCH",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ estado: "OMITIDA", colaborador_id: colaborador.id }),
-    })
-    siguienteTarea()
   }
 
   function olvidarIdentidad() {
@@ -445,14 +426,9 @@ export default function OpPage() {
                       {ep.tareas.map((et) => (
                         <div key={et.id} className="flex items-center gap-2">
                           <div className={`w-2 h-2 rounded-full shrink-0 ${
-                            et.estado === "COMPLETADA" ? "bg-green-400" :
-                            et.estado === "OMITIDA" ? "bg-gray-300" :
-                            "bg-orange-300"
+                            et.estado === "COMPLETADA" ? "bg-green-400" : "bg-orange-300"
                           }`} />
                           <span className="text-xs text-gray-600 truncate">{et.tarea.nombre}</span>
-                          {et.tarea.es_critica && (
-                            <AlertTriangle size={10} className="text-red-400 shrink-0" />
-                          )}
                         </div>
                       ))}
                     </div>
@@ -514,12 +490,6 @@ export default function OpPage() {
                   )}
 
                   <div className="mt-4 flex flex-wrap gap-2">
-                    {tareaActual.et.tarea.es_critica && (
-                      <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-red-50 text-red-600 text-xs font-medium">
-                        <AlertTriangle size={10} />
-                        Crítica
-                      </span>
-                    )}
                     {tareaActual.et.tarea.tiempo_estimado_min && (
                       <span className="px-2 py-0.5 rounded-full bg-gray-100 text-gray-500 text-xs">
                         ~{tareaActual.et.tarea.tiempo_estimado_min} min
@@ -561,15 +531,6 @@ export default function OpPage() {
                 </Button>
               )}
 
-              {tareaActual.et.tarea.es_omitible && (
-                <button
-                  onClick={() => void omitirTarea()}
-                  className="w-full text-xs text-gray-400 hover:text-gray-600 underline text-center flex items-center justify-center gap-1"
-                >
-                  <SkipForward size={12} />
-                  Omitir esta tarea
-                </button>
-              )}
             </div>
           )}
 
@@ -677,15 +638,6 @@ export default function OpPage() {
                 Reintentar
               </Button>
 
-              {tareaActual.et.tarea.es_omitible && (
-                <button
-                  onClick={() => void omitirTarea()}
-                  className="w-full text-xs text-gray-400 hover:text-gray-600 underline text-center flex items-center justify-center gap-1"
-                >
-                  <SkipForward size={12} />
-                  Omitir esta tarea
-                </button>
-              )}
             </div>
           )}
 
@@ -776,4 +728,38 @@ function Card({ children }: { children: React.ReactNode }) {
       {children}
     </div>
   )
+}
+
+function comprimirImagen(file: File): Promise<{ base64: string; preview: string; mime: string }> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = reject
+    reader.onload = (ev) => {
+      const img = new Image()
+      img.onerror = reject
+      img.onload = () => {
+        const MAX = 1200
+        let { width, height } = img
+        if (width > MAX || height > MAX) {
+          if (width >= height) {
+            height = Math.round((height * MAX) / width)
+            width = MAX
+          } else {
+            width = Math.round((width * MAX) / height)
+            height = MAX
+          }
+        }
+        const canvas = document.createElement("canvas")
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext("2d")
+        if (!ctx) { reject(new Error("canvas")); return }
+        ctx.drawImage(img, 0, 0, width, height)
+        const dataUrl = canvas.toDataURL("image/jpeg", 0.82)
+        resolve({ base64: dataUrl.split(",")[1], preview: dataUrl, mime: "image/jpeg" })
+      }
+      img.src = ev.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  })
 }

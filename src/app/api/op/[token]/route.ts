@@ -7,7 +7,6 @@ const DIAS: Record<number, string> = {
   4: "jueves", 5: "viernes", 6: "sabado",
 }
 
-// Endpoint público — autenticado via operaciones_token (QR separado del de fichadas)
 export async function GET(
   req: Request,
   { params }: { params: Promise<{ token: string }> }
@@ -34,14 +33,25 @@ export async function GET(
   const fechaDate = new Date(fechaParam + "T12:00:00.000Z")
   const diaKey = DIAS[new Date(fechaParam + "T12:00:00Z").getUTCDay()]
 
-  // Si no hay ejecuciones para hoy, generarlas on-demand (el cron puede no haber corrido aún)
+  // Solo procedimientos asignados a ESTE punto
+  const whereProc = {
+    empresa_id: punto.empresa_id,
+    punto_fichaje_id: punto.id,
+    activo: true,
+  }
+
+  // Si no hay ejecuciones para hoy de este punto, generarlas on-demand
   const existentes = await prisma.ejecucionProcedimiento.count({
-    where: { empresa_id: punto.empresa_id, fecha: fechaDate },
+    where: {
+      empresa_id: punto.empresa_id,
+      fecha: fechaDate,
+      procedimiento: { punto_fichaje_id: punto.id },
+    },
   })
 
   if (existentes === 0) {
     const procedimientos = await prisma.procedimiento.findMany({
-      where: { empresa_id: punto.empresa_id, activo: true, [diaKey]: true },
+      where: { ...whereProc, [diaKey]: true },
       include: { tareas: { where: { activo: true }, orderBy: { orden: "asc" } } },
     })
 
@@ -79,19 +89,12 @@ export async function GET(
     where: {
       empresa_id: punto.empresa_id,
       fecha: fechaDate,
+      procedimiento: { punto_fichaje_id: punto.id },
     },
     include: {
       procedimiento: { select: { nombre: true } },
       turno: { select: { nombre: true, hora_inicio: true, hora_fin: true } },
       tareas: {
-        where: {
-          tarea: {
-            OR: [
-              { punto_fichaje_id: punto.id },
-              { punto_fichaje_id: null },
-            ],
-          },
-        },
         include: {
           tarea: {
             select: {
@@ -99,8 +102,6 @@ export async function GET(
               nombre: true,
               descripcion: true,
               orden: true,
-              es_critica: true,
-              es_omitible: true,
               foto_min: true,
               foto_max: true,
               foto_instruccion: true,

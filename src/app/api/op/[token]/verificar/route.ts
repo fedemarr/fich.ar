@@ -53,24 +53,25 @@ export async function POST(
   if (!et) return NextResponse.json({ error: "Tarea no encontrada" }, { status: 404 })
   if (et.fotos.length >= 10) return NextResponse.json({ error: "Máximo de fotos alcanzado" }, { status: 400 })
 
-  // Construir prompt para Claude Vision
   const criterio = et.tarea.criterio_verificacion
-    ?? `Verificar que la tarea "${et.tarea.nombre}" fue realizada correctamente.`
+    ?? `La tarea "${et.tarea.nombre}" debe estar completada y visible claramente en la foto.`
 
-  const prompt = `Sos un verificador de calidad para tareas operativas.
-Tarea: "${et.tarea.nombre}"
-${et.tarea.descripcion ? `Descripción: ${et.tarea.descripcion}` : ""}
-Criterio de verificación: ${criterio}
+  const prompt = `Sos un sistema automático de control de calidad operacional. Tu tarea es analizar una foto y determinar si una tarea específica fue completada correctamente.
 
-Analizá la foto y respondé en JSON con este formato exacto:
-{
-  "aprobada": true/false,
-  "confianza": "alta"/"media"/"baja",
-  "observacion": "texto corto explicando qué ves y por qué aprobás o rechazás",
-  "requiere_revision_humana": true/false
-}
+TAREA: "${et.tarea.nombre}"${et.tarea.descripcion ? `\nDESCRIPCIÓN: ${et.tarea.descripcion}` : ""}
+CRITERIO DE APROBACIÓN: ${criterio}
 
-Sé estricto pero justo. Si la foto es borrosa o no muestra claramente la tarea, indicá requiere_revision_humana: true.`
+INSTRUCCIONES:
+- Analizá la foto con atención al detalle
+- Verificá que el criterio de aprobación se cumpla visualmente
+- Si la foto es borrosa, oscura, o no muestra lo que se pide: rechazá
+- Si la foto muestra claramente que el criterio se cumple: aprobá
+- Sé objetivo y consistente
+
+Respondé ÚNICAMENTE con este JSON (sin texto adicional):
+{"aprobada":true_o_false,"confianza":"alta_o_media_o_baja","observacion":"descripción breve de lo que ves y por qué aprobás o rechazás","requiere_revision_humana":true_o_false}
+
+Usá requiere_revision_humana:true solo si la foto es ambigua y no podés determinar con certeza si la tarea está completa.`
 
   let verificacion: {
     aprobada: boolean
@@ -102,29 +103,40 @@ Sé estricto pero justo. Si la foto es borrosa o no muestra claramente la tarea,
     })
 
     const texto = response.content[0].type === "text" ? response.content[0].text : ""
-    const match = texto.match(/\{[\s\S]*\}/)
-    verificacion = match ? JSON.parse(match[0]) : {
-      aprobada: false,
-      confianza: "baja",
-      observacion: "No se pudo analizar la respuesta",
-      requiere_revision_humana: true,
+    const match = texto.match(/\{[\s\S]*?\}/)
+    if (match) {
+      try {
+        const parsed = JSON.parse(match[0]) as Partial<typeof verificacion>
+        verificacion = {
+          aprobada: typeof parsed.aprobada === "boolean" ? parsed.aprobada : false,
+          confianza: ["alta", "media", "baja"].includes(parsed.confianza ?? "") ? (parsed.confianza as string) : "baja",
+          observacion: typeof parsed.observacion === "string" ? parsed.observacion : "Sin observación",
+          requiere_revision_humana: typeof parsed.requiere_revision_humana === "boolean" ? parsed.requiere_revision_humana : false,
+        }
+      } catch {
+        verificacion = { aprobada: false, confianza: "baja", observacion: "No se pudo interpretar la respuesta de IA", requiere_revision_humana: true }
+      }
+    } else {
+      verificacion = { aprobada: false, confianza: "baja", observacion: "La IA no devolvió una respuesta válida", requiere_revision_humana: true }
     }
   } catch {
     verificacion = {
       aprobada: false,
       confianza: "baja",
-      observacion: "Error al analizar la imagen",
+      observacion: "Error al procesar la imagen. Intentá con mejor iluminación.",
       requiere_revision_humana: true,
     }
   }
 
-  // Guardar foto con resultado IA
+  const imagenUrl = `data:${tipo_mime};base64,${foto_base64}`
+
   const foto = await prisma.fotoOperacion.create({
     data: {
       empresa_id: punto.empresa_id,
       ejecucion_tarea_id,
       colaborador_id,
-      estado_subida: "PENDIENTE",
+      imagen_url: imagenUrl,
+      estado_subida: "SUBIDA",
       verificacion_ia: verificacion as object,
     },
   })
