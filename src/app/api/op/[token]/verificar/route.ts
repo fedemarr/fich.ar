@@ -126,13 +126,19 @@ Respondé ÚNICAMENTE con este JSON exacto sin texto adicional:
       verificacion = { aprobada: false, confianza: "baja", observacion: "La IA no devolvió una respuesta válida", requiere_revision_humana: false }
     }
   } catch (err) {
-    console.error("[verificar] Error Anthropic API:", err)
-    verificacion = {
-      aprobada: false,
-      confianza: "baja",
-      observacion: "Error técnico al analizar la imagen. Volvé a intentarlo.",
-      requiere_revision_humana: false,
-    }
+    const errMsg = err instanceof Error ? err.message : String(err)
+    console.error("[verificar] Error Anthropic API:", errMsg)
+    return NextResponse.json({
+      foto_id: null,
+      verificacion: {
+        aprobada: false,
+        confianza: "baja",
+        observacion: `DEBUG ERROR: ${errMsg}`,
+        requiere_revision_humana: false,
+      },
+      tarea_completada: false,
+      debug_error: errMsg,
+    })
   }
 
   const imagenUrl = `data:${tipo_mime};base64,${foto_base64}`
