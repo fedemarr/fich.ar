@@ -19,9 +19,18 @@ export default async function DashboardLayout({ children, params }: DashboardLay
   const { slug } = await params
   if (session.user.empresaSlug !== slug) redirect(`/${session.user.empresaSlug}/resumen`)
 
-  const notifCount = await prisma.notificacion.count({
-    where: { empresa_id: session.user.empresaId, estado: "NO_LEIDA" },
-  })
+  const [notifCount, empresa] = await Promise.all([
+    prisma.notificacion.count({
+      where: { empresa_id: session.user.empresaId, estado: "NO_LEIDA" },
+    }),
+    prisma.empresa.findUnique({
+      where: { id: session.user.empresaId },
+      select: { modulo_operaciones: true },
+    }),
+  ])
+
+  // Leer modulo_operaciones directo de DB (no del JWT) para reflejar cambios sin re-login
+  const moduloOperaciones = empresa?.modulo_operaciones ?? false
 
   return (
     <div className="flex h-screen bg-[#F9FAFB] overflow-hidden" style={{ height: "100dvh" }}>
@@ -31,7 +40,7 @@ export default async function DashboardLayout({ children, params }: DashboardLay
           slug={slug}
           rol={session.user.rol}
           puedeGestionarPuntos={session.user.puedeGestionarPuntos}
-          moduloOperaciones={session.user.moduloOperaciones}
+          moduloOperaciones={moduloOperaciones}
         />
       </div>
 
