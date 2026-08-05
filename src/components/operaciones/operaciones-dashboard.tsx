@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { format, parseISO } from "date-fns"
 import { es } from "date-fns/locale"
-import { RefreshCw, Settings, ChevronDown, ChevronUp, CheckCircle2, Clock, XCircle, AlertTriangle, Circle, ClipboardCheck, BarChart2, Download } from "lucide-react"
+import { RefreshCw, Settings, ChevronDown, ChevronUp, CheckCircle2, Clock, XCircle, AlertTriangle, Circle, ClipboardCheck, BarChart2, Download, Camera } from "lucide-react"
 import { exportarHistorialOperacionesExcel } from "@/lib/export"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -392,6 +392,87 @@ function AprobarRechazarDialog({
   )
 }
 
+function VerFotoDialog({
+  tarea,
+  onClose,
+}: {
+  tarea: EjecucionTareaItem
+  onClose: () => void
+}) {
+  const fotoConImagen = tarea.fotos.find((f) => f.imagen_url)
+  const iaResult = fotoConImagen?.verificacion_ia as {
+    aprobada?: boolean
+    confianza?: string
+    observacion?: string
+    requiere_revision_humana?: boolean
+  } | null ?? null
+
+  return (
+    <DialogContent className="max-w-md">
+      <DialogHeader>
+        <DialogTitle className="text-base">{tarea.tarea.nombre}</DialogTitle>
+      </DialogHeader>
+      <div className="space-y-3 py-1">
+        {/* Foto */}
+        {fotoConImagen?.imagen_url ? (
+          <div className="rounded-xl overflow-hidden border border-gray-100 bg-gray-50">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={fotoConImagen.imagen_url}
+              alt="Foto de la tarea"
+              className="w-full max-h-72 object-contain"
+            />
+          </div>
+        ) : (
+          <div className="rounded-xl border border-gray-100 bg-gray-50 py-10 text-center text-sm text-gray-400">
+            Sin foto disponible
+          </div>
+        )}
+
+        {/* Observación IA */}
+        {iaResult && (
+          <div className={`rounded-lg px-3 py-2.5 text-sm border ${
+            iaResult.aprobada
+              ? "bg-green-50 border-green-100 text-green-700"
+              : "bg-amber-50 border-amber-100 text-amber-700"
+          }`}>
+            <div className="flex items-center gap-2 mb-1">
+              <span className="font-semibold text-[11px] uppercase tracking-wide">
+                {iaResult.aprobada ? "✓ IA aprobó" : "⚠ IA no aprobó"}
+              </span>
+              {iaResult.confianza && (
+                <span className="text-[11px] text-gray-400">· confianza {iaResult.confianza}</span>
+              )}
+            </div>
+            {iaResult.observacion && (
+              <p className="text-xs leading-relaxed">{iaResult.observacion}</p>
+            )}
+          </div>
+        )}
+
+        {/* Motivo rechazo manual */}
+        {tarea.motivo_rechazo && (
+          <div className="bg-red-50 border border-red-100 rounded-lg px-3 py-2 text-sm text-red-700">
+            <span className="font-semibold text-[11px] uppercase tracking-wide block mb-1">Motivo de rechazo</span>
+            <p className="text-xs">{tarea.motivo_rechazo}</p>
+          </div>
+        )}
+
+        {/* Info operario */}
+        {tarea.colaborador && (
+          <p className="text-xs text-gray-400 text-center">
+            Enviado por {tarea.colaborador.nombre} {tarea.colaborador.apellido}
+            {tarea.hora_fin && ` · ${format(new Date(tarea.hora_fin), "HH:mm")}`}
+          </p>
+        )}
+      </div>
+      <DialogFooter>
+        <Button variant="outline" onClick={onClose}>Cerrar</Button>
+      </DialogFooter>
+    </DialogContent>
+  )
+}
+
 function TareaRow({
   et,
   ejecucionId,
@@ -402,6 +483,7 @@ function TareaRow({
   onRefresh: () => void
 }) {
   const [validandoOpen, setValidandoOpen] = useState(false)
+  const [fotoOpen, setFotoOpen] = useState(false)
 
   const puedeValidar =
     et.estado === "COMPLETADA" && et.validacion_estado === "PENDIENTE"
@@ -455,6 +537,17 @@ function TareaRow({
               {validLabel}
             </Badge>
           )}
+          {et.fotos.length > 0 && (
+            <Button
+              size="sm"
+              variant="outline"
+              className="h-7 text-xs gap-1"
+              onClick={() => setFotoOpen(true)}
+            >
+              <Camera size={11} />
+              Ver foto
+            </Button>
+          )}
           {puedeValidar && (
             <Button size="sm" variant="outline" className="h-7 text-xs" onClick={() => setValidandoOpen(true)}>
               Validar
@@ -462,6 +555,14 @@ function TareaRow({
           )}
         </div>
       </div>
+      {fotoOpen && (
+        <Dialog open onOpenChange={() => setFotoOpen(false)}>
+          <VerFotoDialog
+            tarea={et}
+            onClose={() => setFotoOpen(false)}
+          />
+        </Dialog>
+      )}
       {validandoOpen && (
         <Dialog open onOpenChange={() => setValidandoOpen(false)}>
           <AprobarRechazarDialog
