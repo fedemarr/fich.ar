@@ -123,12 +123,13 @@ Respondé ÚNICAMENTE con este JSON exacto sin texto adicional:
     } else {
       verificacion = { aprobada: false, confianza: "baja", observacion: "La IA no devolvió una respuesta válida", requiere_revision_humana: false }
     }
-  } catch {
+  } catch (err) {
+    console.error("[verificar] Error Anthropic API:", err)
     verificacion = {
       aprobada: false,
       confianza: "baja",
-      observacion: "Error al procesar la imagen. Intentá con mejor iluminación.",
-      requiere_revision_humana: true,
+      observacion: "Error técnico al analizar la imagen. Volvé a intentarlo.",
+      requiere_revision_humana: false,
     }
   }
 
