@@ -3,8 +3,6 @@ import { prisma } from "@/lib/prisma"
 import Anthropic from "@anthropic-ai/sdk"
 import { z } from "zod"
 
-const client = new Anthropic()
-
 export const maxDuration = 60
 
 const schema = z.object({
@@ -30,6 +28,12 @@ export async function POST(
   const body = await req.json()
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
+
+  const apiKey = process.env.ANTHROPIC_API_KEY
+  if (!apiKey) {
+    return NextResponse.json({ debug_error: "ANTHROPIC_API_KEY no está definida en el entorno", foto_id: null, verificacion: null, tarea_completada: false }, { status: 500 })
+  }
+  const client = new Anthropic({ apiKey })
 
   const { ejecucion_tarea_id, colaborador_id, foto_base64, tipo_mime } = parsed.data
 
