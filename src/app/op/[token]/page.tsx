@@ -68,6 +68,7 @@ interface VerificacionIA {
 type Fase =
   | "cargando"
   | "invalido"
+  | "modulo-desactivado"
   | "sin-tareas"
   | "identificar"
   | "bienvenida"
@@ -157,6 +158,24 @@ export default function OpPage() {
         }
       })
       .catch(() => setFase("invalido"))
+  }, [token])
+
+  // Polling: verifica cada 30s si el módulo sigue activo
+  useEffect(() => {
+    if (!token) return
+    const interval = setInterval(async () => {
+      try {
+        const r = await fetch(`/api/op/${token}`)
+        if (r.status === 403) {
+          setFase("modulo-desactivado")
+        } else if (r.status === 404) {
+          setFase("invalido")
+        }
+      } catch {
+        // silencioso — no interrumpir si hay error de red puntual
+      }
+    }, 30000)
+    return () => clearInterval(interval)
   }, [token])
 
   async function identificar() {
@@ -342,6 +361,17 @@ export default function OpPage() {
             <Card>
               <Loader2 size={36} className="text-[#E8593C] animate-spin mx-auto mb-4" />
               <p className="text-gray-600 font-medium text-center">Cargando tareas...</p>
+            </Card>
+          )}
+
+          {/* ── MÓDULO DESACTIVADO ── */}
+          {fase === "modulo-desactivado" && (
+            <Card>
+              <XCircle size={44} className="text-orange-400 mx-auto mb-4" />
+              <p className="text-gray-800 font-semibold text-lg text-center">Módulo desactivado</p>
+              <p className="text-gray-400 text-sm mt-2 text-center">
+                El módulo de operaciones fue desactivado por el administrador. Consultá con tu supervisor.
+              </p>
             </Card>
           )}
 
