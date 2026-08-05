@@ -24,7 +24,7 @@ export default async function DashboardLayout({ children, params }: DashboardLay
   })
 
   return (
-    <div className="flex h-screen bg-[#F9FAFB] overflow-hidden">
+    <div className="flex h-screen bg-[#F9FAFB] overflow-hidden" style={{ height: "100dvh" }}>
       {/* Sidebar — oculto en mobile */}
       <div className="hidden lg:flex">
         <Sidebar
@@ -38,7 +38,7 @@ export default async function DashboardLayout({ children, params }: DashboardLay
       <div className="flex-1 flex flex-col min-w-0 overflow-hidden">
         <Header userName={session.user.name} empresaNombre={session.user.empresaNombre} />
         {/* padding-bottom en mobile para el bottom nav */}
-        <main className="flex-1 overflow-y-auto p-4 lg:p-6 pb-20 lg:pb-6">
+        <main className="flex-1 overflow-y-auto overscroll-y-none p-4 lg:p-6 pb-20 lg:pb-6">
           {children}
         </main>
       </div>

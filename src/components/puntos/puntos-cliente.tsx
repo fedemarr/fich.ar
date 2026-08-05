@@ -80,32 +80,35 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
             className="h-9 gap-1.5 text-red-600 border-red-200 hover:bg-red-50"
             onClick={limpiarPuntos}
             disabled={limpiando}
+            title="Limpiar puntos"
           >
             <Eraser size={15} />
-            {limpiando ? "Limpiando..." : "Limpiar puntos"}
+            <span className="hidden sm:inline">{limpiando ? "Limpiando..." : "Limpiar puntos"}</span>
           </Button>
           <Button
             variant="outline"
             className="h-9 gap-1.5 text-gray-600 border-gray-200 hover:bg-gray-50"
             onClick={() => setImportarServiciosAbierto(true)}
+            title="Importar servicios"
           >
             <Upload size={15} />
-            Importar servicios
+            <span className="hidden sm:inline">Importar servicios</span>
           </Button>
           <Button
             variant="outline"
             className="h-9 gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
             onClick={() => setImportarAbierto(true)}
+            title="Importar Excel"
           >
             <Upload size={15} />
-            Importar Excel
+            <span className="hidden sm:inline">Importar Excel</span>
           </Button>
           <Button
             className="h-9 gap-1.5 bg-[#2563EB] hover:bg-[#1D4ED8] text-white"
             onClick={() => { setEditando(null); setDialogoAbierto(true) }}
           >
             <Plus size={15} />
-            Nuevo punto
+            <span className="hidden sm:inline">Nuevo punto</span>
           </Button>
         </div>
       </div>

@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, UsersRound, ClipboardList,
-  Calendar, Bell, MapPin, Megaphone,
+  Calendar, Bell, MapPin, Users,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -16,19 +16,19 @@ interface MobileNavProps {
 }
 
 const supervisorTabs = [
-  { href: "resumen", label: "Resumen",   icon: LayoutDashboard },
-  { href: "equipo",  label: "Mi equipo", icon: UsersRound },
-  { href: "listado", label: "Listado",   icon: ClipboardList },
-  { href: "novedades", label: "Novedades", icon: Calendar },
-  { href: "notificaciones", label: "Alertas", icon: Bell },
+  { href: "resumen",        label: "Resumen",   icon: LayoutDashboard },
+  { href: "equipo",         label: "Mi equipo", icon: UsersRound },
+  { href: "listado",        label: "Listado",   icon: ClipboardList },
+  { href: "novedades",      label: "Novedades", icon: Calendar },
+  { href: "notificaciones", label: "Alertas",   icon: Bell },
 ]
 
 const adminTabs = [
-  { href: "resumen",    label: "Resumen",  icon: LayoutDashboard },
-  { href: "listado",    label: "Listado",  icon: ClipboardList },
-  { href: "novedades",  label: "Novedades", icon: Calendar },
-  { href: "comunicaciones", label: "Avisos", icon: Megaphone },
-  { href: "notificaciones", label: "Alertas", icon: Bell },
+  { href: "resumen",        label: "Resumen",  icon: LayoutDashboard },
+  { href: "listado",        label: "Listado",  icon: ClipboardList },
+  { href: "colaboradores",  label: "Equipo",   icon: Users },
+  { href: "puntos",         label: "QR",       icon: MapPin },
+  { href: "notificaciones", label: "Alertas",  icon: Bell },
 ]
 
 export function MobileNav({ slug, rol, puedeGestionarPuntos, notifCount = 0 }: MobileNavProps) {

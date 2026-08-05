@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Pencil, UserCog, Download, Upload, Trash2 } from "lucide-react"
+import { Users, Pencil, UserCog, Download, Upload, Trash2, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ColaboradorDialog } from "@/components/colaboradores/colaborador-dialog"
 import { EliminarDialog } from "@/components/colaboradores/eliminar-dialog"
@@ -380,6 +380,15 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
         onClose={() => setImportarAbierto(false)}
         onSuccess={() => { router.refresh(); setImportarAbierto(false) }}
       />
+
+      {/* FAB mobile — alta rápida */}
+      <button
+        onClick={handleAltaClick}
+        className="fixed bottom-20 right-4 w-14 h-14 rounded-full bg-[#2563EB] text-white shadow-xl flex items-center justify-center lg:hidden z-40 active:scale-95 transition-transform"
+        title="Agregar colaborador"
+      >
+        <Plus size={26} />
+      </button>
     </div>
   )
 }

@@ -130,8 +130,12 @@
   }
   body {
     @apply bg-background text-foreground;
+    background-color: #F9FAFB; /* evita el blanco en overscroll de iOS */
   }
   html {
     @apply font-sans;
+    /* fix iOS Safari overscroll blanco */
+    background-color: #F9FAFB;
+    overscroll-behavior-y: none;
   }
 }
