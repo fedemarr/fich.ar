@@ -54,24 +54,22 @@ export async function POST(
   if (et.fotos.length >= 10) return NextResponse.json({ error: "Máximo de fotos alcanzado" }, { status: 400 })
 
   const criterio = et.tarea.criterio_verificacion
-    ?? `La tarea "${et.tarea.nombre}" debe estar completada y visible claramente en la foto.`
+    ?? `La tarea "${et.tarea.nombre}" fue realizada. Confirmá que la foto muestra evidencia de eso.`
 
-  const prompt = `Sos un sistema automático de control de calidad operacional. Tu tarea es analizar una foto y determinar si una tarea específica fue completada correctamente.
+  const prompt = `Sos un verificador automático de tareas operativas. Tu trabajo es confirmar si una tarea fue hecha, no buscar perfección.
 
 TAREA: "${et.tarea.nombre}"${et.tarea.descripcion ? `\nDESCRIPCIÓN: ${et.tarea.descripcion}` : ""}
-CRITERIO DE APROBACIÓN: ${criterio}
+CRITERIO: ${criterio}
 
-INSTRUCCIONES:
-- Analizá la foto con atención al detalle
-- Verificá que el criterio de aprobación se cumpla visualmente
-- Si la foto es borrosa, oscura, o no muestra lo que se pide: rechazá
-- Si la foto muestra claramente que el criterio se cumple: aprobá
-- Sé objetivo y consistente
+REGLAS ESTRICTAS:
+1. Si la foto muestra evidencia razonable de que la tarea fue completada → aprobada: true, requiere_revision_humana: false
+2. Si la foto claramente NO muestra que la tarea fue completada → aprobada: false, requiere_revision_humana: false
+3. requiere_revision_humana: true SOLO si la foto es TÉCNICAMENTE INUTILIZABLE: completamente negra, tan borrosa que no se ve nada, o muestra algo absolutamente irrelevante
+4. Si aprobada es true → requiere_revision_humana SIEMPRE es false
+5. Una foto clara de una tarea realizada = aprobá sin dudar
 
-Respondé ÚNICAMENTE con este JSON (sin texto adicional):
-{"aprobada":true_o_false,"confianza":"alta_o_media_o_baja","observacion":"descripción breve de lo que ves y por qué aprobás o rechazás","requiere_revision_humana":true_o_false}
-
-Usá requiere_revision_humana:true solo si la foto es ambigua y no podés determinar con certeza si la tarea está completa.`
+Respondé ÚNICAMENTE con este JSON exacto sin texto adicional:
+{"aprobada":true,"confianza":"alta","observacion":"lo que ves en la foto","requiere_revision_humana":false}`
 
   let verificacion: {
     aprobada: boolean
@@ -103,21 +101,27 @@ Usá requiere_revision_humana:true solo si la foto es ambigua y no podés determ
     })
 
     const texto = response.content[0].type === "text" ? response.content[0].text : ""
-    const match = texto.match(/\{[\s\S]*?\}/)
+    // Regex greedy para capturar el JSON completo aunque tenga } dentro de strings
+    const match = texto.match(/\{[\s\S]*\}/)
     if (match) {
       try {
         const parsed = JSON.parse(match[0]) as Partial<typeof verificacion>
+        const aprobada = typeof parsed.aprobada === "boolean" ? parsed.aprobada : false
+        // Regla forzada: si aprobada=true, nunca requiere revisión humana
+        const requiere_revision_humana = aprobada
+          ? false
+          : (typeof parsed.requiere_revision_humana === "boolean" ? parsed.requiere_revision_humana : false)
         verificacion = {
-          aprobada: typeof parsed.aprobada === "boolean" ? parsed.aprobada : false,
-          confianza: ["alta", "media", "baja"].includes(parsed.confianza ?? "") ? (parsed.confianza as string) : "baja",
+          aprobada,
+          confianza: ["alta", "media", "baja"].includes(parsed.confianza ?? "") ? (parsed.confianza as string) : "media",
           observacion: typeof parsed.observacion === "string" ? parsed.observacion : "Sin observación",
-          requiere_revision_humana: typeof parsed.requiere_revision_humana === "boolean" ? parsed.requiere_revision_humana : false,
+          requiere_revision_humana,
         }
       } catch {
-        verificacion = { aprobada: false, confianza: "baja", observacion: "No se pudo interpretar la respuesta de IA", requiere_revision_humana: true }
+        verificacion = { aprobada: false, confianza: "baja", observacion: "No se pudo interpretar la respuesta de IA", requiere_revision_humana: false }
       }
     } else {
-      verificacion = { aprobada: false, confianza: "baja", observacion: "La IA no devolvió una respuesta válida", requiere_revision_humana: true }
+      verificacion = { aprobada: false, confianza: "baja", observacion: "La IA no devolvió una respuesta válida", requiere_revision_humana: false }
     }
   } catch {
     verificacion = {
