@@ -43,6 +43,7 @@ interface Tarea {
   id: string
   nombre: string
   descripcion: string | null
+  seccion: string | null
   orden: number
   foto_min: number
   foto_max: number
@@ -158,6 +159,7 @@ function TareaDialog({
   onSaved: () => void
 }) {
   const [nombre, setNombre] = useState(tarea?.nombre ?? "")
+  const [seccion, setSeccion] = useState(tarea?.seccion ?? "")
   const [descripcion, setDescripcion] = useState(tarea?.descripcion ?? "")
   const [criterioVerificacion, setCriterioVerificacion] = useState(tarea?.criterio_verificacion ?? "")
   const [fotoMin, setFotoMin] = useState(String(tarea?.foto_min ?? 1))
@@ -174,6 +176,7 @@ function TareaDialog({
     setError("")
     const body: Record<string, unknown> = {
       nombre: nombre.trim(),
+      seccion: seccion.trim() || null,
       descripcion: descripcion.trim() || null,
       criterio_verificacion: criterioVerificacion.trim() || null,
       es_critica: false,
@@ -212,6 +215,11 @@ function TareaDialog({
         <div className="space-y-1">
           <Label>Nombre</Label>
           <Input value={nombre} onChange={(e) => setNombre(e.target.value)} placeholder="Ej: Limpiar sala" />
+        </div>
+        <div className="space-y-1">
+          <Label>Sección / Mini-procedimiento <span className="text-gray-400 font-normal">(opcional)</span></Label>
+          <Input value={seccion} onChange={(e) => setSeccion(e.target.value)} placeholder="Ej: Piso 1, Baños, Zona A..." />
+          <p className="text-xs text-gray-400">Agrupa tareas bajo un mismo mini-procedimiento dentro de este procedimiento</p>
         </div>
         <div className="space-y-1">
           <Label>Descripción (opcional)</Label>
@@ -472,30 +480,74 @@ function ProcedimientoRow({
               </div>
             ) : (
               <div className="divide-y divide-gray-50">
-                {(detalle?.tareas ?? []).map((tarea) => (
-                  <div key={tarea.id} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50">
-                    <GripVertical size={14} className="text-gray-300 shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span className="text-sm font-medium text-gray-800">{tarea.nombre}</span>
-                        {tarea.punto_fichaje && <span className="text-xs text-gray-400">{tarea.punto_fichaje.nombre}</span>}
-                      </div>
-                      <div className="text-xs text-gray-400 mt-0.5 flex gap-2">
-                        {tarea.foto_min > 0 && <span>{tarea.foto_min}–{tarea.foto_max} fotos</span>}
-                        {tarea.tiempo_estimado_min && <span>{tarea.tiempo_estimado_min} min</span>}
-                        {tarea.requiere_comentario && <span>comentario requerido</span>}
-                      </div>
-                    </div>
-                    <div className="flex items-center gap-1 shrink-0">
-                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setTareaEditando(tarea)}>
-                        <Pencil size={12} />
-                      </Button>
-                      <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-700" onClick={() => handleDeleteTarea(tarea.id)}>
-                        <Trash2 size={12} />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                {(() => {
+                  const tareas = detalle?.tareas ?? []
+                  // Agrupar por sección — las sin sección quedan como "Sin sección"
+                  const secciones = Array.from(new Set(tareas.map((t) => t.seccion ?? "")))
+                  const tienesSecciones = secciones.some((s) => s !== "")
+                  return tienesSecciones
+                    ? secciones.map((sec) => {
+                        const tareasDeSec = tareas.filter((t) => (t.seccion ?? "") === sec)
+                        return (
+                          <div key={sec}>
+                            <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+                              <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                                {sec || "Sin sección"}
+                              </span>
+                              <span className="text-[10px] text-gray-400">{tareasDeSec.length} tarea{tareasDeSec.length !== 1 ? "s" : ""}</span>
+                            </div>
+                            {tareasDeSec.map((tarea) => (
+                              <div key={tarea.id} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 pl-6">
+                                <GripVertical size={14} className="text-gray-300 shrink-0" />
+                                <div className="flex-1 min-w-0">
+                                  <div className="flex items-center gap-2">
+                                    <span className="text-sm font-medium text-gray-800">{tarea.nombre}</span>
+                                    {tarea.punto_fichaje && <span className="text-xs text-gray-400">{tarea.punto_fichaje.nombre}</span>}
+                                  </div>
+                                  <div className="text-xs text-gray-400 mt-0.5 flex gap-2">
+                                    {tarea.foto_min > 0 && <span>{tarea.foto_min}–{tarea.foto_max} fotos</span>}
+                                    {tarea.tiempo_estimado_min && <span>{tarea.tiempo_estimado_min} min</span>}
+                                    {tarea.requiere_comentario && <span>comentario requerido</span>}
+                                  </div>
+                                </div>
+                                <div className="flex items-center gap-1 shrink-0">
+                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setTareaEditando(tarea)}>
+                                    <Pencil size={12} />
+                                  </Button>
+                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-700" onClick={() => handleDeleteTarea(tarea.id)}>
+                                    <Trash2 size={12} />
+                                  </Button>
+                                </div>
+                              </div>
+                            ))}
+                          </div>
+                        )
+                      })
+                    : tareas.map((tarea) => (
+                        <div key={tarea.id} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50">
+                          <GripVertical size={14} className="text-gray-300 shrink-0" />
+                          <div className="flex-1 min-w-0">
+                            <div className="flex items-center gap-2">
+                              <span className="text-sm font-medium text-gray-800">{tarea.nombre}</span>
+                              {tarea.punto_fichaje && <span className="text-xs text-gray-400">{tarea.punto_fichaje.nombre}</span>}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-0.5 flex gap-2">
+                              {tarea.foto_min > 0 && <span>{tarea.foto_min}–{tarea.foto_max} fotos</span>}
+                              {tarea.tiempo_estimado_min && <span>{tarea.tiempo_estimado_min} min</span>}
+                              {tarea.requiere_comentario && <span>comentario requerido</span>}
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-1 shrink-0">
+                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setTareaEditando(tarea)}>
+                              <Pencil size={12} />
+                            </Button>
+                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-700" onClick={() => handleDeleteTarea(tarea.id)}>
+                              <Trash2 size={12} />
+                            </Button>
+                          </div>
+                        </div>
+                      ))
+                })()}
                 <div className="px-4 py-2">
                   <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setNuevaTarea(true)}>
                     <Plus size={12} />

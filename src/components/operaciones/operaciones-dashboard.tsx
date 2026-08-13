@@ -209,6 +209,7 @@ interface EjecucionTareaItem {
   tarea: {
     id: string
     nombre: string
+    seccion: string | null
     orden: number
     es_critica: boolean
     es_omitible: boolean
@@ -602,14 +603,41 @@ function EjecucionCard({ ep, onRefresh }: { ep: EjecucionProc; onRefresh: () => 
       </button>
 
       {expanded && (
-        <div className="border-t border-gray-100 divide-y divide-gray-50">
+        <div className="border-t border-gray-100">
           {ep.tareas.length === 0 ? (
             <p className="px-4 py-3 text-sm text-gray-400">Sin tareas configuradas.</p>
-          ) : (
-            ep.tareas.map((et) => (
-              <TareaRow key={et.id} et={et} ejecucionId={ep.id} onRefresh={onRefresh} />
-            ))
-          )}
+          ) : (() => {
+            const secciones = Array.from(new Set(ep.tareas.map((t) => t.tarea.seccion ?? "")))
+            const tienesSecciones = secciones.some((s) => s !== "")
+            if (!tienesSecciones) {
+              return (
+                <div className="divide-y divide-gray-50">
+                  {ep.tareas.map((et) => (
+                    <TareaRow key={et.id} et={et} ejecucionId={ep.id} onRefresh={onRefresh} />
+                  ))}
+                </div>
+              )
+            }
+            return secciones.map((sec) => {
+              const tareasDeSec = ep.tareas.filter((t) => (t.tarea.seccion ?? "") === sec)
+              const completadasSec = tareasDeSec.filter((t) => t.estado === "COMPLETADA" || t.estado === "OMITIDA").length
+              return (
+                <div key={sec} className="border-t border-gray-100 first:border-t-0">
+                  <div className="px-4 py-1.5 bg-gray-50 flex items-center gap-2">
+                    <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide flex-1">
+                      {sec || "General"}
+                    </span>
+                    <span className="text-[10px] text-gray-400">{completadasSec}/{tareasDeSec.length}</span>
+                  </div>
+                  <div className="divide-y divide-gray-50">
+                    {tareasDeSec.map((et) => (
+                      <TareaRow key={et.id} et={et} ejecucionId={ep.id} onRefresh={onRefresh} />
+                    ))}
+                  </div>
+                </div>
+              )
+            })
+          })()}
         </div>
       )}
     </div>

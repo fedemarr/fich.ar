@@ -24,7 +24,7 @@ export async function GET(req: Request) {
         include: {
           tarea: {
             select: {
-              id: true, nombre: true, orden: true, es_critica: true, es_omitible: true,
+              id: true, nombre: true, seccion: true, orden: true, es_critica: true, es_omitible: true,
               foto_min: true, foto_max: true, foto_instruccion: true,
               requiere_comentario: true, checklist_items: true, tiempo_estimado_min: true,
               punto_fichaje: { select: { id: true, nombre: true, latitud: true, longitud: true, radio_metros: true } },

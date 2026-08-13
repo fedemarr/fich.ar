@@ -560,6 +560,7 @@ model Tarea {
   punto_fichaje_id    String?
   nombre              String
   descripcion         String?
+  seccion             String?
   orden               Int
   es_critica          Boolean  @default(false)
   es_omitible         Boolean  @default(true)
