@@ -151,15 +151,17 @@ function TareaDialog({
   puntos,
   onClose,
   onSaved,
+  seccionInicial,
 }: {
   tarea?: Tarea
   procedimientoId: string
   puntos: PuntoFichaje[]
   onClose: () => void
   onSaved: () => void
+  seccionInicial?: string
 }) {
   const [nombre, setNombre] = useState(tarea?.nombre ?? "")
-  const [seccion, setSeccion] = useState(tarea?.seccion ?? "")
+  const [seccion, setSeccion] = useState(tarea?.seccion ?? seccionInicial ?? "")
   const [descripcion, setDescripcion] = useState(tarea?.descripcion ?? "")
   const [criterioVerificacion, setCriterioVerificacion] = useState(tarea?.criterio_verificacion ?? "")
   const [fotoMin, setFotoMin] = useState(String(tarea?.foto_min ?? 1))
@@ -410,6 +412,9 @@ function ProcedimientoRow({
   const [loadingDetalle, setLoadingDetalle] = useState(false)
   const [editando, setEditando] = useState(false)
   const [nuevaTarea, setNuevaTarea] = useState(false)
+  const [nuevaTareaSeccion, setNuevaTareaSeccion] = useState<string | null>(null)
+  const [nuevaSeccionInput, setNuevaSeccionInput] = useState(false)
+  const [nuevaSeccionNombre, setNuevaSeccionNombre] = useState("")
   const [tareaEditando, setTareaEditando] = useState<Tarea | null>(null)
 
   const cargarDetalle = useCallback(async () => {
@@ -478,84 +483,125 @@ function ProcedimientoRow({
                 <Skeleton className="h-8 w-full" />
                 <Skeleton className="h-8 w-full" />
               </div>
-            ) : (
-              <div className="divide-y divide-gray-50">
-                {(() => {
-                  const tareas = detalle?.tareas ?? []
-                  // Agrupar por sección — las sin sección quedan como "Sin sección"
-                  const secciones = Array.from(new Set(tareas.map((t) => t.seccion ?? "")))
-                  const tienesSecciones = secciones.some((s) => s !== "")
-                  return tienesSecciones
+            ) : (() => {
+              const tareas = detalle?.tareas ?? []
+              const secciones = Array.from(new Set(tareas.map((t) => t.seccion ?? "")))
+              const tienesSecciones = secciones.some((s) => s !== "")
+
+              const renderTarea = (tarea: Tarea, indentado = false) => (
+                <div key={tarea.id} className={cn("flex items-center gap-2 py-2 hover:bg-gray-50", indentado ? "px-6" : "px-4")}>
+                  <GripVertical size={14} className="text-gray-300 shrink-0" />
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center gap-2">
+                      <span className="text-sm font-medium text-gray-800">{tarea.nombre}</span>
+                      {tarea.punto_fichaje && <span className="text-xs text-gray-400">{tarea.punto_fichaje.nombre}</span>}
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5 flex gap-2">
+                      {tarea.foto_min > 0 && <span>{tarea.foto_min}–{tarea.foto_max} fotos</span>}
+                      {tarea.tiempo_estimado_min && <span>{tarea.tiempo_estimado_min} min</span>}
+                      {tarea.requiere_comentario && <span>comentario requerido</span>}
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-1 shrink-0">
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setTareaEditando(tarea)}>
+                      <Pencil size={12} />
+                    </Button>
+                    <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-700" onClick={() => handleDeleteTarea(tarea.id)}>
+                      <Trash2 size={12} />
+                    </Button>
+                  </div>
+                </div>
+              )
+
+              return (
+                <div>
+                  {tienesSecciones
                     ? secciones.map((sec) => {
                         const tareasDeSec = tareas.filter((t) => (t.seccion ?? "") === sec)
                         return (
-                          <div key={sec}>
-                            <div className="px-4 py-1.5 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
-                              <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide">
+                          <div key={sec} className="border-b border-gray-50 last:border-0">
+                            {/* Header de sección */}
+                            <div className="px-4 py-1.5 bg-gray-50 flex items-center gap-2">
+                              <span className="text-[11px] font-semibold text-gray-500 uppercase tracking-wide flex-1">
                                 {sec || "Sin sección"}
                               </span>
-                              <span className="text-[10px] text-gray-400">{tareasDeSec.length} tarea{tareasDeSec.length !== 1 ? "s" : ""}</span>
+                              <span className="text-[10px] text-gray-400 mr-1">{tareasDeSec.length} tarea{tareasDeSec.length !== 1 ? "s" : ""}</span>
+                              <button
+                                className="text-[11px] text-[#E8593C] hover:underline font-medium flex items-center gap-0.5 px-1"
+                                onClick={() => setNuevaTareaSeccion(sec)}
+                              >
+                                <Plus size={11} /> tarea
+                              </button>
                             </div>
-                            {tareasDeSec.map((tarea) => (
-                              <div key={tarea.id} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50 pl-6">
-                                <GripVertical size={14} className="text-gray-300 shrink-0" />
-                                <div className="flex-1 min-w-0">
-                                  <div className="flex items-center gap-2">
-                                    <span className="text-sm font-medium text-gray-800">{tarea.nombre}</span>
-                                    {tarea.punto_fichaje && <span className="text-xs text-gray-400">{tarea.punto_fichaje.nombre}</span>}
-                                  </div>
-                                  <div className="text-xs text-gray-400 mt-0.5 flex gap-2">
-                                    {tarea.foto_min > 0 && <span>{tarea.foto_min}–{tarea.foto_max} fotos</span>}
-                                    {tarea.tiempo_estimado_min && <span>{tarea.tiempo_estimado_min} min</span>}
-                                    {tarea.requiere_comentario && <span>comentario requerido</span>}
-                                  </div>
-                                </div>
-                                <div className="flex items-center gap-1 shrink-0">
-                                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setTareaEditando(tarea)}>
-                                    <Pencil size={12} />
-                                  </Button>
-                                  <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-700" onClick={() => handleDeleteTarea(tarea.id)}>
-                                    <Trash2 size={12} />
-                                  </Button>
-                                </div>
-                              </div>
-                            ))}
+                            {/* Tareas de la sección */}
+                            <div className="divide-y divide-gray-50">
+                              {tareasDeSec.map((t) => renderTarea(t, true))}
+                            </div>
                           </div>
                         )
                       })
-                    : tareas.map((tarea) => (
-                        <div key={tarea.id} className="flex items-center gap-2 px-4 py-2 hover:bg-gray-50">
-                          <GripVertical size={14} className="text-gray-300 shrink-0" />
-                          <div className="flex-1 min-w-0">
-                            <div className="flex items-center gap-2">
-                              <span className="text-sm font-medium text-gray-800">{tarea.nombre}</span>
-                              {tarea.punto_fichaje && <span className="text-xs text-gray-400">{tarea.punto_fichaje.nombre}</span>}
-                            </div>
-                            <div className="text-xs text-gray-400 mt-0.5 flex gap-2">
-                              {tarea.foto_min > 0 && <span>{tarea.foto_min}–{tarea.foto_max} fotos</span>}
-                              {tarea.tiempo_estimado_min && <span>{tarea.tiempo_estimado_min} min</span>}
-                              {tarea.requiere_comentario && <span>comentario requerido</span>}
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-1 shrink-0">
-                            <Button variant="ghost" size="icon" className="h-6 w-6" onClick={() => setTareaEditando(tarea)}>
-                              <Pencil size={12} />
-                            </Button>
-                            <Button variant="ghost" size="icon" className="h-6 w-6 text-red-500 hover:text-red-700" onClick={() => handleDeleteTarea(tarea.id)}>
-                              <Trash2 size={12} />
-                            </Button>
-                          </div>
-                        </div>
-                      ))
-                })()}
-                <div className="px-4 py-2">
-                  <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setNuevaTarea(true)}>
-                    <Plus size={12} />
-                    Agregar tarea
-                  </Button>
+                    : (
+                      <div className="divide-y divide-gray-50">
+                        {tareas.map((t) => renderTarea(t, false))}
+                      </div>
+                    )
+                  }
+
+                  {/* Footer con botones */}
+                  <div className="px-4 py-2.5 flex items-center gap-2 border-t border-gray-50">
+                    <Button size="sm" variant="outline" className="gap-1.5 text-xs" onClick={() => setNuevaTarea(true)}>
+                      <Plus size={12} />
+                      Agregar tarea
+                    </Button>
+                    {/* Input inline para nueva sección */}
+                    {nuevaSeccionInput ? (
+                      <div className="flex items-center gap-1.5 flex-1">
+                        <Input
+                          autoFocus
+                          className="h-7 text-xs"
+                          placeholder="Nombre de la sección (ej: Piso 1)"
+                          value={nuevaSeccionNombre}
+                          onChange={(e) => setNuevaSeccionNombre(e.target.value)}
+                          onKeyDown={(e) => {
+                            if (e.key === "Enter" && nuevaSeccionNombre.trim()) {
+                              setNuevaTareaSeccion(nuevaSeccionNombre.trim())
+                              setNuevaSeccionInput(false)
+                              setNuevaSeccionNombre("")
+                            }
+                            if (e.key === "Escape") {
+                              setNuevaSeccionInput(false)
+                              setNuevaSeccionNombre("")
+                            }
+                          }}
+                        />
+                        <Button
+                          size="sm"
+                          className="h-7 text-xs bg-[#E8593C] hover:bg-[#D04828]"
+                          disabled={!nuevaSeccionNombre.trim()}
+                          onClick={() => {
+                            if (nuevaSeccionNombre.trim()) {
+                              setNuevaTareaSeccion(nuevaSeccionNombre.trim())
+                              setNuevaSeccionInput(false)
+                              setNuevaSeccionNombre("")
+                            }
+                          }}
+                        >
+                          Crear
+                        </Button>
+                        <Button size="sm" variant="ghost" className="h-7 text-xs" onClick={() => { setNuevaSeccionInput(false); setNuevaSeccionNombre("") }}>
+                          Cancelar
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button size="sm" variant="outline" className="gap-1.5 text-xs text-[#E8593C] border-[#E8593C] hover:bg-orange-50" onClick={() => setNuevaSeccionInput(true)}>
+                        <Plus size={12} />
+                        Nueva sección
+                      </Button>
+                    )}
+                  </div>
                 </div>
-              </div>
-            )}
+              )
+            })()}
           </div>
         )}
       </div>
@@ -573,6 +619,18 @@ function ProcedimientoRow({
             puntos={puntos}
             onClose={() => setNuevaTarea(false)}
             onSaved={() => { cargarDetalle(); onRefresh() }}
+          />
+        </Dialog>
+      )}
+
+      {nuevaTareaSeccion !== null && (
+        <Dialog open onOpenChange={() => setNuevaTareaSeccion(null)}>
+          <TareaDialog
+            procedimientoId={proc.id}
+            puntos={puntos}
+            seccionInicial={nuevaTareaSeccion}
+            onClose={() => setNuevaTareaSeccion(null)}
+            onSaved={() => { cargarDetalle(); onRefresh(); setNuevaTareaSeccion(null) }}
           />
         </Dialog>
       )}
