@@ -74,7 +74,7 @@ export function ListadoCliente({
   // Auto-refresh cada 30s solo si estamos viendo hoy en hora ARG
   useEffect(() => {
     if (fechaInicial !== hoyARG()) return
-    const id = setInterval(() => router.refresh(), 30_000)
+    const id = setInterval(() => router.refresh(), 15_000)
     return () => clearInterval(id)
   }, [fechaInicial, router])
 

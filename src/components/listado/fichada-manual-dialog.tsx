@@ -67,8 +67,8 @@ export function FichadaManualDialog({
       if (!res.ok) throw new Error()
       toast.success("Fichada registrada correctamente")
       reset()
-      onClose()
       onSuccess()
+      onClose()
     } catch (_err) {
       toast.error("Error al registrar la fichada")
     } finally {
