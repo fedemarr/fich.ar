@@ -5,7 +5,7 @@ import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { Plus, X, UserPlus, Search, Check } from "lucide-react"
+import { Plus, X, UserPlus, Search, Check, AlertTriangle } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -41,6 +41,7 @@ type PuntoConJornadas = PuntoFichaje & { jornadas: JornadaConColabs[] }
 interface JornadasDialogProps {
   punto: PuntoConJornadas
   colaboradores: ColabSimple[]
+  colabsConJornada: Set<string>
   onClose: () => void
   onSuccess: () => void
 }
@@ -64,15 +65,18 @@ function DiaToggle({ dia, activo, onClick }: { dia: string; activo: boolean; onC
 function AgregarColaboradorPanel({
   jornadaId,
   colaboradoresDisponibles,
+  colabsConJornada,
   onAgregado,
 }: {
   jornadaId: string
   colaboradoresDisponibles: ColabSimple[]
+  colabsConJornada: Set<string>
   onAgregado: () => void
 }) {
   const [busqueda, setBusqueda] = useState("")
   const [seleccionados, setSeleccionados] = useState<Set<string>>(new Set())
   const [cargando, setCargando] = useState(false)
+  const [advertencia, setAdvertencia] = useState<string[] | null>(null)
 
   const filtrados = colaboradoresDisponibles.filter((c) => {
     const q = busqueda.toLowerCase()
@@ -87,9 +91,10 @@ function AgregarColaboradorPanel({
     })
   }
 
-  async function confirmarAgregar() {
+  async function ejecutarAgregar() {
     if (seleccionados.size === 0) return
     setCargando(true)
+    setAdvertencia(null)
     const ids = Array.from(seleccionados)
     const resultados = await Promise.all(
       ids.map(async (id) => {
@@ -131,6 +136,22 @@ function AgregarColaboradorPanel({
     onAgregado()
   }
 
+  function intentarAgregar() {
+    if (seleccionados.size === 0) return
+    // Detectar colaboradores seleccionados que ya tienen otra jornada asignada
+    const conTurnoExistente = Array.from(seleccionados)
+      .filter((id) => colabsConJornada.has(id))
+      .map((id) => {
+        const c = colaboradoresDisponibles.find((c) => c.id === id)
+        return c ? `${c.nombre} ${c.apellido}` : id
+      })
+    if (conTurnoExistente.length > 0) {
+      setAdvertencia(conTurnoExistente)
+    } else {
+      void ejecutarAgregar()
+    }
+  }
+
   return (
     <div className="mt-2 border border-dashed border-blue-200 rounded-lg p-3 bg-blue-50/40 space-y-2">
       <div className="relative">
@@ -152,6 +173,7 @@ function AgregarColaboradorPanel({
         <div className="space-y-1 max-h-48 overflow-y-auto">
           {filtrados.map((c) => {
             const seleccionado = seleccionados.has(c.id)
+            const yaTieneTurno = colabsConJornada.has(c.id)
             return (
               <button
                 key={c.id}
@@ -168,15 +190,53 @@ function AgregarColaboradorPanel({
                 <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700 shrink-0">
                   {c.nombre[0]}{c.apellido[0]}
                 </div>
-                <span className="text-sm text-gray-800">{c.apellido}, {c.nombre}</span>
+                <span className="text-sm text-gray-800 flex-1">{c.apellido}, {c.nombre}</span>
+                {yaTieneTurno && (
+                  <span title="Ya tiene un turno asignado">
+                    <AlertTriangle size={12} className="text-amber-400 shrink-0" />
+                  </span>
+                )}
               </button>
             )
           })}
         </div>
       )}
-      {seleccionados.size > 0 && (
+
+      {/* Advertencia: colaborador ya tiene turno */}
+      {advertencia && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5 space-y-2">
+          <div className="flex gap-2 items-start">
+            <AlertTriangle size={14} className="text-amber-500 mt-0.5 shrink-0" />
+            <div className="space-y-0.5">
+              <p className="text-xs font-semibold text-amber-800">
+                {advertencia.length === 1
+                  ? `${advertencia[0]} ya tiene un turno asignado.`
+                  : `${advertencia.join(", ")} ya tienen un turno asignado.`}
+              </p>
+              <p className="text-xs text-amber-700">¿Querés agregarle este turno adicional?</p>
+            </div>
+          </div>
+          <div className="flex gap-2">
+            <button
+              onClick={() => setAdvertencia(null)}
+              className="flex-1 h-7 rounded-md border border-amber-300 text-amber-700 text-xs font-medium hover:bg-amber-100 transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={() => void ejecutarAgregar()}
+              disabled={cargando}
+              className="flex-1 h-7 rounded-md bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium transition-colors disabled:opacity-60"
+            >
+              {cargando ? "Agregando..." : "Sí, agregar igual"}
+            </button>
+          </div>
+        </div>
+      )}
+
+      {seleccionados.size > 0 && !advertencia && (
         <button
-          onClick={() => void confirmarAgregar()}
+          onClick={intentarAgregar}
           disabled={cargando}
           className="w-full h-8 rounded-md bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-xs font-medium transition-colors disabled:opacity-60"
         >
@@ -187,7 +247,7 @@ function AgregarColaboradorPanel({
   )
 }
 
-export function JornadasDialog({ punto, colaboradores, onClose, onSuccess }: JornadasDialogProps) {
+export function JornadasDialog({ punto, colaboradores, colabsConJornada, onClose, onSuccess }: JornadasDialogProps) {
   const [mostrarForm, setMostrarForm] = useState(false)
   const [diasPresencial, setDiasPresencial] = useState<string[]>([])
   const [diasVirtual, setDiasVirtual] = useState<string[]>([])
@@ -335,6 +395,7 @@ export function JornadasDialog({ punto, colaboradores, onClose, onSuccess }: Jor
                     <AgregarColaboradorPanel
                       jornadaId={j.id}
                       colaboradoresDisponibles={disponibles}
+                      colabsConJornada={colabsConJornada}
                       onAgregado={() => { setAgregandoEnJornada(null); onSuccess() }}
                     />
                     <button

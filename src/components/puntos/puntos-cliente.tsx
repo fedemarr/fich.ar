@@ -238,10 +238,15 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
 
       {verJornadasId && (() => {
         const puntoActivo = puntos.find((p) => p.id === verJornadasId)
+        // IDs de colaboradores que ya tienen al menos una jornada activa en cualquier punto
+        const colabsConJornada = new Set(
+          puntos.flatMap((p) => p.jornadas.flatMap((j) => j.colaboradores.map((cj) => cj.colaborador_id)))
+        )
         return puntoActivo ? (
           <JornadasDialog
             punto={puntoActivo}
             colaboradores={colaboradores}
+            colabsConJornada={colabsConJornada}
             onClose={() => setVerJornadasId(null)}
             onSuccess={() => router.refresh()}
           />
