@@ -4,7 +4,7 @@ import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
   LayoutDashboard, UsersRound, ClipboardList,
-  Calendar, Bell, MapPin, Users,
+  Calendar, Bell, MapPin, Users, ClipboardCheck,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -13,6 +13,7 @@ interface MobileNavProps {
   rol: string
   puedeGestionarPuntos?: boolean
   notifCount?: number
+  moduloOperaciones?: boolean
 }
 
 const supervisorTabs = [
@@ -23,16 +24,20 @@ const supervisorTabs = [
   { href: "notificaciones", label: "Alertas",   icon: Bell },
 ]
 
-const adminTabs = [
-  { href: "resumen",        label: "Resumen",  icon: LayoutDashboard },
-  { href: "listado",        label: "Listado",  icon: ClipboardList },
-  { href: "colaboradores",  label: "Equipo",   icon: Users },
-  { href: "puntos",         label: "QR",       icon: MapPin },
-  { href: "notificaciones", label: "Alertas",  icon: Bell },
-]
-
-export function MobileNav({ slug, rol, puedeGestionarPuntos, notifCount = 0 }: MobileNavProps) {
+export function MobileNav({ slug, rol, notifCount = 0, moduloOperaciones = false }: MobileNavProps) {
   const pathname = usePathname()
+
+  const adminTabs = [
+    { href: "resumen",        label: "Resumen",    icon: LayoutDashboard },
+    { href: "listado",        label: "Listado",    icon: ClipboardList },
+    { href: "novedades",      label: "Novedades",  icon: Calendar },
+    ...(moduloOperaciones
+      ? [{ href: "operaciones", label: "Operac.", icon: ClipboardCheck }]
+      : [{ href: "colaboradores", label: "Equipo", icon: Users }]
+    ),
+    { href: "notificaciones", label: "Alertas",    icon: Bell },
+  ]
+
   const tabs = rol === "SUPERVISOR" ? supervisorTabs : adminTabs
 
   return (

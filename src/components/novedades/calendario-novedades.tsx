@@ -362,48 +362,73 @@ export function CalendarioNovedades({
   return (
     <div className="space-y-3">
       {/* Controles */}
-      <div className="flex items-center gap-3 flex-wrap">
+      <div className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 sm:flex-wrap">
+        {/* Fila superior mobile: navegación de mes */}
+        <div className="flex items-center justify-between sm:hidden">
+          <span className="text-sm font-semibold text-gray-700">
+            {NOMBRES_MES[mes - 1]} {anio}
+          </span>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => navegarMes(-1)}
+              className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              onClick={() => navegarMes(1)}
+              className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
+        </div>
+
+        {/* Filtros */}
         <input
           type="text"
           placeholder="Buscar colaborador..."
           value={filtroBusqueda}
           onChange={(e) => setFiltroBusqueda(e.target.value)}
-          className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 w-52"
+          className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 w-full sm:w-52"
         />
 
-        {puntos.length > 0 && (
+        <div className="flex items-center gap-2 flex-wrap">
+          {puntos.length > 0 && (
+            <select
+              value={filtroPunto}
+              onChange={(e) => setFiltroPunto(e.target.value)}
+              className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 flex-1 sm:flex-none"
+            >
+              <option value="">Todos los puntos</option>
+              {puntos.map((p) => (
+                <option key={p.id} value={p.id}>{p.nombre}</option>
+              ))}
+            </select>
+          )}
+
           <select
-            value={filtroPunto}
-            onChange={(e) => setFiltroPunto(e.target.value)}
-            className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
+            value={filtroTipo}
+            onChange={(e) => setFiltroTipo(e.target.value)}
+            className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 flex-1 sm:flex-none"
           >
-            <option value="">Todos los puntos</option>
-            {puntos.map((p) => (
-              <option key={p.id} value={p.id}>{p.nombre}</option>
+            <option value="">Todos</option>
+            {(Object.entries(ETIQUETAS_NOVEDAD) as [TipoNovedad, string][]).map(([k, v]) => (
+              <option key={k} value={k}>{v}</option>
             ))}
           </select>
-        )}
 
-        <select
-          value={filtroTipo}
-          onChange={(e) => setFiltroTipo(e.target.value)}
-          className="h-9 text-sm px-3 rounded-md border border-gray-200 bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20"
-        >
-          <option value="">Todos</option>
-          {(Object.entries(ETIQUETAS_NOVEDAD) as [TipoNovedad, string][]).map(([k, v]) => (
-            <option key={k} value={k}>{v}</option>
-          ))}
-        </select>
+          <button
+            onClick={() => setMostrarRefs((v) => !v)}
+            className="flex items-center gap-1.5 text-sm text-[#2563EB] hover:underline"
+          >
+            <Info size={14} />
+            <span className="hidden sm:inline">Referencias</span>
+          </button>
+        </div>
 
-        <button
-          onClick={() => setMostrarRefs((v) => !v)}
-          className="flex items-center gap-1.5 text-sm text-[#2563EB] hover:underline"
-        >
-          <Info size={14} />
-          Referencias
-        </button>
-
-        <div className="ml-auto flex items-center gap-2">
+        {/* Navegación de mes — solo desktop */}
+        <div className="hidden sm:flex ml-auto items-center gap-2">
           <button
             onClick={() => navegarMes(-1)}
             className="w-8 h-8 flex items-center justify-center rounded-md border border-gray-200 hover:bg-gray-50 transition-colors"

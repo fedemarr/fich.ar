@@ -58,6 +58,7 @@ export default async function DashboardLayout({ children, params }: DashboardLay
         rol={session.user.rol}
         puedeGestionarPuntos={session.user.puedeGestionarPuntos}
         notifCount={notifCount}
+        moduloOperaciones={moduloOperaciones}
       />
 
       <Toaster richColors position="top-right" />
