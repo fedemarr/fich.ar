@@ -69,21 +69,53 @@ export async function POST(req: Request) {
     )
   }
 
-  // 4. Verificar fichadas de hoy
+  const ahora = new Date()
+
+  // 4. Jornadas activas del colaborador (análisis, cobertura y límite de turnos)
+  const jornadasActivas = await prisma.colaboradorJornada.findMany({
+    where: {
+      colaborador_id: colaborador.id,
+      OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: ahora } }],
+    },
+    include: { jornada: true },
+  })
+
+  // 4b. Verificar fichadas de hoy
   const inicioDia = inicioDiaARG(hoyARG())
   const fichadasHoy = await prisma.fichada.findMany({
     where: { colaborador_id: colaborador.id, timestamp: { gte: inicioDia }, es_valida: true },
-    select: { tipo: true },
+    select: { tipo: true, punto_fichaje_id: true },
     orderBy: { timestamp: "asc" },
   })
-  const tieneEntrada = fichadasHoy.some((f) => f.tipo === "ENTRADA")
-  const tieneSalida = fichadasHoy.some((f) => f.tipo === "SALIDA")
 
-  // next_tipo: qué puede fichar a continuación (null = ya completó la jornada)
-  const next_tipo: "ENTRADA" | "SALIDA" | null =
-    !tieneEntrada ? "ENTRADA" : !tieneSalida ? "SALIDA" : null
+  const esFichajeLibre = punto.empresa.fichaje_libre
 
-  // 4b. Modo solo identificar: devolver colaborador + qué puede fichar
+  const puntosAsignados = new Set(jornadasActivas.map((j) => j.jornada.punto_fichaje_id))
+  const limiteTurnos = Math.max(1, puntosAsignados.size)
+  const entradasHoy = fichadasHoy.filter((f) => f.tipo === "ENTRADA").length
+  const fichadasEnPunto = fichadasHoy.filter((f) => f.punto_fichaje_id === punto.id)
+  const entradaEnPunto = fichadasEnPunto.some((f) => f.tipo === "ENTRADA")
+  const salidaEnPunto = fichadasEnPunto.some((f) => f.tipo === "SALIDA")
+
+  // next_tipo: qué puede fichar a continuación (null = turnos completos)
+  // Clean Paz: alternar por punto, cada punto con su propia entrada→salida.
+  // Resto: 1 entrada + 1 salida por día (comportamiento actual).
+  let next_tipo: "ENTRADA" | "SALIDA" | null
+  if (esFichajeLibre) {
+    if (!entradaEnPunto && entradasHoy < limiteTurnos) {
+      next_tipo = "ENTRADA"
+    } else if (entradaEnPunto && !salidaEnPunto) {
+      next_tipo = "SALIDA"
+    } else {
+      next_tipo = null
+    }
+  } else {
+    const tieneEntrada = fichadasHoy.some((f) => f.tipo === "ENTRADA")
+    const tieneSalida = fichadasHoy.some((f) => f.tipo === "SALIDA")
+    next_tipo = !tieneEntrada ? "ENTRADA" : !tieneSalida ? "SALIDA" : null
+  }
+
+  // 4c. Modo solo identificar: devolver colaborador + qué puede fichar
   if (solo_identificar) {
     return NextResponse.json({
       ok: true,
@@ -95,26 +127,45 @@ export async function POST(req: Request) {
   // 5. Validar que el tipo pedido esté permitido
   const tipoFichada = tipo ?? next_tipo
   if (!tipoFichada) {
-    return NextResponse.json({ error: "Ya registraste entrada y salida hoy" }, { status: 400 })
+    return NextResponse.json({
+      error: esFichajeLibre ? "Ya completaste todos tus turnos de hoy" : "Ya registraste entrada y salida hoy",
+    }, { status: 400 })
   }
-  if (tipoFichada === "ENTRADA" && tieneEntrada) {
-    return NextResponse.json({ error: "Ya registraste tu entrada hoy" }, { status: 400 })
-  }
-  if (tipoFichada === "SALIDA" && tieneSalida) {
-    return NextResponse.json({ error: "Ya registraste tu salida hoy" }, { status: 400 })
-  }
-  if (tipoFichada === "SALIDA" && !tieneEntrada) {
-    return NextResponse.json({ error: "Primero debés registrar tu entrada" }, { status: 400 })
+
+  if (esFichajeLibre) {
+    if (tipoFichada === "ENTRADA" && entradaEnPunto) {
+      return NextResponse.json({ error: "Ya registraste tu entrada en este punto hoy" }, { status: 400 })
+    }
+    if (tipoFichada === "ENTRADA" && entradasHoy >= limiteTurnos) {
+      return NextResponse.json({ error: "Alcanzaste tu límite de turnos de hoy" }, { status: 400 })
+    }
+    if (tipoFichada === "SALIDA" && !entradaEnPunto) {
+      return NextResponse.json({ error: "Primero debés registrar tu entrada en este punto" }, { status: 400 })
+    }
+    if (tipoFichada === "SALIDA" && salidaEnPunto) {
+      return NextResponse.json({ error: "Ya registraste tu salida en este punto hoy" }, { status: 400 })
+    }
+  } else {
+    const tieneEntrada = fichadasHoy.some((f) => f.tipo === "ENTRADA")
+    const tieneSalida = fichadasHoy.some((f) => f.tipo === "SALIDA")
+    if (tipoFichada === "ENTRADA" && tieneEntrada) {
+      return NextResponse.json({ error: "Ya registraste tu entrada hoy" }, { status: 400 })
+    }
+    if (tipoFichada === "SALIDA" && tieneSalida) {
+      return NextResponse.json({ error: "Ya registraste tu salida hoy" }, { status: 400 })
+    }
+    if (tipoFichada === "SALIDA" && !tieneEntrada) {
+      return NextResponse.json({ error: "Primero debés registrar tu entrada" }, { status: 400 })
+    }
   }
 
   // 6. Calcular análisis — soporta múltiples jornadas activas
-  const jornadasActivas = await prisma.colaboradorJornada.findMany({
-    where: { colaborador_id: colaborador.id, fecha_hasta: null },
-    include: { jornada: true },
-  })
-  const ahora = new Date()
   const jornadaActiva = encontrarJornadaParaFichada(jornadasActivas.map((j) => j.jornada), ahora)
   const analisis = calcularAnalisis(ahora, tipoFichada, jornadaActiva)
+
+  // 6b. Detectar cobertura: el punto escaneado no es el punto asignado en la jornada
+  const jornadaEnPuntoEscaneado = jornadasActivas.find((j) => j.jornada.punto_fichaje_id === punto.id)
+  const esCobertura = jornadaEnPuntoEscaneado === undefined
 
   // 7. Registrar fichada
   const fichada = await prisma.fichada.create({
@@ -129,6 +180,7 @@ export async function POST(req: Request) {
       distancia_metros: Math.round(distancia),
       analisis,
       es_valida: true,
+      es_cobertura: esCobertura,
     },
   })
 
@@ -171,7 +223,7 @@ export async function POST(req: Request) {
 
   return NextResponse.json({
     ok: true,
-    fichada: { tipo: tipoFichada, hora, analisis },
+    fichada: { tipo: tipoFichada, hora, analisis, es_cobertura: esCobertura },
     colaborador: {
       id: colaborador.id,
       nombre: colaborador.nombre,

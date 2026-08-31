@@ -27,6 +27,9 @@ interface FilaListado {
   entrada: FichadaConRelaciones | null
   salida: FichadaConRelaciones | null
   edificio: string
+  esCobertura: boolean
+  edificioReal: string  // punto donde realmente fichó (puede diferir del asignado)
+  nroTurno: number
 }
 
 interface ListadoClienteProps {
@@ -79,14 +82,63 @@ export function ListadoCliente({
   }, [fechaInicial, router])
 
   const filas: FilaListado[] = useMemo(() => {
-    return colaboradores.map((col) => {
-      const fichadasCol = fichadas.filter((f) => f.colaborador_id === col.id)
-      const entrada = fichadasCol.find((f) => f.tipo === "ENTRADA") ?? null
-      const salida = fichadasCol.find((f) => f.tipo === "SALIDA") ?? null
-      const jornadaActual = col.jornadas[0]
-      const edificio = jornadaActual?.jornada.punto_fichaje.nombre ?? "—"
-      return { colaborador: col, entrada, salida, edificio }
-    })
+    const result: FilaListado[] = []
+    for (const col of colaboradores) {
+      const fichadasCol = fichadas
+        .filter((f) => f.colaborador_id === col.id)
+        .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
+      const edificioAsignado = col.jornadas[0]?.jornada.punto_fichaje.nombre ?? "—"
+
+      // Sin fichadas: una sola fila (sin registros)
+      if (fichadasCol.length === 0) {
+        result.push({
+          colaborador: col,
+          entrada: null,
+          salida: null,
+          edificio: edificioAsignado,
+          esCobertura: false,
+          edificioReal: edificioAsignado,
+          nroTurno: 1,
+        })
+        continue
+      }
+
+      // Turno doble: agrupar fichadas por punto (cada punto = un turno)
+      const porPunto = new Map<string, FichadaConRelaciones[]>()
+      for (const f of fichadasCol) {
+        const key = f.punto_fichaje_id ?? "sin-punto"
+        const arr = porPunto.get(key) ?? []
+        arr.push(f)
+        porPunto.set(key, arr)
+      }
+      // Ordenar los puntos por la hora de su primera fichada
+      const puntosOrdenados = Array.from(porPunto.entries())
+        .sort((a, b) => {
+          const ta = new Date(a[1][0].timestamp).getTime()
+          const tb = new Date(b[1][0].timestamp).getTime()
+          return ta - tb
+        })
+
+      puntosOrdenados.forEach(([, fichas], idx) => {
+        const ordenadas = fichas.sort(
+          (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
+        )
+        const entrada = ordenadas.find((f) => f.tipo === "ENTRADA") ?? null
+        const salida = ordenadas.find((f) => f.tipo === "SALIDA") ?? null
+        const esCobertura = !!entrada?.es_cobertura
+        const edificioReal = entrada?.punto_fichaje?.nombre ?? edificioAsignado
+        result.push({
+          colaborador: col,
+          entrada,
+          salida,
+          edificio: edificioAsignado,
+          esCobertura,
+          edificioReal,
+          nroTurno: idx + 1,
+        })
+      })
+    }
+    return result
   }, [colaboradores, fichadas])
 
   const filasFiltradas = useMemo(() => {
@@ -160,19 +212,29 @@ export function ListadoCliente({
           <div className="text-center text-gray-400 py-12 text-sm">Sin registros para esta fecha</div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {filasFiltradas.map(({ colaborador, entrada, salida, edificio }) => {
+            {filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno }) => {
               const analisisEntrada = getAnalisisEntrada(entrada)
               const esTarde = analisisEntrada === "Llegada tarde"
               return (
-                <div key={colaborador.id} className="px-4 py-3 flex items-center gap-3">
+                <div key={`${colaborador.id}-${nroTurno}`} className="px-4 py-3 flex items-center gap-3">
                   <div className="w-9 h-9 rounded-full bg-[#EFF6FF] flex items-center justify-center text-xs font-semibold text-[#2563EB] shrink-0">
                     {colaborador.nombre[0]}{colaborador.apellido[0]}
                   </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm font-medium text-gray-800 truncate">
                       {colaborador.apellido} {colaborador.nombre}
+                      {nroTurno > 1 && (
+                        <span className="ml-1.5 text-[10px] font-semibold text-blue-600 bg-blue-50 rounded px-1 py-0.5 align-middle">
+                          Turno {nroTurno}
+                        </span>
+                      )}
                     </p>
-                    <p className="text-xs text-gray-400 truncate">{edificio}</p>
+                    <div className="flex items-center gap-1.5">
+                      <p className="text-xs text-gray-400 truncate">{edificioReal}</p>
+                      {esCobertura && (
+                        <span className="text-[10px] bg-purple-100 text-purple-700 rounded px-1 py-0.5 font-medium shrink-0">🔄 Cobertura</span>
+                      )}
+                    </div>
                   </div>
                   <div className="text-right shrink-0">
                     <div className="flex items-center gap-1.5 justify-end">
@@ -224,14 +286,14 @@ export function ListadoCliente({
                 </td>
               </tr>
             ) : (
-              filasFiltradas.map(({ colaborador, entrada, salida, edificio }) => {
+              filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno }) => {
                 const analisisEntrada = getAnalisisEntrada(entrada)
                 const analisisSalida = getAnalisisSalida(salida)
                 const esTarde = analisisEntrada === "Llegada tarde"
 
                 return (
                   <tr
-                    key={colaborador.id}
+                    key={`${colaborador.id}-${nroTurno}`}
                     className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors"
                   >
                     <td className="px-4 py-3">
@@ -242,6 +304,11 @@ export function ListadoCliente({
                         <span className="font-medium text-gray-800">
                           {colaborador.apellido} {colaborador.nombre}
                         </span>
+                        {nroTurno > 1 && (
+                          <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 rounded px-1.5 py-0.5">
+                            T{nroTurno}
+                          </span>
+                        )}
                       </div>
                     </td>
                     <td className="px-4 py-3 text-gray-600">
@@ -275,7 +342,16 @@ export function ListadoCliente({
                         )}
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-gray-600 text-xs">{edificio}</td>
+                    <td className="px-4 py-3 text-gray-600 text-xs">
+                      <div className="flex items-center gap-1.5">
+                        <span>{edificioReal}</span>
+                        {esCobertura && (
+                          <span className="bg-purple-100 text-purple-700 rounded px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap">
+                            🔄 Cobertura
+                          </span>
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 )
               })

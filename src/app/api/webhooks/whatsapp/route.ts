@@ -318,7 +318,7 @@ async function manejarMensaje(from: string, msg: WAMessage) {
 
   const punto = await prisma.puntoFichaje.findUnique({
     where: { qr_token: token },
-    include: { empresa: true },
+    include: { empresa: { select: { id: true, fichaje_libre: true } } },
   })
 
   if (!punto || !punto.activo) {
@@ -337,7 +337,10 @@ async function manejarMensaje(from: string, msg: WAMessage) {
       colaborador_id: colaborador.id,
       timestamp: Date.now(),
     })
-    await avisarPuntoIncorrecto(to, colaborador.id, punto.id, punto.nombre, punto.empresa_id)
+    // Solo avisar si la empresa NO tiene fichaje_libre habilitado
+    if (!punto.empresa.fichaje_libre) {
+      await avisarPuntoIncorrecto(to, colaborador.id, punto.id, punto.nombre, punto.empresa_id)
+    }
     await enviarBotones({
       to,
       body: `¡Hola ${colaborador.nombre}! ¿Qué registrás en *${punto.nombre}*?`,
@@ -368,6 +371,13 @@ async function avisarPuntoIncorrecto(
   nombrePunto: string,
   empresaId: string
 ) {
+  // Con fichaje libre habilitado no se avisa: cualquier operario ficha en cualquier punto
+  const empresa = await prisma.empresa.findUnique({
+    where: { id: empresaId },
+    select: { fichaje_libre: true },
+  })
+  if (empresa?.fichaje_libre) return
+
   const ahora = new Date()
   const mes = ahora.getMonth() + 1
   const anio = ahora.getFullYear()
@@ -461,12 +471,36 @@ async function procesarFichada(
     }
   }
 
-  // Obtener jornadas activas para calcular análisis de puntualidad
-  const jornadasActivas = await prisma.colaboradorJornada.findMany({
-    where: { colaborador_id: colaboradorId, fecha_hasta: null },
+  // Detectar si es cobertura: el punto escaneado no es el punto asignado por defecto
+  const jornadaEnPuntoEscaneado = await prisma.colaboradorJornada.findFirst({
+    where: {
+      colaborador_id: colaboradorId,
+      OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: ahora } }],
+      jornada: { punto_fichaje_id: puntoId },
+    },
     include: { jornada: true },
   })
-  const jornadaActiva = encontrarJornadaParaFichada(jornadasActivas.map((j) => j.jornada), ahora)
+
+  const esCobertura = jornadaEnPuntoEscaneado === null
+
+  // Para análisis de puntualidad: usar la jornada DEL PUNTO ESCANEADO si existe,
+  // si no (es cobertura) buscar cualquier jornada activa del operario como referencia
+  let jornadaParaAnalisis = jornadaEnPuntoEscaneado?.jornada ?? null
+  if (!jornadaParaAnalisis) {
+    const cualquierJornada = await prisma.colaboradorJornada.findFirst({
+      where: {
+        colaborador_id: colaboradorId,
+        OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: ahora } }],
+      },
+      include: { jornada: true },
+    })
+    jornadaParaAnalisis = cualquierJornada?.jornada ?? null
+  }
+
+  const jornadaActiva = encontrarJornadaParaFichada(
+    jornadaParaAnalisis ? [jornadaParaAnalisis] : [],
+    ahora
+  )
   const analisis = calcularAnalisis(ahora, tipo, jornadaActiva)
 
   await prisma.fichada.create({
@@ -482,6 +516,7 @@ async function procesarFichada(
       distancia_metros: Math.round(distancia),
       analisis,
       es_valida: true,
+      es_cobertura: esCobertura,
     },
   })
 
@@ -508,6 +543,7 @@ async function procesarFichada(
 
   let respuesta = `${emoji} *${tipoTexto}* registrada a las ${hora}\n📍 ${punto.nombre}`
   if (analisisTexto[analisis]) respuesta += `\n${analisisTexto[analisis]}`
+  if (esCobertura) respuesta += `\n🔄 Registrada como *cobertura/reemplazo* (punto no habitual)`
   if (avisoFranco) respuesta += `\n\n📅 Nota: hoy tenés franco registrado en la planilla. Consultá con tu supervisor.`
 
   await enviarTexto({ to, body: respuesta })

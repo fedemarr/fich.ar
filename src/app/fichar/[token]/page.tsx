@@ -25,6 +25,7 @@ interface FichadaOk {
   tipo: "ENTRADA" | "SALIDA"
   hora: string
   analisis: string
+  es_cobertura?: boolean
 }
 
 interface ColaboradorInfo {
@@ -681,6 +682,11 @@ export default function FicharPage() {
                 </p>
                 <p className="text-gray-400 text-sm">{punto?.nombre}</p>
               </div>
+              {fichada.es_cobertura && (
+                <div className="bg-purple-50 rounded-xl px-4 py-2.5 text-purple-700 text-sm font-medium">
+                  🔄 Registrada como cobertura / reemplazo
+                </div>
+              )}
               {fichada.analisis === "LLEGADA_TARDE" && (
                 <div className="bg-amber-50 rounded-xl px-4 py-2.5 text-amber-700 text-sm font-medium">
                   ⏰ Llegada tarde

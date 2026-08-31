@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Building2, Plus, Users, UserCheck, CheckCircle, XCircle, RefreshCw, ExternalLink, Trash2, ClipboardCheck } from "lucide-react"
+import { Building2, Plus, Users, UserCheck, CheckCircle, XCircle, RefreshCw, ExternalLink, Trash2, ClipboardCheck, Repeat2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -15,6 +15,7 @@ interface Empresa {
   slug: string
   activa: boolean
   modulo_operaciones: boolean
+  fichaje_libre: boolean
   created_at: string
   _count: { colaboradores: number; usuarios: number }
 }
@@ -63,7 +64,7 @@ export default function EmpresasPage() {
     )
   }, [nombre])
 
-  async function toggleModulo(id: string, campo: "modulo_operaciones", valor: boolean) {
+  async function toggleModulo(id: string, campo: "modulo_operaciones" | "fichaje_libre", valor: boolean) {
     setToggling(id + campo)
     try {
       await fetch(`/api/admin/empresas?id=${id}`, {
@@ -193,17 +194,31 @@ export default function EmpresasPage() {
               </div>
 
               {/* Módulos */}
-              <div className="flex items-center gap-3 mb-4 p-3 bg-[#F9FAFB] rounded-lg">
-                <ClipboardCheck className="w-4 h-4 text-[#6B7280] shrink-0" />
-                <div className="flex-1">
-                  <p className="text-xs font-medium text-[#111827]">Módulo Operaciones</p>
-                  <p className="text-[10px] text-[#6B7280]">Checklist y control de tareas</p>
+              <div className="space-y-2 mb-4">
+                <div className="flex items-center gap-3 p-3 bg-[#F9FAFB] rounded-lg">
+                  <ClipboardCheck className="w-4 h-4 text-[#6B7280] shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-[#111827]">Módulo Operaciones</p>
+                    <p className="text-[10px] text-[#6B7280]">Checklist y control de tareas</p>
+                  </div>
+                  <Switch
+                    checked={e.modulo_operaciones}
+                    disabled={toggling === e.id + "modulo_operaciones"}
+                    onCheckedChange={(v) => toggleModulo(e.id, "modulo_operaciones", v)}
+                  />
                 </div>
-                <Switch
-                  checked={e.modulo_operaciones}
-                  disabled={toggling === e.id + "modulo_operaciones"}
-                  onCheckedChange={(v) => toggleModulo(e.id, "modulo_operaciones", v)}
-                />
+                <div className="flex items-center gap-3 p-3 bg-[#F9FAFB] rounded-lg">
+                  <Repeat2 className="w-4 h-4 text-[#6B7280] shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-[#111827]">Fichaje Libre (rotaciones)</p>
+                    <p className="text-[10px] text-[#6B7280]">Cualquier operario puede fichar en cualquier punto QR</p>
+                  </div>
+                  <Switch
+                    checked={e.fichaje_libre}
+                    disabled={toggling === e.id + "fichaje_libre"}
+                    onCheckedChange={(v) => toggleModulo(e.id, "fichaje_libre", v)}
+                  />
+                </div>
               </div>
 
               <div className="flex items-center justify-between text-xs text-[#6B7280]">
