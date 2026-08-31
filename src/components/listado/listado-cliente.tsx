@@ -212,32 +212,44 @@ export function ListadoCliente({
           <div className="text-center text-gray-400 py-12 text-sm">Sin registros para esta fecha</div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno }) => {
+            {filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno }, idx) => {
               const analisisEntrada = getAnalisisEntrada(entrada)
               const esTarde = analisisEntrada === "Llegada tarde"
+              const esTurnoExtra = nroTurno > 1
+
               return (
-                <div key={`${colaborador.id}-${nroTurno}`} className="px-4 py-3 flex items-center gap-3">
-                  <div className="w-9 h-9 rounded-full bg-[#EFF6FF] flex items-center justify-center text-xs font-semibold text-[#2563EB] shrink-0">
-                    {colaborador.nombre[0]}{colaborador.apellido[0]}
-                  </div>
+                <div
+                  key={`${colaborador.id}-${nroTurno}`}
+                  className={esTurnoExtra ? "pl-14 pr-4 py-2.5 flex items-center gap-3 bg-blue-50/40 border-l-2 border-blue-200" : "px-4 py-3 flex items-center gap-3"}
+                >
+                  {!esTurnoExtra ? (
+                    <div className="w-9 h-9 rounded-full bg-[#EFF6FF] flex items-center justify-center text-xs font-semibold text-[#2563EB] shrink-0">
+                      {colaborador.nombre[0]}{colaborador.apellido[0]}
+                    </div>
+                  ) : (
+                    <div className="w-5 h-5 rounded flex items-center justify-center text-[10px] font-bold text-blue-500 bg-blue-100 shrink-0">
+                      {nroTurno}
+                    </div>
+                  )}
                   <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-800 truncate">
-                      {colaborador.apellido} {colaborador.nombre}
-                      {nroTurno > 1 && (
-                        <span className="ml-1.5 text-[10px] font-semibold text-blue-600 bg-blue-50 rounded px-1 py-0.5 align-middle">
-                          Turno {nroTurno}
-                        </span>
-                      )}
-                    </p>
+                    {!esTurnoExtra ? (
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {colaborador.apellido} {colaborador.nombre}
+                      </p>
+                    ) : (
+                      <p className="text-xs font-medium text-blue-700 truncate">
+                        Turno {nroTurno}
+                      </p>
+                    )}
                     <div className="flex items-center gap-1.5">
                       <p className="text-xs text-gray-400 truncate">{edificioReal}</p>
                       {esCobertura && (
-                        <span className="text-[10px] bg-purple-100 text-purple-700 rounded px-1 py-0.5 font-medium shrink-0">🔄 Cobertura</span>
+                        <span className="text-[10px] bg-purple-100 text-purple-700 rounded px-1 py-0.5 font-medium shrink-0">🔄 Cob.</span>
                       )}
                     </div>
                   </div>
                   <div className="text-right shrink-0">
-                    <div className="flex items-center gap-1.5 justify-end">
+                    <div className="flex items-center gap-1 justify-end">
                       {entrada ? (
                         <span className={`text-xs font-semibold ${esTarde ? "text-orange-600" : "text-gray-800"}`}>
                           ↑ {formatHora(entrada.timestamp)}
@@ -253,9 +265,6 @@ export function ListadoCliente({
                       <p className={`text-[10px] mt-0.5 ${esTarde ? "text-orange-500" : "text-green-600"}`}>
                         {analisisEntrada}
                       </p>
-                    )}
-                    {!entrada && salida === null && (
-                      <p className="text-[10px] text-gray-400 mt-0.5">Pendiente salida</p>
                     )}
                   </div>
                 </div>
@@ -290,29 +299,41 @@ export function ListadoCliente({
                 const analisisEntrada = getAnalisisEntrada(entrada)
                 const analisisSalida = getAnalisisSalida(salida)
                 const esTarde = analisisEntrada === "Llegada tarde"
+                const esTurnoExtra = nroTurno > 1
 
                 return (
                   <tr
                     key={`${colaborador.id}-${nroTurno}`}
-                    className="border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors"
+                    className={
+                      esTurnoExtra
+                        ? "border-b border-blue-100 last:border-0 bg-blue-50/30 hover:bg-blue-50/60 transition-colors"
+                        : "border-b border-gray-50 last:border-0 hover:bg-gray-50 transition-colors"
+                    }
                   >
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-full bg-[#EFF6FF] flex items-center justify-center text-xs font-semibold text-[#2563EB]">
-                          {colaborador.nombre[0]}{colaborador.apellido[0]}
-                        </div>
-                        <span className="font-medium text-gray-800">
-                          {colaborador.apellido} {colaborador.nombre}
-                        </span>
-                        {nroTurno > 1 && (
-                          <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 rounded px-1.5 py-0.5">
-                            T{nroTurno}
+                    <td className="py-3" style={{ paddingLeft: esTurnoExtra ? "2.5rem" : "1rem", paddingRight: "1rem" }}>
+                      {!esTurnoExtra ? (
+                        <div className="flex items-center gap-2">
+                          <div className="w-7 h-7 rounded-full bg-[#EFF6FF] flex items-center justify-center text-xs font-semibold text-[#2563EB] shrink-0">
+                            {colaborador.nombre[0]}{colaborador.apellido[0]}
+                          </div>
+                          <span className="font-medium text-gray-800">
+                            {colaborador.apellido} {colaborador.nombre}
                           </span>
-                        )}
-                      </div>
+                        </div>
+                      ) : (
+                        <div className="flex items-center gap-2 text-blue-600">
+                          <span className="text-gray-300 text-sm select-none">└</span>
+                          <span className="text-xs font-semibold bg-blue-100 text-blue-600 rounded px-1.5 py-0.5">
+                            Turno {nroTurno}
+                          </span>
+                          <span className="text-xs text-blue-500 font-medium">
+                            {colaborador.apellido} {colaborador.nombre}
+                          </span>
+                        </div>
+                      )}
                     </td>
-                    <td className="px-4 py-3 text-gray-600">
-                      {new Date(fechaInicial + "T12:00:00").toLocaleDateString("es-AR", {
+                    <td className="px-4 py-3 text-gray-500 text-xs">
+                      {esTurnoExtra ? "—" : new Date(fechaInicial + "T12:00:00").toLocaleDateString("es-AR", {
                         day: "2-digit",
                         month: "2-digit",
                         year: "numeric",
