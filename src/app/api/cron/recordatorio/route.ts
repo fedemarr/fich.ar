@@ -16,7 +16,7 @@ export async function GET(req: Request) {
   const finDia = finDiaARG(hoyStr)
 
   const empresas = await prisma.empresa.findMany({
-    where: { activa: true, deleted_at: null },
+    where: { activa: true, deleted_at: null, recordatorios_wa: true },
     select: { id: true },
   })
 

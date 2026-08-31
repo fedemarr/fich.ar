@@ -67,6 +67,7 @@ export async function POST(req: Request) {
 const patchSchema = z.object({
   modulo_operaciones: z.boolean().optional(),
   fichaje_libre: z.boolean().optional(),
+  recordatorios_wa: z.boolean().optional(),
   activa: z.boolean().optional(),
 })
 

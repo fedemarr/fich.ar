@@ -76,6 +76,7 @@ model Empresa {
   activa               Boolean   @default(true)
   modulo_operaciones   Boolean   @default(false)
   fichaje_libre        Boolean   @default(false)
+  recordatorios_wa     Boolean   @default(true)
   created_at           DateTime  @default(now())
   updated_at DateTime  @updatedAt
   deleted_at DateTime?
