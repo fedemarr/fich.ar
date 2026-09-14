@@ -154,17 +154,27 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas
     } else {
       body = { tipo: "servicios", asignaciones: preview.asignaciones }
     }
+
+    // Abort si el servidor no responde en 45 segundos — evita que el dialog quede colgado para siempre
+    const controller = new AbortController()
+    const timeoutId = setTimeout(() => controller.abort(), 45_000)
+
     try {
       const res = await fetch("/api/colaboradores/sincronizar/confirmar", {
         method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body),
+        signal: controller.signal,
       })
+      clearTimeout(timeoutId)
       const data = (await res.json()) as { error?: string } & Partial<Resultado>
       if (!res.ok || data.error) {
         toast.error(data.error ?? "Error al sincronizar"); setStep("preview"); return
       }
       setResultado(data as Resultado); setStep("done")
-    } catch {
-      toast.error("Error de conexión"); setStep("preview")
+    } catch (e) {
+      clearTimeout(timeoutId)
+      const esTimeout = e instanceof DOMException && e.name === "AbortError"
+      toast.error(esTimeout ? "La operación tardó demasiado. Intentá de nuevo con menos filas." : "Error de conexión")
+      setStep("preview")
     }
   }
 
