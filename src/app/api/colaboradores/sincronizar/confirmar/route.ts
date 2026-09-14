@@ -3,6 +3,9 @@ import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { tags, invalidateTag } from "@/lib/queries"
 
+// Vercel max duration — necesario para imports grandes
+export const maxDuration = 60
+
 const FilaAsociadoSchema = z.object({
   legajo: z.string(),
   apellido: z.string(),
@@ -87,30 +90,6 @@ async function resolverJornadaPunto(
   return nueva.id
 }
 
-// Asigna la jornada que corresponda: la calculada por fila (punto QR + horario) tiene prioridad sobre la global
-async function asignarJornadaSiCorresponde(
-  colabId: string,
-  empresaId: string,
-  fila: z.infer<typeof FilaAsociadoSchema>,
-  jornadaIdGlobal?: string
-) {
-  let jornadaId: string | undefined
-  if (fila.punto_qr_id && fila.hora_entrada && fila.hora_salida) {
-    jornadaId = await resolverJornadaPunto(empresaId, fila.punto_qr_id, fila.hora_entrada, fila.hora_salida)
-  } else if (jornadaIdGlobal) {
-    jornadaId = jornadaIdGlobal
-  }
-  if (!jornadaId) return
-
-  await prisma.colaboradorJornada.updateMany({
-    where: { colaborador_id: colabId, fecha_hasta: null },
-    data: { fecha_hasta: new Date() },
-  })
-  await prisma.colaboradorJornada.create({
-    data: { colaborador_id: colabId, jornada_id: jornadaId, fecha_desde: new Date() },
-  })
-}
-
 async function confirmarAsociados(
   data: {
     tipo: "asociados"
@@ -121,9 +100,6 @@ async function confirmarAsociados(
   },
   empresaId: string
 ): Promise<Response> {
-  let creados = 0
-  let actualizados = 0
-  let desactivados = 0
   const { jornada_id } = data
 
   // Pre-cargar todos para no hacer N queries individuales
@@ -134,50 +110,102 @@ async function confirmarAsociados(
   const mapaIdPorLegajo = new Map(existentes.filter(c => c.legajo).map((c) => [c.legajo!, c.id]))
   const mapaIdPorDni = new Map(existentes.filter(c => c.identificacion).map((c) => [c.identificacion!, c.id]))
 
-  for (const fila of data.creados) {
-    const colab = await prisma.colaborador.create({
-      data: {
-        empresa_id: empresaId,
-        legajo: fila.legajo,
-        apellido: fila.apellido,
-        nombre: fila.nombre || fila.apellido,
-        celular: fila.celular || `SIN_CEL_${fila.legajo}`,
-        identificacion: fila.identificacion || null,
-        domicilio: fila.domicilio || null,
-        email: fila.email || null,
-        sector: fila.sector || null,
-        fecha_ingreso: fila.fecha_ingreso ? new Date(fila.fecha_ingreso) : null,
-        estado: "ACTIVO",
-      },
-    })
-    await asignarJornadaSiCorresponde(colab.id, empresaId, fila, jornada_id)
-    creados++
+  // Pre-resolver todas las combinaciones únicas de jornada (punto+hora) de una sola vez
+  // Evita N findFirst/create secuenciales con el mismo combo
+  const jornadasCache = new Map<string, string>() // "puntoId|entrada|salida" → jornada_id
+  const combosNeeded = new Set<string>()
+  for (const fila of [...data.creados, ...data.actualizados]) {
+    if (fila.punto_qr_id && fila.hora_entrada && fila.hora_salida) {
+      combosNeeded.add(`${fila.punto_qr_id}|${fila.hora_entrada}|${fila.hora_salida}`)
+    }
+  }
+  for (const combo of combosNeeded) {
+    const [puntoId, horaEntrada, horaSalida] = combo.split("|")
+    const jornadaId = await resolverJornadaPunto(empresaId, puntoId, horaEntrada, horaSalida)
+    jornadasCache.set(combo, jornadaId)
   }
 
-  for (const fila of data.actualizados) {
-    const id = fila.legajo
-      ? (mapaIdPorLegajo.get(fila.legajo) ?? (fila.identificacion ? mapaIdPorDni.get(fila.identificacion) : undefined))
-      : (fila.identificacion ? mapaIdPorDni.get(fila.identificacion) : undefined)
-    if (!id) continue
-    await prisma.colaborador.update({
-      where: { id },
-      data: {
-        apellido: fila.apellido,
-        nombre: fila.nombre || fila.apellido,
-        ...(fila.identificacion && { identificacion: fila.identificacion }),
-        ...(fila.domicilio && { domicilio: fila.domicilio }),
-        ...(fila.celular && { celular: fila.celular }),
-        ...(fila.email && { email: fila.email }),
-        ...(fila.sector && { sector: fila.sector }),
-        ...(fila.fecha_ingreso && { fecha_ingreso: new Date(fila.fecha_ingreso) }),
-        estado: "ACTIVO",
-        deleted_at: null,
-      },
-    })
-    await asignarJornadaSiCorresponde(id, empresaId, fila, jornada_id)
-    actualizados++
+  function getJornadaId(fila: z.infer<typeof FilaAsociadoSchema>): string | undefined {
+    if (fila.punto_qr_id && fila.hora_entrada && fila.hora_salida) {
+      return jornadasCache.get(`${fila.punto_qr_id}|${fila.hora_entrada}|${fila.hora_salida}`)
+    }
+    return jornada_id
   }
 
+  // Crear todos los colaboradores nuevos en paralelo
+  const nuevos = await Promise.all(
+    data.creados.map((fila) =>
+      prisma.colaborador.create({
+        data: {
+          empresa_id: empresaId,
+          legajo: fila.legajo,
+          apellido: fila.apellido,
+          nombre: fila.nombre || fila.apellido,
+          celular: fila.celular || `SIN_CEL_${fila.legajo}`,
+          identificacion: fila.identificacion || null,
+          domicilio: fila.domicilio || null,
+          email: fila.email || null,
+          sector: fila.sector || null,
+          fecha_ingreso: fila.fecha_ingreso ? new Date(fila.fecha_ingreso) : null,
+          estado: "ACTIVO",
+        },
+      })
+    )
+  )
+
+  // Asignar jornadas a los nuevos en paralelo (son nuevos — no tienen jornada previa, se omite el updateMany)
+  await Promise.all(
+    nuevos.map((colab, i) => {
+      const jornadaIdFinal = getJornadaId(data.creados[i])
+      if (!jornadaIdFinal) return Promise.resolve()
+      return prisma.colaboradorJornada.create({
+        data: { colaborador_id: colab.id, jornada_id: jornadaIdFinal, fecha_desde: new Date() },
+      })
+    })
+  )
+
+  // Actualizar colaboradores existentes en paralelo
+  let actualizados = 0
+  const resultadosUpdate = await Promise.all(
+    data.actualizados.map(async (fila) => {
+      const id = fila.legajo
+        ? (mapaIdPorLegajo.get(fila.legajo) ?? (fila.identificacion ? mapaIdPorDni.get(fila.identificacion) : undefined))
+        : (fila.identificacion ? mapaIdPorDni.get(fila.identificacion) : undefined)
+      if (!id) return false
+
+      await prisma.colaborador.update({
+        where: { id },
+        data: {
+          apellido: fila.apellido,
+          nombre: fila.nombre || fila.apellido,
+          ...(fila.identificacion && { identificacion: fila.identificacion }),
+          ...(fila.domicilio && { domicilio: fila.domicilio }),
+          ...(fila.celular && { celular: fila.celular }),
+          ...(fila.email && { email: fila.email }),
+          ...(fila.sector && { sector: fila.sector }),
+          ...(fila.fecha_ingreso && { fecha_ingreso: new Date(fila.fecha_ingreso) }),
+          estado: "ACTIVO",
+          deleted_at: null,
+        },
+      })
+
+      const jornadaIdFinal = getJornadaId(fila)
+      if (jornadaIdFinal) {
+        // Cerrar jornada anterior y abrir la nueva (paralelo con otros colabs — distinto colaborador_id)
+        await prisma.colaboradorJornada.updateMany({
+          where: { colaborador_id: id, fecha_hasta: null },
+          data: { fecha_hasta: new Date() },
+        })
+        await prisma.colaboradorJornada.create({
+          data: { colaborador_id: id, jornada_id: jornadaIdFinal, fecha_desde: new Date() },
+        })
+      }
+      return true
+    })
+  )
+  actualizados = resultadosUpdate.filter(Boolean).length
+
+  let desactivados = 0
   if (data.desactivarIds.length > 0) {
     const result = await prisma.colaborador.updateMany({
       where: { id: { in: data.desactivarIds }, empresa_id: empresaId },
@@ -186,7 +214,7 @@ async function confirmarAsociados(
     desactivados = result.count
   }
 
-  return Response.json({ ok: true, creados, actualizados, desactivados })
+  return Response.json({ ok: true, creados: nuevos.length, actualizados, desactivados })
 }
 
 async function confirmarServicios(
@@ -204,43 +232,57 @@ async function confirmarServicios(
   })
   const colabPorLegajo = new Map(colaboradores.map((c) => [c.legajo!, c.id]))
 
-  let actualizados = 0
+  // Precargar jornadas activas de todos los colaboradores afectados de una vez
+  const colabIds = data.asignaciones
+    .map((a) => colabPorLegajo.get(a.legajo))
+    .filter((id): id is string => !!id)
 
-  for (const asignacion of data.asignaciones) {
-    const colaboradorId = colabPorLegajo.get(asignacion.legajo)
-    if (!colaboradorId) continue
+  const jornadasExistentes = await prisma.colaboradorJornada.findMany({
+    where: { colaborador_id: { in: colabIds }, fecha_hasta: null },
+    select: { colaborador_id: true, jornada_id: true },
+  })
+  const jornadaPorColab = new Map(jornadasExistentes.map((j) => [j.colaborador_id, j.jornada_id]))
 
-    // Actualizar sector con el objetivo principal
-    const sectorPrincipal = asignacion.objetivos[0] ?? null
-    if (sectorPrincipal) {
-      await prisma.colaborador.update({
-        where: { id: colaboradorId },
-        data: { sector: sectorPrincipal },
-      })
-    }
+  // Procesar asignaciones en paralelo
+  const resultados = await Promise.all(
+    data.asignaciones.map(async (asignacion) => {
+      const colaboradorId = colabPorLegajo.get(asignacion.legajo)
+      if (!colaboradorId) return false
 
-    // Asignar jornada del punto correspondiente a cada objetivo
-    for (const objetivo of asignacion.objetivos) {
-      const punto = puntos.find(
-        (p) =>
-          p.nombre.toLowerCase().includes(objetivo.toLowerCase()) ||
-          objetivo.toLowerCase().includes(p.nombre.toLowerCase())
-      )
-      const jornadaId = punto?.jornadas[0]?.id
-      if (!jornadaId) continue
-
-      const existe = await prisma.colaboradorJornada.findFirst({
-        where: { colaborador_id: colaboradorId, jornada_id: jornadaId, fecha_hasta: null },
-      })
-      if (!existe) {
-        await prisma.colaboradorJornada.create({
-          data: { colaborador_id: colaboradorId, jornada_id: jornadaId, fecha_desde: new Date() },
+      const sectorPrincipal = asignacion.objetivos[0] ?? null
+      if (sectorPrincipal) {
+        await prisma.colaborador.update({
+          where: { id: colaboradorId },
+          data: { sector: sectorPrincipal },
         })
       }
-    }
 
-    actualizados++
-  }
+      for (const objetivo of asignacion.objetivos) {
+        const punto = puntos.find(
+          (p) =>
+            p.nombre.toLowerCase().includes(objetivo.toLowerCase()) ||
+            objetivo.toLowerCase().includes(p.nombre.toLowerCase())
+        )
+        const jornadaId = punto?.jornadas[0]?.id
+        if (!jornadaId) continue
 
+        const yaAsignada = jornadaPorColab.get(colaboradorId) === jornadaId
+        if (!yaAsignada) {
+          // Verificar en DB para evitar duplicados (puede haber cambiado desde la precarga)
+          const existe = await prisma.colaboradorJornada.findFirst({
+            where: { colaborador_id: colaboradorId, jornada_id: jornadaId, fecha_hasta: null },
+          })
+          if (!existe) {
+            await prisma.colaboradorJornada.create({
+              data: { colaborador_id: colaboradorId, jornada_id: jornadaId, fecha_desde: new Date() },
+            })
+          }
+        }
+      }
+      return true
+    })
+  )
+
+  const actualizados = resultados.filter(Boolean).length
   return Response.json({ ok: true, actualizados })
 }
