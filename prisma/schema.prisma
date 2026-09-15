@@ -182,7 +182,9 @@ model PuntoFichaje {
   radio_metros Int      @default(200)
   qr_token           String   @unique @default(uuid())
   operaciones_token  String   @unique @default(uuid())
-  activo       Boolean  @default(true)
+  activo             Boolean  @default(true)
+  descanso_activo    Boolean  @default(false)
+  descanso_inicio    DateTime?
   created_at   DateTime @default(now())
   updated_at   DateTime @updatedAt
 

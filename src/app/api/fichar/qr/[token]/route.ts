@@ -15,6 +15,8 @@ export async function GET(
       activo: true,
       empresa_id: true,
       operaciones_token: true,
+      descanso_activo: true,
+      descanso_inicio: true,
       empresa: {
         select: { nombre: true, logo_url: true, slug: true, modulo_operaciones: true },
       },

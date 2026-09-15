@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { MapPin, Plus, Pencil, Trash2, QrCode, Users, Upload, Eraser } from "lucide-react"
+import { MapPin, Plus, Pencil, Trash2, QrCode, Users, Upload, Eraser, Coffee } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PuntoDialog } from "@/components/puntos/punto-dialog"
@@ -45,6 +45,7 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
   const [verJornadasId, setVerJornadasId] = useState<string | null>(null)
   const [limpiando, setLimpiando] = useState(false)
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
+  const [toggleandoDescansoId, setToggleandoDescansoId] = useState<string | null>(null)
 
   async function limpiarPuntos() {
     const ok = confirm(
@@ -165,6 +166,36 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
                   >
                     <QrCode size={13} />
                     Ver QR
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    title={p.descanso_activo ? "Desactivar descanso grupal" : "Activar descanso grupal"}
+                    disabled={toggleandoDescansoId === p.id}
+                    className={`h-8 w-8 p-0 ${p.descanso_activo ? "text-amber-500 border-amber-300 bg-amber-50 hover:bg-amber-100" : "text-gray-400 hover:text-amber-500"}`}
+                    onClick={async () => {
+                      setToggleandoDescansoId(p.id)
+                      try {
+                        const res = await fetch(`/api/puntos/${p.id}`, {
+                          method: "PUT",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({ descanso_activo: !p.descanso_activo }),
+                        })
+                        if (!res.ok) {
+                          const data = await res.json() as { error?: string }
+                          toast.error(data.error ?? "Error al cambiar descanso")
+                          return
+                        }
+                        toast.success(p.descanso_activo ? "Descanso desactivado" : "Descanso grupal activado")
+                        router.refresh()
+                      } catch {
+                        toast.error("Error de conexión")
+                      } finally {
+                        setToggleandoDescansoId(null)
+                      }
+                    }}
+                  >
+                    <Coffee size={13} />
                   </Button>
                   <Button
                     variant="outline"

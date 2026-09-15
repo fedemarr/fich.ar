@@ -9,6 +9,7 @@ const schema = z.object({
   latitud: z.number().min(-90).max(90).optional(),
   longitud: z.number().min(-180).max(180).optional(),
   radio_metros: z.number().min(50).max(2000).optional(),
+  descanso_activo: z.boolean().optional(),
 })
 
 export async function PUT(
@@ -23,9 +24,18 @@ export async function PUT(
   const parsed = schema.safeParse(body)
   if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
 
+  const { descanso_activo, ...rest } = parsed.data
+  const updateData = {
+    ...rest,
+    ...(descanso_activo !== undefined && {
+      descanso_activo,
+      descanso_inicio: descanso_activo ? new Date() : null,
+    }),
+  }
+
   const punto = await prisma.puntoFichaje.updateMany({
     where: { id, empresa_id: session.user.empresaId },
-    data: parsed.data,
+    data: updateData,
   })
 
   if (punto.count === 0) return NextResponse.json({ error: "No encontrado" }, { status: 404 })

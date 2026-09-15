@@ -10,6 +10,8 @@ interface PuntoInfo {
   nombre: string
   empresa_id: string
   operaciones_token: string
+  descanso_activo: boolean
+  descanso_inicio: string | null
   empresa: { nombre: string; logo_url: string | null; slug: string; modulo_operaciones: boolean }
 }
 
@@ -476,6 +478,18 @@ export default function FicharPage() {
         )}
         <p className="text-blue-100 text-xs mt-2 capitalize">{fechaHoy} · {horaActual}</p>
       </div>
+
+      {punto?.descanso_activo && (
+        <div className="bg-amber-500 text-white px-5 py-3 flex items-center justify-center gap-2">
+          <Coffee size={16} />
+          <span className="text-sm font-semibold">
+            Descanso grupal en curso
+            {punto.descanso_inicio && (
+              <> · desde {new Date(punto.descanso_inicio).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" })}</>
+            )}
+          </span>
+        </div>
+      )}
 
       <div className="flex-1 flex items-start justify-center px-5 py-8">
         <div className="w-full max-w-sm space-y-4">
