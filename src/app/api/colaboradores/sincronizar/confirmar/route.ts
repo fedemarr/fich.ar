@@ -51,14 +51,20 @@ export async function POST(req: Request): Promise<Response> {
   const parsed = BodySchema.safeParse(await req.json())
   if (!parsed.success) return Response.json({ error: "Datos inválidos" }, { status: 400 })
 
-  let resp: Response
-  if (parsed.data.tipo === "asociados") {
-    resp = await confirmarAsociados(parsed.data, empresaId)
-  } else {
-    resp = await confirmarServicios(parsed.data, empresaId)
+  try {
+    let resp: Response
+    if (parsed.data.tipo === "asociados") {
+      resp = await confirmarAsociados(parsed.data, empresaId)
+    } else {
+      resp = await confirmarServicios(parsed.data, empresaId)
+    }
+    invalidateTag(tags.colaboradores(empresaId))
+    return resp
+  } catch (e) {
+    const msg = e instanceof Error ? e.message : "Error interno al sincronizar"
+    console.error("[confirmar-colaboradores]", msg)
+    return Response.json({ error: msg }, { status: 500 })
   }
-  invalidateTag(tags.colaboradores(empresaId))
-  return resp
 }
 
 // Busca una jornada existente en ese punto con el mismo horario, o crea una nueva (L-V presencial)
