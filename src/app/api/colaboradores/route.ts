@@ -29,11 +29,23 @@ export async function POST(req: Request) {
 
   const { jornada_id, email, legajo, sector, domicilio, identificacion, ...rest } = parsed.data
   const empresaId = session.user.empresaId
+  const celularNormalizado = normalizarCelular(rest.celular)
+
+  const existente = await prisma.colaborador.findFirst({
+    where: { empresa_id: empresaId, celular: celularNormalizado, deleted_at: null },
+    select: { id: true, nombre: true, apellido: true },
+  })
+  if (existente) {
+    return NextResponse.json(
+      { error: `Ya existe un colaborador con ese celular: ${existente.apellido} ${existente.nombre}` },
+      { status: 409 }
+    )
+  }
 
   const colaborador = await prisma.colaborador.create({
     data: {
       ...rest,
-      celular: normalizarCelular(rest.celular),
+      celular: celularNormalizado,
       email: email || null,
       legajo: legajo || null,
       sector: sector || null,
