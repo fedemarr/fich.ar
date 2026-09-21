@@ -175,6 +175,12 @@ export default async function NovedadesPage({
       const esPresenteConFichada = presencias.has(key)
       const novedad = novedadesMap.get(key)
 
+      // No mostrar inasistencia si el colaborador aún no tenía jornada ese día
+      const jornadaDesde = colab.jornadas[0]?.fecha_desde
+      if (jornadaDesde && fechaARG(jornadaDesde) > diaStr) continue
+      // Tampoco si ingresó después de ese día
+      if (colab.fecha_ingreso && fechaARG(new Date(colab.fecha_ingreso)) > diaStr) continue
+
       // Para días anteriores a ayer: solo mostrar si no tiene fichada
       if (i >= 2 && esPresenteConFichada) continue
 
