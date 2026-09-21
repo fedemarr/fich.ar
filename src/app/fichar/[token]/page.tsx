@@ -12,7 +12,7 @@ interface PuntoInfo {
   operaciones_token: string
   descanso_activo: boolean
   descanso_inicio: string | null
-  empresa: { nombre: string; logo_url: string | null; slug: string; modulo_operaciones: boolean }
+  empresa: { nombre: string; logo_url: string | null; slug: string; modulo_operaciones: boolean; descanso_wa: boolean }
 }
 
 interface DescansoEstado {
@@ -630,36 +630,38 @@ export default function FicharPage() {
                     <span className="font-bold text-xl">Registrar Salida</span>
                   </button>
 
-                  {/* Botones de descanso */}
-                  {descanso?.activo ? (
-                    <button
-                      onClick={() => void terminarDescanso()}
-                      disabled={accionandoDescanso}
-                      className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-60 text-white rounded-2xl p-5 flex flex-col items-center gap-1.5 transition-colors shadow-sm"
-                    >
-                      <Coffee size={28} />
-                      <span className="font-bold text-lg">Terminar descanso</span>
-                      {descanso.hora_inicio && (
-                        <span className="text-amber-100 text-xs">Desde las {descanso.hora_inicio}</span>
-                      )}
-                    </button>
-                  ) : !descanso?.usado ? (
-                    <button
-                      onClick={() => void tomarDescanso()}
-                      disabled={accionandoDescanso}
-                      className="w-full bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:opacity-60 text-white rounded-2xl p-5 flex flex-col items-center gap-1.5 transition-colors shadow-sm"
-                    >
-                      <Coffee size={28} />
-                      <span className="font-bold text-lg">Tomar descanso</span>
-                      <span className="text-amber-100 text-xs">30 minutos · 1 vez por jornada</span>
-                    </button>
-                  ) : descanso.hora_inicio && descanso.hora_fin ? (
-                    <div className="bg-gray-50 rounded-2xl p-4 text-center border border-gray-100">
-                      <Coffee size={20} className="text-gray-400 mx-auto mb-1" />
-                      <p className="text-gray-500 text-sm font-medium">Descanso tomado hoy</p>
-                      <p className="text-gray-400 text-xs">{descanso.hora_inicio} → {descanso.hora_fin} · {descanso.duracion_min} min</p>
-                    </div>
-                  ) : null}
+                  {/* Botones de descanso — solo si la empresa lo tiene habilitado */}
+                  {(punto?.empresa.descanso_wa ?? true) && (
+                    descanso?.activo ? (
+                      <button
+                        onClick={() => void terminarDescanso()}
+                        disabled={accionandoDescanso}
+                        className="w-full bg-amber-500 hover:bg-amber-600 active:bg-amber-700 disabled:opacity-60 text-white rounded-2xl p-5 flex flex-col items-center gap-1.5 transition-colors shadow-sm"
+                      >
+                        <Coffee size={28} />
+                        <span className="font-bold text-lg">Terminar descanso</span>
+                        {descanso.hora_inicio && (
+                          <span className="text-amber-100 text-xs">Desde las {descanso.hora_inicio}</span>
+                        )}
+                      </button>
+                    ) : !descanso?.usado ? (
+                      <button
+                        onClick={() => void tomarDescanso()}
+                        disabled={accionandoDescanso}
+                        className="w-full bg-amber-400 hover:bg-amber-500 active:bg-amber-600 disabled:opacity-60 text-white rounded-2xl p-5 flex flex-col items-center gap-1.5 transition-colors shadow-sm"
+                      >
+                        <Coffee size={28} />
+                        <span className="font-bold text-lg">Tomar descanso</span>
+                        <span className="text-amber-100 text-xs">30 minutos · 1 vez por jornada</span>
+                      </button>
+                    ) : descanso?.hora_inicio && descanso.hora_fin ? (
+                      <div className="bg-gray-50 rounded-2xl p-4 text-center border border-gray-100">
+                        <Coffee size={20} className="text-gray-400 mx-auto mb-1" />
+                        <p className="text-gray-500 text-sm font-medium">Descanso tomado hoy</p>
+                        <p className="text-gray-400 text-xs">{descanso.hora_inicio} → {descanso.hora_fin} · {descanso.duracion_min} min</p>
+                      </div>
+                    ) : null
+                  )}
                 </div>
               )}
 

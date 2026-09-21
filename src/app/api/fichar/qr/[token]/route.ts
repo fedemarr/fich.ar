@@ -18,7 +18,7 @@ export async function GET(
       descanso_activo: true,
       descanso_inicio: true,
       empresa: {
-        select: { nombre: true, logo_url: true, slug: true, modulo_operaciones: true },
+        select: { nombre: true, logo_url: true, slug: true, modulo_operaciones: true, descanso_wa: true },
       },
     },
   })
