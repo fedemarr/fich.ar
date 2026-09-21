@@ -264,16 +264,29 @@ async function manejarMensaje(from: string, msg: WAMessage) {
 
       // Cualquier otro mensaje: mostrar menú de opciones
       const hoy = new Date().toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" }).split("/").reverse().join("-")
-      const descansoHoy = await prisma.descanso.findFirst({
-        where: {
-          colaborador_id: estado.colaborador_id,
-          empresa_id: estado.empresa_id,
-          inicio: { gte: new Date(hoy + "T00:00:00.000Z"), lte: new Date(hoy + "T23:59:59.999Z") },
-        },
-      })
+      const [descansoHoy, empresaConfig] = await Promise.all([
+        prisma.descanso.findFirst({
+          where: {
+            colaborador_id: estado.colaborador_id,
+            empresa_id: estado.empresa_id,
+            inicio: { gte: new Date(hoy + "T00:00:00.000Z"), lte: new Date(hoy + "T23:59:59.999Z") },
+          },
+        }),
+        prisma.empresa.findUnique({
+          where: { id: estado.empresa_id },
+          select: { descanso_wa: true },
+        }),
+      ])
+      const descansoHabilitado = empresaConfig?.descanso_wa ?? true
       const descansoActivo = descansoHoy && !descansoHoy.fin
 
-      if (descansoActivo) {
+      if (!descansoHabilitado) {
+        await enviarBotones({
+          to,
+          body: "¿Qué querés hacer?",
+          buttons: [{ id: "WA_SALIDA", title: "Registrar salida 🚪" }],
+        })
+      } else if (descansoActivo) {
         await enviarBotones({
           to,
           body: "☕ Estás en descanso. ¿Qué querés hacer?",
@@ -292,13 +305,10 @@ async function manejarMensaje(from: string, msg: WAMessage) {
           ],
         })
       } else {
-        // Ya usó el descanso
         await enviarBotones({
           to,
           body: "¿Qué querés hacer?",
-          buttons: [
-            { id: "WA_SALIDA", title: "Registrar salida 🚪" },
-          ],
+          buttons: [{ id: "WA_SALIDA", title: "Registrar salida 🚪" }],
         })
       }
       await redis.set(`wa:state:${from}`, { ...estado, timestamp: Date.now() }, { ex: TTL_POST_ENTRADA })
