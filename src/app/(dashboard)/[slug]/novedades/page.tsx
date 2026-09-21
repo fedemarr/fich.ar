@@ -130,7 +130,7 @@ export default async function NovedadesPage({
         es_valida: true,
         ...(colaboradoresFiltroIds ? { colaborador_id: { in: colaboradoresFiltroIds } } : {}),
       },
-      select: { colaborador_id: true, timestamp: true, tipo: true, analisis: true },
+      select: { colaborador_id: true, timestamp: true, tipo: true, analisis: true, punto_fichaje_id: true },
     }),
   ])
 
@@ -248,14 +248,34 @@ export default async function NovedadesPage({
   }
 
   // Horas trabajadas en el mes + detalle de horarios por día
+  // Para empleados con múltiples servicios por día: suma pares por punto (no span primera-última)
   const fichadasPorDia = new Map<string, { entradas: Date[]; salidas: Date[] }>()
+  const parcesPorPunto = new Map<string, { entradas: Date[]; salidas: Date[] }>()
   for (const f of fichadasMesRaw) {
     const fechaStr = fechaARG(f.timestamp)
-    const key = `${f.colaborador_id}|${fechaStr}`
-    const entry = fichadasPorDia.get(key) ?? { entradas: [], salidas: [] }
-    if (f.tipo === "ENTRADA") entry.entradas.push(f.timestamp)
-    else if (f.tipo === "SALIDA") entry.salidas.push(f.timestamp)
-    fichadasPorDia.set(key, entry)
+    const dayKey = `${f.colaborador_id}|${fechaStr}`
+    const puntoKey = `${f.colaborador_id}|${fechaStr}|${f.punto_fichaje_id ?? "x"}`
+    const dayEntry = fichadasPorDia.get(dayKey) ?? { entradas: [], salidas: [] }
+    const puntoEntry = parcesPorPunto.get(puntoKey) ?? { entradas: [], salidas: [] }
+    if (f.tipo === "ENTRADA") {
+      dayEntry.entradas.push(f.timestamp)
+      puntoEntry.entradas.push(f.timestamp)
+    } else if (f.tipo === "SALIDA") {
+      dayEntry.salidas.push(f.timestamp)
+      puntoEntry.salidas.push(f.timestamp)
+    }
+    fichadasPorDia.set(dayKey, dayEntry)
+    parcesPorPunto.set(puntoKey, puntoEntry)
+  }
+  const minutosPorDia = new Map<string, number>()
+  for (const [puntoKey, { entradas, salidas }] of parcesPorPunto) {
+    if (entradas.length === 0 || salidas.length === 0) continue
+    const [colabId, fechaStr] = puntoKey.split("|")
+    const dayKey = `${colabId}|${fechaStr}`
+    const entrada = new Date(Math.min(...entradas.map((d) => d.getTime())))
+    const salida = new Date(Math.max(...salidas.map((d) => d.getTime())))
+    const mins = Math.round((salida.getTime() - entrada.getTime()) / 60000)
+    if (mins > 0 && mins < 720) minutosPorDia.set(dayKey, (minutosPorDia.get(dayKey) ?? 0) + mins)
   }
   const minutosMes: Record<string, number> = {}
   const fichadasDetalle: Record<string, { entrada?: string; salida?: string; minutos?: number }> = {}
@@ -263,14 +283,12 @@ export default async function NovedadesPage({
     const colabId = key.split("|")[0]
     const primeraEntrada = entradas.length ? new Date(Math.min(...entradas.map((d) => d.getTime()))) : undefined
     const ultimaSalida = salidas.length ? new Date(Math.max(...salidas.map((d) => d.getTime()))) : undefined
-    const mins = primeraEntrada && ultimaSalida
-      ? Math.round((ultimaSalida.getTime() - primeraEntrada.getTime()) / 60000)
-      : undefined
-    if (mins && mins > 0 && mins < 1440) minutosMes[colabId] = (minutosMes[colabId] ?? 0) + mins
+    const mins = minutosPorDia.get(key)
+    if (mins) minutosMes[colabId] = (minutosMes[colabId] ?? 0) + mins
     fichadasDetalle[key] = {
       entrada: primeraEntrada ? formatHoraARG(primeraEntrada) : undefined,
       salida: ultimaSalida ? formatHoraARG(ultimaSalida) : undefined,
-      minutos: mins && mins > 0 && mins < 1440 ? mins : undefined,
+      minutos: mins,
     }
   }
 

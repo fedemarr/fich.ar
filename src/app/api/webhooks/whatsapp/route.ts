@@ -172,11 +172,35 @@ async function manejarMensaje(from: string, msg: WAMessage) {
 
     // Paso: post-entrada — menú de descanso/salida
     if (estado.paso === "post_entrada" && estado.colaborador_id) {
-      // Si escanea un nuevo QR en este estado, lo reseteamos
+      // Si escanea un nuevo QR en este estado: cerrar la entrada actual y abrir la nueva
       const textoRaw = extractTexto(msg).trim()
       if (/FICHAR\s+\S+/i.test(textoRaw)) {
+        const ahoraAutoClose = new Date()
+        const puntoAnterior = await prisma.puntoFichaje.findUnique({
+          where: { id: estado.punto_id },
+          select: { nombre: true },
+        })
+        await prisma.fichada.create({
+          data: {
+            empresa_id: estado.empresa_id,
+            colaborador_id: estado.colaborador_id,
+            punto_fichaje_id: estado.punto_id,
+            tipo: "SALIDA",
+            metodo: "QR_WHATSAPP",
+            timestamp: ahoraAutoClose,
+            es_valida: true,
+            nota_manual: "Cierre automático al fichar en nuevo servicio",
+            analisis: "SALIDA_EN_TIEMPO",
+          },
+        })
+        const horaAutoClose = ahoraAutoClose.toLocaleTimeString("es-AR", {
+          hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires",
+        })
+        await enviarTexto({
+          to,
+          body: `🚪 Salida de *${puntoAnterior?.nombre ?? "servicio anterior"}* registrada automáticamente a las ${horaAutoClose}.\n\nIniciando nueva jornada...`,
+        })
         await delEstadoBot(from)
-        // dejar que caiga al flujo "sin sesión" relanzando
         await manejarMensaje(from, msg)
         return
       }
@@ -435,6 +459,61 @@ async function procesarFichada(
   }
 
   const ahora = new Date()
+
+  // Verificar si hay una entrada abierta hoy en cualquier punto (soporte multi-jornada)
+  if (tipo === "ENTRADA") {
+    const hoyArg = ahora.toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" }).split("/").reverse().join("-")
+    const ultimaFichadaHoy = await prisma.fichada.findFirst({
+      where: {
+        colaborador_id: colaboradorId,
+        empresa_id: empresaId,
+        timestamp: { gte: new Date(hoyArg + "T00:00:00.000Z") },
+        es_valida: true,
+      },
+      orderBy: { timestamp: "desc" },
+      select: { tipo: true, punto_fichaje_id: true },
+    })
+
+    if (ultimaFichadaHoy?.tipo === "ENTRADA") {
+      if (ultimaFichadaHoy.punto_fichaje_id === puntoId) {
+        // Misma ubicación: ya hay entrada registrada aquí
+        await enviarTexto({
+          to,
+          body: `⚠️ Ya tenés una entrada registrada en *${punto.nombre}*.\nEscaneá el QR nuevamente y elegí *Salida* para cerrar la jornada.`,
+        })
+        return
+      } else {
+        // Otro servicio: auto-cerrar la entrada anterior y continuar
+        const puntoAnteriorId = ultimaFichadaHoy.punto_fichaje_id
+        if (puntoAnteriorId) {
+          const puntoAnterior = await prisma.puntoFichaje.findUnique({
+            where: { id: puntoAnteriorId },
+            select: { nombre: true },
+          })
+          await prisma.fichada.create({
+            data: {
+              empresa_id: empresaId,
+              colaborador_id: colaboradorId,
+              punto_fichaje_id: puntoAnteriorId,
+              tipo: "SALIDA",
+              metodo: "QR_WHATSAPP",
+              timestamp: ahora,
+              es_valida: true,
+              nota_manual: "Cierre automático al fichar en nuevo servicio",
+              analisis: "SALIDA_EN_TIEMPO",
+            },
+          })
+          const horaAutoClose = ahora.toLocaleTimeString("es-AR", {
+            hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires",
+          })
+          await enviarTexto({
+            to,
+            body: `🚪 Salida de *${puntoAnterior?.nombre ?? "servicio anterior"}* registrada a las ${horaAutoClose}.\n\nIniciando nueva jornada en *${punto.nombre}*...`,
+          })
+        }
+      }
+    }
+  }
 
   // Cruzar con proyección mensual del mes actual
   const mes = ahora.getMonth() + 1
