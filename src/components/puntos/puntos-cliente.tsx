@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { MapPin, Plus, Pencil, Trash2, QrCode, Users, Upload, Eraser, Coffee } from "lucide-react"
+import { MapPin, Plus, Pencil, Trash2, QrCode, Users, Upload, Eraser, Coffee, Search } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PuntoDialog } from "@/components/puntos/punto-dialog"
@@ -46,6 +46,7 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
   const [limpiando, setLimpiando] = useState(false)
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
   const [toggleandoDescansoId, setToggleandoDescansoId] = useState<string | null>(null)
+  const [busqueda, setBusqueda] = useState("")
 
   async function limpiarPuntos() {
     const ok = confirm(
@@ -114,13 +115,34 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
         </div>
       </div>
 
+      {puntos.length > 0 && (
+        <div className="relative">
+          <Search size={15} className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none" />
+          <input
+            type="text"
+            placeholder="Buscar punto..."
+            value={busqueda}
+            onChange={(e) => setBusqueda(e.target.value)}
+            className="w-full pl-9 pr-4 py-2 text-sm border border-gray-200 rounded-lg bg-white focus:outline-none focus:ring-2 focus:ring-[#2563EB]/20 focus:border-[#2563EB]"
+          />
+        </div>
+      )}
+
       <div className="grid gap-4 md:grid-cols-2">
         {puntos.length === 0 ? (
           <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-12 text-center text-gray-400">
             No hay puntos de fichaje configurados
           </div>
-        ) : (
-          puntos.map((p) => {
+        ) : (() => {
+          const puntosFiltrados = busqueda.trim()
+            ? puntos.filter((p) => p.nombre.toLowerCase().includes(busqueda.toLowerCase()))
+            : puntos
+          if (puntosFiltrados.length === 0) return (
+            <div className="col-span-2 bg-white rounded-xl border border-gray-200 p-8 text-center text-gray-400 text-sm">
+              No se encontraron puntos con ese nombre
+            </div>
+          )
+          return puntosFiltrados.map((p) => {
             const totalColabs = p.jornadas.reduce((acc, j) => acc + j.colaboradores.length, 0)
             return (
               <div key={p.id} className="bg-white rounded-xl border border-gray-200 p-5 space-y-4">
@@ -235,7 +257,7 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
               </div>
             )
           })
-        )}
+        })()}
       </div>
 
       <PuntoDialog
