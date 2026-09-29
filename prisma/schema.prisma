@@ -100,6 +100,12 @@ model Empresa {
   ejecuciones_proc   EjecucionProcedimiento[]
   ejecuciones_tarea  EjecucionTarea[]
   fotos_op           FotoOperacion[]
+  fichas_sector      FichaSector[]
+  sectores           Sector[]
+  rutinas_diarias    RutinaDiaria[]
+  rondas_muestreo    RondaMuestreo[]
+  verificaciones_sector VerificacionSector[]
+  reclamos           Reclamo[]
 
   @@map("empresas")
 }
@@ -120,6 +126,8 @@ model Usuario {
   empresa           Empresa        @relation(fields: [empresa_id], references: [id])
   fichadas_manuales Fichada[]      @relation("FichadaManualUsuario")
   puntos_asignados  UsuarioPunto[]
+  rondas_muestreo   RondaMuestreo[]
+  verificaciones    VerificacionSector[] @relation("VerificacionSupervisor")
 
   @@index([empresa_id])
   @@map("usuarios")
@@ -167,6 +175,8 @@ model Colaborador {
   descansos      Descanso[]
   ejecuciones_tarea EjecucionTarea[]
   fotos_op          FotoOperacion[]
+  rutinas_diarias   RutinaDiaria[]
+  reclamos_asignados Reclamo[]        @relation("ReclamoColaborador")
 
   @@index([empresa_id])
   @@index([celular])
@@ -505,8 +515,10 @@ model Sede {
   created_at DateTime @default(now())
   updated_at DateTime @updatedAt
 
-  empresa Empresa        @relation(fields: [empresa_id], references: [id])
-  puntos  PuntoFichaje[]
+  empresa         Empresa         @relation(fields: [empresa_id], references: [id])
+  puntos          PuntoFichaje[]
+  sectores        Sector[]
+  rondas_muestreo RondaMuestreo[]
 
   @@index([empresa_id])
   @@map("sedes")
@@ -522,9 +534,10 @@ model Turno {
   created_at  DateTime @default(now())
   updated_at  DateTime @updatedAt
 
-  empresa        Empresa                  @relation(fields: [empresa_id], references: [id])
-  procedimientos Procedimiento[]
-  ejecuciones    EjecucionProcedimiento[]
+  empresa         Empresa                  @relation(fields: [empresa_id], references: [id])
+  procedimientos  Procedimiento[]
+  ejecuciones     EjecucionProcedimiento[]
+  rutinas_diarias RutinaDiaria[]
 
   @@index([empresa_id])
   @@map("turnos")
@@ -669,4 +682,158 @@ model FotoOperacion {
   @@index([empresa_id])
   @@index([ejecucion_tarea_id])
   @@map("fotos_operaciones")
+}
+
+// ─── MÓDULO OPERACIONES v2 — Control por muestreo ────────────────────────────
+
+model FichaSector {
+  id                     String   @id @default(uuid())
+  empresa_id             String
+  tipo                   String
+  puntos_revision        Json
+  instruccion_foto       String?
+  foto_ok_url            String?
+  foto_mal_url           String?
+  fallas_graves          Json?
+  fallas_leves           Json?
+  controles_presenciales Json
+  umbral_aprobacion      Int      @default(80)
+  activo                 Boolean  @default(true)
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+
+  empresa  Empresa   @relation(fields: [empresa_id], references: [id])
+  sectores Sector[]
+
+  @@index([empresa_id])
+  @@map("fichas_sector")
+}
+
+model Sector {
+  id              String   @id @default(uuid())
+  empresa_id      String
+  sede_id         String
+  ficha_id        String?
+  nombre          String
+  qr_sector_token String   @unique @default(uuid())
+  activo          Boolean  @default(true)
+  created_at      DateTime @default(now())
+  updated_at      DateTime @updatedAt
+
+  empresa        Empresa              @relation(fields: [empresa_id], references: [id])
+  sede           Sede                 @relation(fields: [sede_id], references: [id])
+  ficha          FichaSector?         @relation(fields: [ficha_id], references: [id])
+  rutinas        RutinaDiaria[]
+  verificaciones VerificacionSector[]
+  reclamos       Reclamo[]
+
+  @@index([empresa_id])
+  @@index([sede_id])
+  @@index([qr_sector_token])
+  @@map("sectores")
+}
+
+model RutinaDiaria {
+  id             String   @id @default(uuid())
+  empresa_id     String
+  sector_id      String
+  colaborador_id String
+  turno_id       String?
+  fecha          DateTime @db.Date
+  hora_escaneo   DateTime
+  estado         String   @default("PENDIENTE")
+  created_at     DateTime @default(now())
+  updated_at     DateTime @updatedAt
+
+  empresa     Empresa     @relation(fields: [empresa_id], references: [id])
+  sector      Sector      @relation(fields: [sector_id], references: [id])
+  colaborador Colaborador @relation(fields: [colaborador_id], references: [id])
+  turno       Turno?      @relation(fields: [turno_id], references: [id])
+
+  @@unique([sector_id, colaborador_id, fecha])
+  @@index([empresa_id])
+  @@index([empresa_id, fecha])
+  @@map("rutinas_diarias")
+}
+
+model RondaMuestreo {
+  id               String   @id @default(uuid())
+  empresa_id       String
+  sede_id          String
+  supervisor_id    String
+  fecha            DateTime @db.Date
+  semilla          String
+  cantidad_sectores Int
+  estado           String   @default("EN_CURSO")
+  created_at       DateTime @default(now())
+  updated_at       DateTime @updatedAt
+
+  empresa        Empresa              @relation(fields: [empresa_id], references: [id])
+  sede           Sede                 @relation(fields: [sede_id], references: [id])
+  supervisor     Usuario              @relation(fields: [supervisor_id], references: [id])
+  verificaciones VerificacionSector[]
+
+  @@index([empresa_id])
+  @@index([empresa_id, fecha])
+  @@map("rondas_muestreo")
+}
+
+model VerificacionSector {
+  id                     String   @id @default(uuid())
+  empresa_id             String
+  ronda_id               String
+  sector_id              String
+  supervisor_id          String
+  foto_url               String?
+  foto_hash              String?
+  foto_timestamp         DateTime?
+  foto_latitud           Float?
+  foto_longitud          Float?
+  puntaje_ia             Int?
+  observacion_ia         String?
+  falla_grave_ia         Boolean  @default(false)
+  controles_presenciales Json?
+  resultado_final        String?
+  contradijo_ia          Boolean  @default(false)
+  created_at             DateTime @default(now())
+  updated_at             DateTime @updatedAt
+
+  empresa    Empresa        @relation(fields: [empresa_id], references: [id])
+  ronda      RondaMuestreo  @relation(fields: [ronda_id], references: [id])
+  sector     Sector         @relation(fields: [sector_id], references: [id])
+  supervisor Usuario        @relation("VerificacionSupervisor", fields: [supervisor_id], references: [id])
+
+  @@index([empresa_id])
+  @@index([ronda_id])
+  @@index([sector_id])
+  @@map("verificaciones_sector")
+}
+
+model Reclamo {
+  id                    String    @id @default(uuid())
+  empresa_id            String
+  sector_id             String
+  tipo                  String
+  descripcion           String?
+  hora_aviso            DateTime  @default(now())
+  colaborador_id        String?
+  foto_antes_url        String?
+  foto_antes_hash       String?
+  foto_despues_url      String?
+  foto_despues_hash     String?
+  puntaje_ia_despues    Int?
+  hora_cierre           DateTime?
+  tiempo_resolucion_min Int?
+  estado                String    @default("ABIERTO")
+  created_at            DateTime  @default(now())
+  updated_at            DateTime  @updatedAt
+
+  empresa     Empresa      @relation(fields: [empresa_id], references: [id])
+  sector      Sector       @relation(fields: [sector_id], references: [id])
+  colaborador Colaborador? @relation("ReclamoColaborador", fields: [colaborador_id], references: [id])
+
+  @@index([empresa_id])
+  @@index([sector_id])
+  @@index([empresa_id, estado])
+  @@map("reclamos")
 }
