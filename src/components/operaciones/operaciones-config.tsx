@@ -662,7 +662,7 @@ function QrOperacionesDialog({
   onClose: () => void
 }) {
   const svgRef = useRef<SVGSVGElement>(null)
-  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://app.fich.ar"
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://fich-ar.lat"
   const url = `${appUrl}/op/${punto.operaciones_token}`
 
   function svgToPngDataUrl(size: number): Promise<string> {

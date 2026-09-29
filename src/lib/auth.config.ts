@@ -32,6 +32,8 @@ export const authConfig: NextAuthConfig = {
       if (pathname.startsWith("/fichar/")) return true
       if (pathname.startsWith("/op/")) return true
       if (pathname.startsWith("/api/webhooks")) return true
+      // Panel de estadísticas público por link secreto (se valida por stats_token)
+      if (pathname.startsWith("/stats/")) return true
 
       const isAuthPage = pathname === "/login"
 
