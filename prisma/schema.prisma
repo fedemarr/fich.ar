@@ -75,6 +75,7 @@ model Empresa {
   logo_url             String?
   activa               Boolean   @default(true)
   modulo_operaciones   Boolean   @default(false)
+  operaciones_v2       Boolean   @default(false)
   fichaje_libre        Boolean   @default(false)
   recordatorios_wa     Boolean   @default(true)
   descanso_wa          Boolean   @default(true)
