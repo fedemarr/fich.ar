@@ -6,7 +6,7 @@ import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { Settings, Building2, User, Users, Plus, Trash2, Shield, Upload, X } from "lucide-react"
+import { Settings, Building2, User, Users, Plus, Trash2, Shield, Upload, X, BarChart3, Copy, Check } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -18,6 +18,7 @@ interface Empresa {
   nombre: string
   slug: string
   logo_url: string | null
+  stats_token?: string | null
 }
 
 interface UsuarioBasico {
@@ -91,6 +92,42 @@ function TabButton({ active, onClick, icon: Icon, label }: {
       <Icon size={15} />
       {label}
     </button>
+  )
+}
+
+function StatsLinkCard({ token }: { token: string }) {
+  const [copiado, setCopiado] = useState(false)
+  const url = `${typeof window !== "undefined" ? window.location.origin : "https://fich-ar.lat"}/stats/${token}`
+
+  function copiar() {
+    navigator.clipboard.writeText(url).then(() => {
+      setCopiado(true)
+      setTimeout(() => setCopiado(false), 2000)
+    })
+  }
+
+  return (
+    <div className="border-t border-gray-100 pt-5 space-y-3">
+      <div className="flex items-center gap-2">
+        <BarChart3 size={16} className="text-[#E8593C]" />
+        <h2 className="text-sm font-semibold text-gray-800">Panel de estadísticas</h2>
+      </div>
+      <p className="text-xs text-gray-400">
+        Compartí este link con tu cliente para que vea el estado del servicio en tiempo real. Solo quien tenga el link puede verlo.
+      </p>
+      <div className="flex items-center gap-2">
+        <div className="flex-1 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-xs text-gray-500 truncate font-mono">
+          {url}
+        </div>
+        <button
+          onClick={copiar}
+          className="flex items-center gap-1.5 px-3 py-2 rounded-lg bg-[#E8593C] hover:bg-[#D04828] text-white text-xs font-semibold transition-colors shrink-0"
+        >
+          {copiado ? <Check size={13} /> : <Copy size={13} />}
+          {copiado ? "Copiado" : "Copiar"}
+        </button>
+      </div>
+    </div>
   )
 }
 
@@ -286,6 +323,9 @@ export function ConfiguracionCliente({ empresa, usuario, usuarios: usuariosInici
               {loadEmp ? "Guardando..." : "Guardar cambios"}
             </Button>
           </form>
+
+          {/* Link de estadísticas */}
+          {empresa.stats_token && <StatsLinkCard token={empresa.stats_token} />}
         </div>
       )}
 

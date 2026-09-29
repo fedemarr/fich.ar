@@ -77,6 +77,7 @@ model Empresa {
   modulo_operaciones   Boolean   @default(false)
   operaciones_v2       Boolean   @default(false)
   fichaje_libre        Boolean   @default(false)
+  stats_token          String    @unique @default(uuid())
   recordatorios_wa     Boolean   @default(true)
   descanso_wa          Boolean   @default(true)
   created_at           DateTime  @default(now())

@@ -17,7 +17,7 @@ export default async function ConfiguracionPage({
   const [empresa, usuario, usuarios] = await Promise.all([
     prisma.empresa.findUnique({
       where: { id: empresaId },
-      select: { id: true, nombre: true, slug: true, logo_url: true },
+      select: { id: true, nombre: true, slug: true, logo_url: true, stats_token: true },
     }),
     prisma.usuario.findUnique({
       where: { id: session.user.id },
