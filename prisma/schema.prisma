@@ -106,6 +106,7 @@ model Empresa {
   rondas_muestreo    RondaMuestreo[]
   verificaciones_sector VerificacionSector[]
   reclamos           Reclamo[]
+  supervisiones      Supervision[]
 
   @@map("empresas")
 }
@@ -119,6 +120,7 @@ model Usuario {
   rol                    RolUsuario @default(ADMIN)
   activo                 Boolean    @default(true)
   puede_gestionar_puntos Boolean    @default(false)
+  identificacion         String?
   created_at             DateTime   @default(now())
   updated_at             DateTime   @updatedAt
   deleted_at             DateTime?
@@ -128,6 +130,7 @@ model Usuario {
   puntos_asignados  UsuarioPunto[]
   rondas_muestreo   RondaMuestreo[]
   verificaciones    VerificacionSector[] @relation("VerificacionSupervisor")
+  supervisiones     Supervision[]
 
   @@index([empresa_id])
   @@map("usuarios")
@@ -207,6 +210,7 @@ model PuntoFichaje {
   supervisores      UsuarioPunto[]
   tareas_op         Tarea[]
   procedimientos    Procedimiento[]
+  supervisiones     Supervision[]
 
   @@index([empresa_id])
   @@index([qr_token])
@@ -836,4 +840,26 @@ model Reclamo {
   @@index([sector_id])
   @@index([empresa_id, estado])
   @@map("reclamos")
+}
+
+// ─── SUPERVISIONES ────────────────────────────────────────────────────────────
+
+model Supervision {
+  id               String   @id @default(uuid())
+  empresa_id       String
+  punto_fichaje_id String
+  usuario_id       String
+  timestamp        DateTime @default(now())
+  estado           String   // "ok" | "novedad"
+  checklist_json   Json
+  observaciones    String?
+
+  empresa       Empresa      @relation(fields: [empresa_id], references: [id])
+  punto_fichaje PuntoFichaje @relation(fields: [punto_fichaje_id], references: [id])
+  supervisor    Usuario      @relation(fields: [usuario_id], references: [id])
+
+  @@index([empresa_id])
+  @@index([punto_fichaje_id])
+  @@index([empresa_id, timestamp])
+  @@map("supervisiones")
 }

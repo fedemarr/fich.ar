@@ -48,6 +48,47 @@ export async function POST(req: Request) {
       where: { identificacion: dniLimpio, empresa_id: punto.empresa_id, estado: "ACTIVO", deleted_at: null },
     })
   }
+  // 2b. Si no encontró colaborador y hay DNI, buscar supervisor con ese DNI asignado a este punto
+  if (!colaborador && dni) {
+    const dniLimpio = dni.replace(/\./g, "").trim()
+    const usuarioSupervisor = await prisma.usuario.findFirst({
+      where: {
+        identificacion: dniLimpio,
+        empresa_id: punto.empresa_id,
+        rol: "SUPERVISOR",
+        activo: true,
+        deleted_at: null,
+        puntos_asignados: { some: { punto_fichaje_id: punto.id } },
+      },
+      select: { id: true, nombre: true },
+    })
+    if (usuarioSupervisor) {
+      // Validar GPS también para supervisores
+      const distSup = calcularDistanciaMetros(latitud, longitud, punto.latitud, punto.longitud)
+      if (distSup > punto.radio_metros) {
+        return NextResponse.json(
+          {
+            error: "Ubicación fuera de rango",
+            distancia: Math.round(distSup),
+            radio: punto.radio_metros,
+            punto_lat: punto.latitud,
+            punto_lon: punto.longitud,
+            usuario_lat: latitud,
+            usuario_lon: longitud,
+          },
+          { status: 400 }
+        )
+      }
+      return NextResponse.json({
+        ok: true,
+        es_supervisor: true,
+        supervisor_id: usuarioSupervisor.id,
+        supervisor_nombre: usuarioSupervisor.nombre,
+        punto_nombre: punto.nombre,
+      })
+    }
+  }
+
   if (!colaborador) {
     return NextResponse.json({ error: "Colaborador no encontrado", needsDni: true }, { status: 404 })
   }

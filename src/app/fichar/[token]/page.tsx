@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
-import { MapPin, LogIn, LogOut, CheckCircle2, XCircle, Loader2, User, Coffee } from "lucide-react"
+import { MapPin, LogIn, LogOut, CheckCircle2, XCircle, Loader2, User, Coffee, ClipboardCheck, AlertCircle } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface PuntoInfo {
@@ -36,6 +36,15 @@ interface ColaboradorInfo {
   apellido: string
 }
 
+interface SupervisorInfo {
+  id: string
+  nombre: string
+}
+
+interface SupervisionOk {
+  estado: "ok" | "novedad"
+}
+
 type Estado =
   | "cargando"
   | "token-invalido"
@@ -45,6 +54,8 @@ type Estado =
   | "eligiendo"
   | "fichando"
   | "confirmado"
+  | "supervisando"
+  | "supervision-confirmada"
   | "error-gps"
   | "error-generico"
 
@@ -66,6 +77,15 @@ export default function FicharPage() {
   const [dniError, setDniError] = useState("")
   const [fichada, setFichada] = useState<FichadaOk | null>(null)
   const [descanso, setDescanso] = useState<DescansoEstado | null>(null)
+  const [supervisor, setSupervisor] = useState<SupervisorInfo | null>(null)
+  const [supervisionOk, setSupervisionOk] = useState<SupervisionOk | null>(null)
+  // Checklist supervisión
+  const [svEstado, setSvEstado] = useState<"ok" | "novedad">("ok")
+  const [svLimpieza, setSvLimpieza] = useState(false)
+  const [svInsumos, setSvInsumos] = useState(false)
+  const [svPersonal, setSvPersonal] = useState(false)
+  const [svObservaciones, setSvObservaciones] = useState("")
+  const [svGuardando, setSvGuardando] = useState(false)
   const [accionandoDescanso, setAccionandoDescanso] = useState(false)
   const [errorGps, setErrorGps] = useState<{
     distancia: number
@@ -298,6 +318,9 @@ export default function FicharPage() {
       usuario_lon?: number
       colaborador?: ColaboradorInfo
       next_tipo?: "ENTRADA" | "SALIDA" | null
+      es_supervisor?: boolean
+      supervisor_id?: string
+      supervisor_nombre?: string
     }
 
     if (res.status === 400 && data.distancia != null) {
@@ -310,6 +333,13 @@ export default function FicharPage() {
       setDniError("DNI no encontrado en el sistema")
       return
     }
+    // Supervisor identificado → ir directo al formulario de supervisión
+    if (data.ok && data.es_supervisor && data.supervisor_id) {
+      detenerGPS()
+      setSupervisor({ id: data.supervisor_id, nombre: data.supervisor_nombre ?? "" })
+      setEstado("supervisando")
+      return
+    }
     if (data.ok && data.colaborador) {
       localStorage.setItem(STORAGE_ID, data.colaborador.id)
       localStorage.setItem(STORAGE_NOMBRE, data.colaborador.nombre)
@@ -320,6 +350,30 @@ export default function FicharPage() {
       if (data.next_tipo === "SALIDA" || data.next_tipo === null) {
         void cargarDescanso(data.colaborador.id, punto!.empresa_id)
       }
+    }
+  }
+
+  async function guardarSupervision() {
+    if (!supervisor || !punto) return
+    setSvGuardando(true)
+    try {
+      const res = await fetch("/api/supervisiones", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          qr_token: token,
+          supervisor_id: supervisor.id,
+          estado: svEstado,
+          checklist_json: { limpieza: svLimpieza, insumos: svInsumos, personal: svPersonal },
+          observaciones: svObservaciones || undefined,
+        }),
+      })
+      const data = await res.json() as { ok?: boolean; error?: string }
+      if (!res.ok) { setSvGuardando(false); return }
+      setSupervisionOk({ estado: svEstado })
+      setEstado("supervision-confirmada")
+    } catch {
+      setSvGuardando(false)
     }
   }
 
@@ -751,6 +805,94 @@ export default function FicharPage() {
               >
                 Volver al inicio
               </button>
+            </div>
+          )}
+
+          {/* ── SUPERVISANDO ── */}
+          {estado === "supervisando" && supervisor && (
+            <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5">
+              <div className="text-center">
+                <div className="w-14 h-14 rounded-full bg-indigo-50 flex items-center justify-center mx-auto mb-2">
+                  <ClipboardCheck size={26} className="text-indigo-600" />
+                </div>
+                <p className="text-gray-800 font-semibold text-lg">Ronda de Supervisión</p>
+                <p className="text-gray-400 text-sm mt-0.5">{supervisor.nombre} · {punto?.nombre}</p>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">ESTADO DEL SERVICIO</p>
+                <div className="grid grid-cols-2 gap-2">
+                  <button
+                    onClick={() => setSvEstado("ok")}
+                    className={`rounded-xl py-3 font-semibold text-sm border-2 transition-colors ${svEstado === "ok" ? "bg-green-500 text-white border-green-500" : "border-gray-200 text-gray-600 hover:border-green-300"}`}
+                  >
+                    ✓ En condiciones
+                  </button>
+                  <button
+                    onClick={() => setSvEstado("novedad")}
+                    className={`rounded-xl py-3 font-semibold text-sm border-2 transition-colors ${svEstado === "novedad" ? "bg-amber-500 text-white border-amber-500" : "border-gray-200 text-gray-600 hover:border-amber-300"}`}
+                  >
+                    ⚠️ Con novedades
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">CHECKLIST RÁPIDO</p>
+                <div className="space-y-2">
+                  {[
+                    { key: "limpieza" as const, val: svLimpieza, set: setSvLimpieza, label: "Rutina de limpieza completada" },
+                    { key: "insumos"  as const, val: svInsumos,  set: setSvInsumos,  label: "Materiales e insumos suficientes" },
+                    { key: "personal" as const, val: svPersonal, set: setSvPersonal, label: "Personal presente conforme dotación" },
+                  ].map(item => (
+                    <label key={item.key} className="flex items-center gap-3 cursor-pointer p-2.5 rounded-xl border border-gray-100 hover:bg-gray-50">
+                      <input
+                        type="checkbox"
+                        checked={item.val}
+                        onChange={e => item.set(e.target.checked)}
+                        className="w-4 h-4 accent-indigo-600"
+                      />
+                      <span className="text-sm text-gray-700">{item.label}</span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">OBSERVACIONES <span className="font-normal text-gray-400">(opcional)</span></p>
+                <textarea
+                  value={svObservaciones}
+                  onChange={e => setSvObservaciones(e.target.value)}
+                  placeholder="Detallá faltantes, novedades o comentarios..."
+                  rows={3}
+                  className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 resize-none"
+                />
+              </div>
+
+              <Button
+                onClick={() => void guardarSupervision()}
+                disabled={svGuardando}
+                className="w-full h-12 bg-indigo-600 hover:bg-indigo-700 text-white font-semibold rounded-xl"
+              >
+                {svGuardando ? <Loader2 size={18} className="animate-spin mr-2" /> : <ClipboardCheck size={18} className="mr-2" />}
+                Registrar supervisión
+              </Button>
+            </div>
+          )}
+
+          {/* ── SUPERVISIÓN CONFIRMADA ── */}
+          {estado === "supervision-confirmada" && supervisionOk && supervisor && (
+            <div className="bg-white rounded-2xl shadow-sm border border-green-100 p-10 text-center space-y-3">
+              <CheckCircle2 size={56} className="mx-auto text-green-500" />
+              <div>
+                <p className="text-gray-800 font-bold text-xl">Supervisión registrada</p>
+                <p className="text-gray-400 text-sm mt-1">{punto?.nombre}</p>
+              </div>
+              <div className={`inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold ${supervisionOk.estado === "ok" ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"}`}>
+                {supervisionOk.estado === "ok" ? "✓ En condiciones" : "⚠️ Con novedades"}
+              </div>
+              <p className="text-gray-500 text-sm pt-1">{supervisor.nombre}</p>
+              <p className="text-gray-400 text-sm">Podés cerrar esta página</p>
             </div>
           )}
 
