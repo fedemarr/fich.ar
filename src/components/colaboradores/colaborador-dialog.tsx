@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { CalendarDays, BellOff } from "lucide-react"
+import { CalendarDays, BellOff, ShieldCheck } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -25,6 +25,7 @@ const schema = z.object({
   domicilio: z.string().optional(),
   estado: z.enum(["ACTIVO", "INACTIVO", "DESACTIVADO"]),
   omitir_recordatorio: z.boolean(),
+  es_supervisor: z.boolean(),
   jornada_id: z.string().optional(),
 })
 
@@ -103,10 +104,11 @@ export function ColaboradorDialog({
         domicilio: colaborador.domicilio ?? "",
         estado: colaborador.estado,
         omitir_recordatorio: colaborador.omitir_recordatorio ?? false,
+        es_supervisor: colaborador.es_supervisor ?? false,
         jornada_id: colaborador.jornadas[0]?.jornada_id ?? "",
       })
     } else {
-      reset({ estado: "ACTIVO", nombre: "", apellido: "", celular: "", identificacion: "", omitir_recordatorio: false })
+      reset({ estado: "ACTIVO", nombre: "", apellido: "", celular: "", identificacion: "", omitir_recordatorio: false, es_supervisor: false })
     }
   }, [colaborador, open, reset])
 
@@ -291,6 +293,38 @@ export function ColaboradorDialog({
               >
                 <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
                   watch("omitir_recordatorio") ? "translate-x-4" : "translate-x-0"
+                }`} />
+              </button>
+            </div>
+
+            {/* Rol supervisor */}
+            <div
+              className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+                watch("es_supervisor")
+                  ? "border-indigo-200 bg-indigo-50"
+                  : "border-gray-200 bg-gray-50"
+              }`}
+            >
+              <div className="flex items-center gap-2">
+                <ShieldCheck size={15} className={watch("es_supervisor") ? "text-indigo-500 shrink-0" : "text-gray-400 shrink-0"} />
+                <div>
+                  <p className="text-sm font-medium text-gray-700">Es supervisor</p>
+                  <p className="text-xs text-gray-400">
+                    Al escanear un QR registra una ronda de supervisión en vez de fichar
+                  </p>
+                </div>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                aria-checked={watch("es_supervisor")}
+                onClick={() => setValue("es_supervisor", !watch("es_supervisor"))}
+                className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                  watch("es_supervisor") ? "bg-indigo-600" : "bg-gray-200"
+                }`}
+              >
+                <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                  watch("es_supervisor") ? "translate-x-4" : "translate-x-0"
                 }`} />
               </button>
             </div>

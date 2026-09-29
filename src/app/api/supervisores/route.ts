@@ -8,6 +8,7 @@ const crearSchema = z.object({
   nombre: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(6),
+  identificacion: z.string().optional(),
   puedeGestionarPuntos: z.boolean().default(false),
   puntosIds: z.array(z.string()).min(1),
 })
@@ -37,6 +38,7 @@ export async function GET() {
       id: s.id,
       nombre: s.nombre,
       email: s.email,
+      identificacion: s.identificacion,
       activo: s.activo,
       puedeGestionarPuntos: s.puede_gestionar_puntos,
       puntos: s.puntos_asignados.map((p) => ({
@@ -59,7 +61,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { nombre, email, password, puedeGestionarPuntos, puntosIds } = parsed.data
+  const { nombre, email, password, identificacion, puedeGestionarPuntos, puntosIds } = parsed.data
   const hash = await bcrypt.hash(password, 10)
 
   const supervisor = await prisma.usuario.create({
@@ -68,6 +70,7 @@ export async function POST(req: Request) {
       nombre,
       email,
       password: hash,
+      identificacion: identificacion || null,
       rol: "SUPERVISOR",
       puede_gestionar_puntos: puedeGestionarPuntos,
       puntos_asignados: {

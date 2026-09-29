@@ -6,7 +6,7 @@ import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { Settings, Building2, User, Users, Plus, Trash2, Shield, Upload, X, BarChart3, Copy, Check } from "lucide-react"
+import { Settings, Building2, User, Users, Plus, Trash2, Shield, Upload, X, BarChart3, Copy, Check, RefreshCw } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -97,13 +97,29 @@ function TabButton({ active, onClick, icon: Icon, label }: {
 
 function StatsLinkCard({ token }: { token: string }) {
   const [copiado, setCopiado] = useState(false)
-  const url = `${typeof window !== "undefined" ? window.location.origin : "https://fich-ar.lat"}/stats/${token}`
+  const [tokenActual, setTokenActual] = useState(token)
+  const [regenerando, setRegenerando] = useState(false)
+  const url = `${typeof window !== "undefined" ? window.location.origin : "https://fich-ar.lat"}/stats/${tokenActual}`
 
   function copiar() {
     navigator.clipboard.writeText(url).then(() => {
       setCopiado(true)
       setTimeout(() => setCopiado(false), 2000)
     })
+  }
+
+  async function regenerar() {
+    if (!confirm("¿Generar un link nuevo? El link actual dejará de funcionar inmediatamente.")) return
+    setRegenerando(true)
+    try {
+      const res = await fetch("/api/empresa/stats-token", { method: "POST" })
+      if (res.ok) {
+        const data = await res.json() as { stats_token: string }
+        setTokenActual(data.stats_token)
+      }
+    } finally {
+      setRegenerando(false)
+    }
   }
 
   return (
@@ -127,6 +143,14 @@ function StatsLinkCard({ token }: { token: string }) {
           {copiado ? "Copiado" : "Copiar"}
         </button>
       </div>
+      <button
+        onClick={regenerar}
+        disabled={regenerando}
+        className="flex items-center gap-1.5 text-xs text-gray-400 hover:text-red-500 transition-colors disabled:opacity-50"
+      >
+        <RefreshCw size={12} className={regenerando ? "animate-spin" : ""} />
+        {regenerando ? "Generando..." : "Regenerar link (invalida el anterior)"}
+      </button>
     </div>
   )
 }

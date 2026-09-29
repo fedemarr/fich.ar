@@ -12,7 +12,7 @@ import { MapPin } from "lucide-react"
 
 interface Punto { id: string; nombre: string }
 interface Supervisor {
-  id: string; nombre: string; email: string; activo: boolean
+  id: string; nombre: string; email: string; identificacion?: string | null; activo: boolean
   puedeGestionarPuntos: boolean; puntos: Punto[]
 }
 interface ColaboradorSimple { id: string; nombre: string; apellido: string }
@@ -21,6 +21,7 @@ const schema = z.object({
   nombre: z.string().min(1, "Requerido"),
   email: z.string().email("Email inválido"),
   password: z.string().optional(),
+  identificacion: z.string().optional(),
   activo: z.boolean(),
   puedeGestionarPuntos: z.boolean(),
 })
@@ -47,6 +48,7 @@ export function SupervisorModal({ puntos, colaboradores, supervisor, onClose, on
     defaultValues: {
       nombre: supervisor?.nombre ?? "",
       email: supervisor?.email ?? "",
+      identificacion: supervisor?.identificacion ?? "",
       password: "",
       activo: supervisor?.activo ?? true,
       puedeGestionarPuntos: supervisor?.puedeGestionarPuntos ?? false,
@@ -77,6 +79,7 @@ export function SupervisorModal({ puntos, colaboradores, supervisor, onClose, on
       nombre: data.nombre,
       email: data.email,
       ...(data.password ? { password: data.password } : {}),
+      identificacion: data.identificacion || undefined,
       activo: data.activo,
       puedeGestionarPuntos: data.puedeGestionarPuntos,
       puntosIds: puntosSeleccionados,
@@ -135,6 +138,11 @@ export function SupervisorModal({ puntos, colaboradores, supervisor, onClose, on
               {errors.nombre && <p className="text-xs text-red-500">{errors.nombre.message}</p>}
             </div>
           )}
+
+          <div className="space-y-1">
+            <Label>DNI <span className="text-[#2563EB] text-xs font-medium">— para supervisar por QR</span></Label>
+            <Input placeholder="Sin puntos" inputMode="numeric" {...register("identificacion")} />
+          </div>
 
           <div className="space-y-1">
             <Label>Email</Label>

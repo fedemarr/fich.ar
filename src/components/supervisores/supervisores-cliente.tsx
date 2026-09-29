@@ -5,6 +5,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Pencil, Trash2, MapPin, ShieldCheck } from "lucide-react"
 import { SupervisorModal } from "./supervisor-modal"
+import { HistorialSupervisiones } from "./historial-supervisiones"
 
 interface Punto { id: string; nombre: string }
 interface Supervisor {
@@ -110,6 +111,10 @@ export function SupervisoresCliente({ puntos, colaboradores }: Props) {
           onSaved={() => { cargar(); setModal({ open: false }) }}
         />
       )}
+
+      <div className="border-t border-gray-200 pt-6">
+        <HistorialSupervisiones puntos={puntos} />
+      </div>
     </div>
   )
 }

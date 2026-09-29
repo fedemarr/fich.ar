@@ -16,6 +16,8 @@ const schema = z.object({
   sector: z.string().optional(),
   domicilio: z.string().optional(),
   estado: z.enum(["ACTIVO", "INACTIVO", "DESACTIVADO"]).default("ACTIVO"),
+  omitir_recordatorio: z.boolean().optional().default(false),
+  es_supervisor: z.boolean().optional().default(false),
   jornada_id: z.string().optional(),
 })
 

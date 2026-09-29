@@ -167,6 +167,7 @@ model Colaborador {
   estado                EstadoColaborador @default(ACTIVO)
   fecha_ingreso         DateTime?
   omitir_recordatorio   Boolean           @default(false)
+  es_supervisor         Boolean           @default(false)
   created_at            DateTime          @default(now())
   updated_at            DateTime          @updatedAt
   deleted_at            DateTime?
@@ -182,6 +183,7 @@ model Colaborador {
   fotos_op          FotoOperacion[]
   rutinas_diarias   RutinaDiaria[]
   reclamos_asignados Reclamo[]        @relation("ReclamoColaborador")
+  supervisiones_realizadas Supervision[] @relation("SupervisionColaborador")
 
   @@index([empresa_id])
   @@index([celular])
@@ -847,18 +849,22 @@ model Reclamo {
 // ─── SUPERVISIONES ────────────────────────────────────────────────────────────
 
 model Supervision {
-  id               String   @id @default(uuid())
-  empresa_id       String
-  punto_fichaje_id String
-  usuario_id       String
-  timestamp        DateTime @default(now())
-  estado           String   // "ok" | "novedad"
-  checklist_json   Json
-  observaciones    String?
+  id                      String   @id @default(uuid())
+  empresa_id              String
+  punto_fichaje_id        String
+  usuario_id              String?  // supervisor Usuario (legacy)
+  colaborador_id          String?  // supervisor Colaborador con es_supervisor=true
+  supervisor_nombre       String   // desnormalizado para display rápido
+  timestamp               DateTime @default(now())
+  estado                  String   // "ok" | "novedad"
+  checklist_json          Json
+  observaciones           String?
+  fotos                   String[] @default([])
 
   empresa       Empresa      @relation(fields: [empresa_id], references: [id])
   punto_fichaje PuntoFichaje @relation(fields: [punto_fichaje_id], references: [id])
-  supervisor    Usuario      @relation(fields: [usuario_id], references: [id])
+  usuario       Usuario?     @relation(fields: [usuario_id], references: [id])
+  colaborador   Colaborador? @relation("SupervisionColaborador", fields: [colaborador_id], references: [id])
 
   @@index([empresa_id])
   @@index([punto_fichaje_id])

@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
-import { MapPin, LogIn, LogOut, CheckCircle2, XCircle, Loader2, User, Coffee, ClipboardCheck, AlertCircle } from "lucide-react"
+import { MapPin, LogIn, LogOut, CheckCircle2, XCircle, Loader2, User, Coffee, ClipboardCheck, AlertCircle, Camera } from "lucide-react"
 import { Button } from "@/components/ui/button"
 
 interface PuntoInfo {
@@ -39,6 +39,7 @@ interface ColaboradorInfo {
 interface SupervisorInfo {
   id: string
   nombre: string
+  tipo: "colaborador" | "usuario"
 }
 
 interface SupervisionOk {
@@ -63,6 +64,39 @@ const STORAGE_ID = "fichar_colaborador_id"
 const STORAGE_NOMBRE = "fichar_colaborador_nombre"
 const STORAGE_APELLIDO = "fichar_colaborador_apellido"
 
+function comprimirImagen(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onerror = reject
+    reader.onload = (ev) => {
+      const img = new Image()
+      img.onerror = reject
+      img.onload = () => {
+        const MAX = 1200
+        let { width, height } = img
+        if (width > MAX || height > MAX) {
+          if (width >= height) {
+            height = Math.round((height * MAX) / width)
+            width = MAX
+          } else {
+            width = Math.round((width * MAX) / height)
+            height = MAX
+          }
+        }
+        const canvas = document.createElement("canvas")
+        canvas.width = width
+        canvas.height = height
+        const ctx = canvas.getContext("2d")
+        if (!ctx) { reject(new Error("canvas")); return }
+        ctx.drawImage(img, 0, 0, width, height)
+        resolve(canvas.toDataURL("image/jpeg", 0.82))
+      }
+      img.src = ev.target?.result as string
+    }
+    reader.readAsDataURL(file)
+  })
+}
+
 export default function FicharPage() {
   const { token } = useParams<{ token: string }>()
 
@@ -86,6 +120,8 @@ export default function FicharPage() {
   const [svPersonal, setSvPersonal] = useState(false)
   const [svObservaciones, setSvObservaciones] = useState("")
   const [svGuardando, setSvGuardando] = useState(false)
+  const [svError, setSvError] = useState("")
+  const [svFotos, setSvFotos] = useState<string[]>([])
   const [accionandoDescanso, setAccionandoDescanso] = useState(false)
   const [errorGps, setErrorGps] = useState<{
     distancia: number
@@ -203,6 +239,10 @@ export default function FicharPage() {
           usuario_lon?: number
           error?: string
           next_tipo?: "ENTRADA" | "SALIDA" | null
+          es_supervisor?: boolean
+          supervisor_id?: string
+          supervisor_nombre?: string
+          supervisor_tipo?: "colaborador" | "usuario"
         }
 
         if (res.status === 400 && data.distancia != null) {
@@ -219,6 +259,17 @@ export default function FicharPage() {
           localStorage.removeItem(STORAGE_APELLIDO)
           setColaborador(null)
           setEstado("pedir-dni")
+          return
+        }
+        // Colaborador guardado que además es supervisor → ronda de supervisión, nunca fichaje
+        if (data.ok && data.es_supervisor && data.supervisor_id) {
+          detenerGPS()
+          localStorage.removeItem(STORAGE_ID)
+          localStorage.removeItem(STORAGE_NOMBRE)
+          localStorage.removeItem(STORAGE_APELLIDO)
+          setColaborador(null)
+          setSupervisor({ id: data.supervisor_id, nombre: data.supervisor_nombre ?? "", tipo: data.supervisor_tipo ?? "colaborador" })
+          setEstado("supervisando")
           return
         }
         if (!data.ok) {
@@ -321,6 +372,7 @@ export default function FicharPage() {
       es_supervisor?: boolean
       supervisor_id?: string
       supervisor_nombre?: string
+      supervisor_tipo?: "colaborador" | "usuario"
     }
 
     if (res.status === 400 && data.distancia != null) {
@@ -336,7 +388,7 @@ export default function FicharPage() {
     // Supervisor identificado → ir directo al formulario de supervisión
     if (data.ok && data.es_supervisor && data.supervisor_id) {
       detenerGPS()
-      setSupervisor({ id: data.supervisor_id, nombre: data.supervisor_nombre ?? "" })
+      setSupervisor({ id: data.supervisor_id, nombre: data.supervisor_nombre ?? "", tipo: data.supervisor_tipo ?? "colaborador" })
       setEstado("supervisando")
       return
     }
@@ -356,24 +408,47 @@ export default function FicharPage() {
   async function guardarSupervision() {
     if (!supervisor || !punto) return
     setSvGuardando(true)
+    setSvError("")
     try {
       const res = await fetch("/api/supervisiones", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           qr_token: token,
-          supervisor_id: supervisor.id,
+          ...(supervisor.tipo === "colaborador"
+            ? { colaborador_id: supervisor.id }
+            : { supervisor_id: supervisor.id }),
           estado: svEstado,
           checklist_json: { limpieza: svLimpieza, insumos: svInsumos, personal: svPersonal },
           observaciones: svObservaciones || undefined,
+          ...(svFotos.length > 0 ? { fotos: svFotos } : {}),
         }),
       })
       const data = await res.json() as { ok?: boolean; error?: string }
-      if (!res.ok) { setSvGuardando(false); return }
+      if (!res.ok) {
+        setSvGuardando(false)
+        setSvError(data.error ?? "No se pudo guardar la supervisión")
+        return
+      }
       setSupervisionOk({ estado: svEstado })
       setEstado("supervision-confirmada")
     } catch {
       setSvGuardando(false)
+      setSvError("Error de red al guardar la supervisión")
+    }
+  }
+
+  async function agregarFoto(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0]
+    e.target.value = ""
+    if (!file) return
+    if (svFotos.length >= 3) { setSvError("Máximo 3 fotos por ronda"); return }
+    try {
+      const dataUrl = await comprimirImagen(file)
+      setSvFotos(prev => [...prev, dataUrl])
+      setSvError("")
+    } catch {
+      setSvError("No se pudo procesar la foto")
     }
   }
 
@@ -868,6 +943,47 @@ export default function FicharPage() {
                   className="w-full px-3 py-2.5 rounded-xl border border-gray-200 text-sm text-gray-700 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-400 resize-none"
                 />
               </div>
+
+              <div>
+                <p className="text-xs font-semibold text-gray-500 mb-2">
+                  FOTOS <span className="font-normal text-gray-400">(opcional, máx. 3)</span>
+                </p>
+                <div className="flex gap-2 flex-wrap">
+                  {svFotos.map((f, i) => (
+                    <div key={i} className="relative w-20 h-20 rounded-xl overflow-hidden border border-gray-200">
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
+                      <img src={f} alt={`Foto ${i + 1}`} className="w-full h-full object-cover" />
+                      <button
+                        type="button"
+                        onClick={() => setSvFotos(prev => prev.filter((_, j) => j !== i))}
+                        className="absolute top-0.5 right-0.5 w-5 h-5 rounded-full bg-black/60 text-white flex items-center justify-center"
+                        aria-label="Quitar foto"
+                      >
+                        <XCircle size={14} />
+                      </button>
+                    </div>
+                  ))}
+                  {svFotos.length < 3 && (
+                    <label className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 cursor-pointer text-gray-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors">
+                      <Camera size={20} />
+                      <span className="text-[10px] font-medium">Agregar</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        capture="environment"
+                        onChange={(e) => void agregarFoto(e)}
+                        className="hidden"
+                      />
+                    </label>
+                  )}
+                </div>
+              </div>
+
+              {svError && (
+                <p className="text-sm text-red-600 bg-red-50 border border-red-100 px-3 py-2 rounded-xl">
+                  {svError}
+                </p>
+              )}
 
               <Button
                 onClick={() => void guardarSupervision()}

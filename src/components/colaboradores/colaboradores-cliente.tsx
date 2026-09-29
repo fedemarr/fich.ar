@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Pencil, UserCog, Download, Upload, Trash2, Plus } from "lucide-react"
+import { Users, Pencil, UserCog, Download, Upload, Trash2, Plus, ShieldCheck } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ColaboradorDialog } from "@/components/colaboradores/colaborador-dialog"
 import { EliminarDialog } from "@/components/colaboradores/eliminar-dialog"
@@ -85,6 +85,11 @@ function TablaColaboradores({
                 <div className="flex items-center gap-2 mt-0.5 flex-wrap">
                   {c.legajo && <span className="text-xs text-gray-400 font-mono">{c.legajo}</span>}
                   <span className="text-xs text-gray-500">{c.celular}</span>
+                  {c.es_supervisor && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full px-1.5 py-0.5">
+                      <ShieldCheck size={10} /> Supervisor
+                    </span>
+                  )}
                   {sector && <span className="text-xs text-gray-400 truncate max-w-[120px]">{sector}</span>}
                 </div>
               </div>
@@ -138,6 +143,11 @@ function TablaColaboradores({
                     <span className="font-medium text-gray-800">
                       {c.apellido} {c.nombre}
                     </span>
+                    {c.es_supervisor && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-indigo-700 bg-indigo-50 border border-indigo-200 rounded-full px-1.5 py-0.5 align-middle">
+                        <ShieldCheck size={10} /> Supervisor
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3.5 text-gray-500 font-mono text-xs">{c.legajo ?? "—"}</td>

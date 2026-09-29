@@ -48,7 +48,34 @@ export async function POST(req: Request) {
       where: { identificacion: dniLimpio, empresa_id: punto.empresa_id, estado: "ACTIVO", deleted_at: null },
     })
   }
-  // 2b. Si no encontró colaborador y hay DNI, buscar supervisor con ese DNI asignado a este punto
+  // 2b. Si el colaborador tiene rol supervisor → flujo supervisión, sin fichaje
+  if (colaborador?.es_supervisor) {
+    const distSup = calcularDistanciaMetros(latitud, longitud, punto.latitud, punto.longitud)
+    if (distSup > punto.radio_metros) {
+      return NextResponse.json(
+        {
+          error: "Ubicación fuera de rango",
+          distancia: Math.round(distSup),
+          radio: punto.radio_metros,
+          punto_lat: punto.latitud,
+          punto_lon: punto.longitud,
+          usuario_lat: latitud,
+          usuario_lon: longitud,
+        },
+        { status: 400 }
+      )
+    }
+    return NextResponse.json({
+      ok: true,
+      es_supervisor: true,
+      supervisor_tipo: "colaborador",
+      supervisor_id: colaborador.id,
+      supervisor_nombre: `${colaborador.nombre} ${colaborador.apellido}`,
+      punto_nombre: punto.nombre,
+    })
+  }
+
+  // 2c. Si no encontró colaborador y hay DNI, buscar supervisor (Usuario legacy) con ese DNI asignado a este punto
   if (!colaborador && dni) {
     const dniLimpio = dni.replace(/\./g, "").trim()
     const usuarioSupervisor = await prisma.usuario.findFirst({
@@ -82,6 +109,7 @@ export async function POST(req: Request) {
       return NextResponse.json({
         ok: true,
         es_supervisor: true,
+        supervisor_tipo: "usuario",
         supervisor_id: usuarioSupervisor.id,
         supervisor_nombre: usuarioSupervisor.nombre,
         punto_nombre: punto.nombre,

@@ -8,6 +8,7 @@ const editarSchema = z.object({
   nombre: z.string().min(1),
   email: z.string().email(),
   password: z.string().min(6).optional(),
+  identificacion: z.string().optional(),
   activo: z.boolean(),
   puedeGestionarPuntos: z.boolean(),
   puntosIds: z.array(z.string()).min(1),
@@ -28,7 +29,7 @@ export async function PUT(req: Request, { params }: Params) {
     return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
   }
 
-  const { nombre, email, password, activo, puedeGestionarPuntos, puntosIds } = parsed.data
+  const { nombre, email, password, identificacion, activo, puedeGestionarPuntos, puntosIds } = parsed.data
 
   const existing = await prisma.usuario.findFirst({
     where: { id, empresa_id: session.user.empresaId, rol: "SUPERVISOR", deleted_at: null },
@@ -38,6 +39,7 @@ export async function PUT(req: Request, { params }: Params) {
   const dataUpdate: Record<string, unknown> = {
     nombre,
     email,
+    identificacion: identificacion || null,
     activo,
     puede_gestionar_puntos: puedeGestionarPuntos,
   }
