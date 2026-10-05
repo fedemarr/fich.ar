@@ -2,7 +2,8 @@
 
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { MapPin, Plus, Pencil, Trash2, QrCode, Users, Upload, Eraser, Coffee, Search } from "lucide-react"
+import { MapPin, Plus, Pencil, Trash2, QrCode, Users, Upload, Eraser, Coffee, Search, FileDown } from "lucide-react"
+import { abrirVentanaImpresion, cargarImagenBase64, generarQrPng, imprimirFichas } from "@/lib/ficha-qr"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { PuntoDialog } from "@/components/puntos/punto-dialog"
@@ -47,6 +48,45 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
   const [eliminandoId, setEliminandoId] = useState<string | null>(null)
   const [toggleandoDescansoId, setToggleandoDescansoId] = useState<string | null>(null)
   const [busqueda, setBusqueda] = useState("")
+  const [descargandoTodo, setDescargandoTodo] = useState(false)
+
+  async function descargarTodoPdf() {
+    const termino = busqueda.trim().toLowerCase()
+    const seleccion = puntos.filter((p) => p.activo && (!termino || p.nombre.toLowerCase().includes(termino)))
+    if (seleccion.length === 0) {
+      toast.error("No hay puntos activos para descargar")
+      return
+    }
+    const ventana = abrirVentanaImpresion()
+    if (!ventana) {
+      toast.error("Permití las ventanas emergentes para descargar el PDF")
+      return
+    }
+    setDescargandoTodo(true)
+    try {
+      const appUrl = process.env.NEXT_PUBLIC_APP_URL ?? "https://fich-ar.lat"
+      const logoBase64 = empresaLogoUrl ? await cargarImagenBase64(empresaLogoUrl) : ""
+      const ordenados = [...seleccion].sort((a, b) => a.nombre.localeCompare(b.nombre))
+      const fichas = await Promise.all(ordenados.map(async (p) => {
+        const url = `${appUrl}/fichar/${p.qr_token}`
+        return {
+          nombrePunto: p.nombre,
+          empresaNombre,
+          url,
+          qrDataUrl: await generarQrPng(url, logoBase64, "#000000"),
+          modo: "pwa" as const,
+          conLogo: !!logoBase64,
+        }
+      }))
+      imprimirFichas(ventana, `QR ${empresaNombre}`, fichas, logoBase64)
+      toast.success(`${fichas.length} fichas listas — elegí "Guardar como PDF"`)
+    } catch {
+      ventana.close()
+      toast.error("Error al generar las fichas QR")
+    } finally {
+      setDescargandoTodo(false)
+    }
+  }
 
   async function limpiarPuntos() {
     const ok = confirm(
@@ -86,6 +126,16 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
           >
             <Eraser size={15} />
             <span className="hidden sm:inline">{limpiando ? "Limpiando..." : "Limpiar puntos"}</span>
+          </Button>
+          <Button
+            variant="outline"
+            className="h-9 gap-1.5 text-[#2563EB] border-[#2563EB] hover:bg-[#EFF6FF]"
+            onClick={descargarTodoPdf}
+            disabled={descargandoTodo || puntos.length === 0}
+            title="Descargar todos los QR en PDF"
+          >
+            <FileDown size={15} />
+            <span className="hidden sm:inline">{descargandoTodo ? "Generando..." : "Descargar todo (PDF)"}</span>
           </Button>
           <Button
             variant="outline"

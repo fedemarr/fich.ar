@@ -6,30 +6,13 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Download, Printer, Smartphone, Globe } from "lucide-react"
 import type { PuntoFichaje } from "@/generated/prisma/client"
+import { abrirVentanaImpresion, cargarImagenBase64, imprimirFichas } from "@/lib/ficha-qr"
 
 interface QrDialogProps {
   punto: PuntoFichaje
   empresaNombre: string
   empresaLogoUrl: string | null
   onClose: () => void
-}
-
-// Si ya es data URL la devuelve directamente; si es URL externa la convierte via canvas
-function cargarImagenBase64(url: string): Promise<string> {
-  if (url.startsWith("data:")) return Promise.resolve(url)
-  return new Promise((resolve) => {
-    const img = new Image()
-    img.crossOrigin = "anonymous"
-    img.onload = () => {
-      const canvas = document.createElement("canvas")
-      canvas.width = img.naturalWidth
-      canvas.height = img.naturalHeight
-      canvas.getContext("2d")!.drawImage(img, 0, 0)
-      resolve(canvas.toDataURL("image/png"))
-    }
-    img.onerror = () => resolve("")
-    img.src = url
-  })
 }
 
 export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDialogProps) {
@@ -79,250 +62,17 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
   }
 
   async function imprimirFicha() {
-    const qrDataUrl = await svgToPngDataUrl(600)
-    const nombrePunto = punto.nombre
-
-    // El logo se pasa por referencia al window del popup para evitar embeber base64 enorme en el HTML
-    const logoHtml = logoBase64
-      ? `<div class="logo-wrapper"><img id="__logo__" class="empresa-logo" /></div>`
-      : `<span class="empresa-nombre-text">${empresaNombre}</span>`
-
-    const html = `<!DOCTYPE html>
-<html lang="es">
-<head>
-  <meta charset="UTF-8" />
-  <title>Ficha QR — ${nombrePunto}</title>
-  <style>
-    * { margin: 0; padding: 0; box-sizing: border-box; }
-    @page { size: A4; margin: 0; }
-    body {
-      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-      background: white;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      min-height: 100vh;
-      padding: 20px;
-    }
-    .ficha {
-      width: 500px;
-      background: white;
-      border: 2.5px solid #E5E7EB;
-      border-radius: 20px;
-      overflow: hidden;
-      box-shadow: 0 4px 24px rgba(0,0,0,0.08);
-    }
-    .header {
-      background: #2563EB;
-      padding: 24px 32px 20px;
-      text-align: center;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 10px;
-    }
-    .logo-wrapper {
-      background: white;
-      border-radius: 10px;
-      padding: 8px 16px;
-      display: inline-flex;
-      align-items: center;
-      justify-content: center;
-    }
-    .empresa-logo {
-      height: 44px;
-      max-width: 160px;
-      object-fit: contain;
-    }
-    .empresa-nombre-text {
-      font-size: 20px;
-      font-weight: 800;
-      color: white;
-      letter-spacing: -0.3px;
-    }
-    .logo-fichar {
-      font-size: 12px;
-      font-weight: 500;
-      color: rgba(255,255,255,0.6);
-      letter-spacing: 0.05em;
-    }
-    .punto-nombre {
-      font-size: 15px;
-      font-weight: 600;
-      color: rgba(255,255,255,0.9);
-      background: rgba(255,255,255,0.15);
-      border-radius: 20px;
-      padding: 4px 14px;
-    }
-    .cuerpo {
-      padding: 28px 40px 24px;
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      gap: 20px;
-    }
-    .titulo {
-      font-size: 19px;
-      font-weight: 700;
-      color: #111827;
-      text-align: center;
-      line-height: 1.3;
-    }
-    .titulo em {
-      font-style: normal;
-      color: #2563EB;
-    }
-    .qr-wrap {
-      background: white;
-      border: 3px solid #F3F4F6;
-      border-radius: 16px;
-      padding: 14px;
-    }
-    .qr-wrap img {
-      display: block;
-      width: 210px;
-      height: 210px;
-    }
-    .url {
-      font-size: 10px;
-      color: #9CA3AF;
-      text-align: center;
-      word-break: break-all;
-      margin-top: -6px;
-    }
-    .pasos {
-      width: 100%;
-      background: #F9FAFB;
-      border-radius: 12px;
-      padding: 16px 20px;
-    }
-    .pasos-titulo {
-      font-size: 11px;
-      font-weight: 700;
-      color: #6B7280;
-      text-transform: uppercase;
-      letter-spacing: 0.08em;
-      margin-bottom: 11px;
-    }
-    .paso {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-      margin-bottom: 9px;
-    }
-    .paso:last-child { margin-bottom: 0; }
-    .paso-num {
-      width: 22px;
-      height: 22px;
-      background: #2563EB;
-      color: white;
-      border-radius: 50%;
-      display: flex;
-      align-items: center;
-      justify-content: center;
-      font-size: 11px;
-      font-weight: 700;
-      flex-shrink: 0;
-    }
-    .paso-texto {
-      font-size: 13px;
-      color: #374151;
-      font-weight: 500;
-    }
-    .paso-sub {
-      font-size: 11px;
-      color: #9CA3AF;
-      margin-top: 1px;
-    }
-    .footer {
-      background: #F9FAFB;
-      border-top: 1px solid #E5E7EB;
-      padding: 12px 32px;
-      text-align: center;
-    }
-    .footer p {
-      font-size: 11px;
-      color: #9CA3AF;
-    }
-    .footer strong { color: #2563EB; font-weight: 700; }
-    @media print {
-      body { padding: 0; min-height: unset; }
-      .ficha { box-shadow: none; border: 1.5px solid #E5E7EB; }
-    }
-  </style>
-</head>
-<body>
-  <div class="ficha">
-    <div class="header">
-      ${logoHtml}
-      <span class="logo-fichar">powered by Jornada.OH</span>
-      <span class="punto-nombre">📍 ${nombrePunto}</span>
-    </div>
-    <div class="cuerpo">
-      <p class="titulo">Registrá tu<br/><em>asistencia</em></p>
-      <div class="qr-wrap">
-        <img src="${qrDataUrl}" alt="QR Jornada.OH" />
-      </div>
-      <p class="url">${url}</p>
-      <div class="pasos">
-        <p class="pasos-titulo">¿Cómo fichar?</p>
-        ${modo === "wa" ? `
-        <div class="paso"><div class="paso-num">1</div><div>
-          <div class="paso-texto">Escaneá el QR</div>
-          <div class="paso-sub">Se abre WhatsApp automáticamente</div>
-        </div></div>
-        <div class="paso"><div class="paso-num">2</div><div>
-          <div class="paso-texto">Enviá el mensaje</div>
-          <div class="paso-sub">Tocá "Enviar" en WhatsApp</div>
-        </div></div>
-        <div class="paso"><div class="paso-num">3</div><div>
-          <div class="paso-texto">Elegí Entrada o Salida</div>
-          <div class="paso-sub">Tocá el botón del bot</div>
-        </div></div>
-        <div class="paso"><div class="paso-num">4</div><div>
-          <div class="paso-texto">Compartí tu ubicación</div>
-          <div class="paso-sub">¡Listo! Fichada registrada</div>
-        </div></div>
-        ` : `
-        <div class="paso"><div class="paso-num">1</div><div>
-          <div class="paso-texto">Escaneá el código QR</div>
-          <div class="paso-sub">Con la cámara de tu celular</div>
-        </div></div>
-        <div class="paso"><div class="paso-num">2</div><div>
-          <div class="paso-texto">Ingresá tu DNI</div>
-          <div class="paso-sub">Para identificarte en el sistema</div>
-        </div></div>
-        <div class="paso"><div class="paso-num">3</div><div>
-          <div class="paso-texto">Elegí Entrada o Salida</div>
-          <div class="paso-sub">Tocá el botón que corresponda</div>
-        </div></div>
-        <div class="paso"><div class="paso-num">4</div><div>
-          <div class="paso-texto">Permitís tu ubicación</div>
-          <div class="paso-sub">¡Listo! Tu fichada queda registrada</div>
-        </div></div>
-        `}
-      </div>
-    </div>
-    <div class="footer">
-      <p>Sistema de control de asistencia <strong>Jornada.OH</strong></p>
-    </div>
-  </div>
-  <script>
-    var img = document.getElementById('__logo__');
-    if (img && window.__logo) img.src = window.__logo;
-    window.onload = function() { window.print(); };
-  </script>
-</body>
-</html>`
-
-    const ventana = window.open("", "_blank", "width=700,height=900")
+    const ventana = abrirVentanaImpresion()
     if (!ventana) { alert("Permitir ventanas emergentes para imprimir"); return }
-    // Exponer el logo en el window del popup antes de escribir el HTML
-    if (logoBase64) {
-      (ventana as Window & { __logo: string }).__logo = logoBase64
-    }
-    ventana.document.write(html)
-    ventana.document.close()
+    const qrDataUrl = await svgToPngDataUrl(600)
+    imprimirFichas(ventana, `Ficha QR — ${punto.nombre}`, [{
+      nombrePunto: punto.nombre,
+      empresaNombre,
+      url,
+      qrDataUrl,
+      modo,
+      conLogo: !!logoBase64,
+    }], logoBase64)
   }
 
   const logoSize = 48
