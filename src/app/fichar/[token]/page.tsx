@@ -104,6 +104,7 @@ export default function FicharPage() {
   const [punto, setPunto] = useState<PuntoInfo | null>(null)
   const [colaborador, setColaborador] = useState<ColaboradorInfo | null>(null)
   const [nextTipo, setNextTipo] = useState<"ENTRADA" | "SALIDA" | null>(null)
+  const [turnoAbiertoEn, setTurnoAbiertoEn] = useState<string | null>(null)
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null)
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null)
   const [gpsStatus, setGpsStatus] = useState("")
@@ -239,6 +240,7 @@ export default function FicharPage() {
           usuario_lon?: number
           error?: string
           next_tipo?: "ENTRADA" | "SALIDA" | null
+          turno_abierto_en?: string | null
           es_supervisor?: boolean
           supervisor_id?: string
           supervisor_nombre?: string
@@ -279,6 +281,7 @@ export default function FicharPage() {
           return
         }
         setNextTipo(data.next_tipo ?? null)
+        setTurnoAbiertoEn(data.turno_abierto_en ?? null)
         setEstado("eligiendo")
         // Cargar estado de descanso si ya tiene entrada (nextTipo es SALIDA o null)
         if (data.next_tipo === "SALIDA" || data.next_tipo === null) {
@@ -369,6 +372,7 @@ export default function FicharPage() {
       usuario_lon?: number
       colaborador?: ColaboradorInfo
       next_tipo?: "ENTRADA" | "SALIDA" | null
+      turno_abierto_en?: string | null
       es_supervisor?: boolean
       supervisor_id?: string
       supervisor_nombre?: string
@@ -398,6 +402,7 @@ export default function FicharPage() {
       localStorage.setItem(STORAGE_APELLIDO, data.colaborador.apellido)
       setColaborador(data.colaborador)
       setNextTipo(data.next_tipo ?? null)
+      setTurnoAbiertoEn(data.turno_abierto_en ?? null)
       setEstado("eligiendo")
       if (data.next_tipo === "SALIDA" || data.next_tipo === null) {
         void cargarDescanso(data.colaborador.id, punto!.empresa_id)
@@ -739,7 +744,7 @@ export default function FicharPage() {
                 <div className="bg-white rounded-2xl shadow-sm border border-gray-100 p-8 text-center space-y-2">
                   <CheckCircle2 size={44} className="text-green-400 mx-auto" />
                   <p className="text-gray-800 font-semibold text-lg">Jornada completa</p>
-                  <p className="text-gray-400 text-sm">Ya registraste tu entrada y salida de hoy.</p>
+                  <p className="text-gray-400 text-sm">Ya completaste todos tus turnos de hoy.</p>
                 </div>
               ) : nextTipo === "ENTRADA" ? (
                 <button
@@ -748,6 +753,11 @@ export default function FicharPage() {
                 >
                   <LogIn size={40} />
                   <span className="font-bold text-2xl">Registrar Entrada</span>
+                  {turnoAbiertoEn && (
+                    <span className="text-green-100 text-xs text-center">
+                      Tu entrada en {turnoAbiertoEn} quedó sin salida: se cierra automáticamente
+                    </span>
+                  )}
                 </button>
               ) : (
                 <div className="space-y-3">

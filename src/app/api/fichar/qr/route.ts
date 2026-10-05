@@ -4,6 +4,7 @@ import { calcularDistanciaMetros } from "@/lib/geo"
 import { calcularAnalisis, encontrarJornadaParaFichada } from "@/lib/jornadas"
 import { rateLimitQR } from "@/lib/rate-limit"
 import { hoyARG, inicioDiaARG } from "@/lib/utils"
+import { buscarTurnoAbierto } from "@/lib/turno-abierto"
 
 export async function POST(req: Request) {
   const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() ?? "unknown"
@@ -167,9 +168,11 @@ export async function POST(req: Request) {
   const salidaEnPunto = fichadasEnPunto.some((f) => f.tipo === "SALIDA")
 
   // next_tipo: qué puede fichar a continuación (null = turnos completos)
-  // Clean Paz: alternar por punto, cada punto con su propia entrada→salida.
-  // Resto: 1 entrada + 1 salida por día (comportamiento actual).
+  // Clean Paz (fichaje libre): alternar por punto, cada punto con su propia entrada→salida.
+  // Resto: turnos encadenados — al cerrar un turno con la salida se habilita una nueva entrada,
+  // así quien tiene 2 o más servicios en el día puede fichar todos.
   let next_tipo: "ENTRADA" | "SALIDA" | null
+  const turnoAbierto = esFichajeLibre ? null : await buscarTurnoAbierto(colaborador.id, punto.empresa_id, ahora)
   if (esFichajeLibre) {
     if (!entradaEnPunto && entradasHoy < limiteTurnos) {
       next_tipo = "ENTRADA"
@@ -179,10 +182,14 @@ export async function POST(req: Request) {
       next_tipo = null
     }
   } else {
-    const tieneEntrada = fichadasHoy.some((f) => f.tipo === "ENTRADA")
-    const tieneSalida = fichadasHoy.some((f) => f.tipo === "SALIDA")
-    next_tipo = !tieneEntrada ? "ENTRADA" : !tieneSalida ? "SALIDA" : null
+    // Entrada abierta en otro punto = se olvidó la salida: se ficha entrada acá y el anterior se cierra solo
+    next_tipo = turnoAbierto && turnoAbierto.punto_fichaje_id === punto.id ? "SALIDA" : "ENTRADA"
   }
+
+  const puntoTurnoAbierto =
+    turnoAbierto?.punto_fichaje_id && turnoAbierto.punto_fichaje_id !== punto.id
+      ? await prisma.puntoFichaje.findUnique({ where: { id: turnoAbierto.punto_fichaje_id }, select: { id: true, nombre: true } })
+      : null
 
   // 4c. Modo solo identificar: devolver colaborador + qué puede fichar
   if (solo_identificar) {
@@ -190,6 +197,7 @@ export async function POST(req: Request) {
       ok: true,
       colaborador: { id: colaborador.id, nombre: colaborador.nombre, apellido: colaborador.apellido },
       next_tipo,
+      turno_abierto_en: puntoTurnoAbierto?.nombre ?? null,
     })
   }
 
@@ -215,16 +223,42 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Ya registraste tu salida en este punto hoy" }, { status: 400 })
     }
   } else {
-    const tieneEntrada = fichadasHoy.some((f) => f.tipo === "ENTRADA")
-    const tieneSalida = fichadasHoy.some((f) => f.tipo === "SALIDA")
-    if (tipoFichada === "ENTRADA" && tieneEntrada) {
-      return NextResponse.json({ error: "Ya registraste tu entrada hoy" }, { status: 400 })
+    const abiertoAca = turnoAbierto !== null && turnoAbierto.punto_fichaje_id === punto.id
+    if (tipoFichada === "ENTRADA" && abiertoAca) {
+      return NextResponse.json({ error: "Ya tenés una entrada abierta en este punto. Registrá tu salida." }, { status: 400 })
     }
-    if (tipoFichada === "SALIDA" && tieneSalida) {
-      return NextResponse.json({ error: "Ya registraste tu salida hoy" }, { status: 400 })
+    if (tipoFichada === "SALIDA" && !turnoAbierto) {
+      return NextResponse.json({ error: "No tenés una entrada abierta. Registrá primero tu entrada." }, { status: 400 })
     }
-    if (tipoFichada === "SALIDA" && !tieneEntrada) {
-      return NextResponse.json({ error: "Primero debés registrar tu entrada" }, { status: 400 })
+    if (tipoFichada === "SALIDA" && !abiertoAca) {
+      return NextResponse.json({
+        error: `Tu entrada abierta es en ${puntoTurnoAbierto?.nombre ?? "otro punto"}. Registrá la salida en ese punto.`,
+      }, { status: 400 })
+    }
+  }
+
+  // 5b. Entrada en un servicio nuevo con otro turno sin cerrar: se cierra el anterior automáticamente
+  let cierreAutomatico: { punto: string; hora: string } | null = null
+  if (tipoFichada === "ENTRADA" && turnoAbierto && puntoTurnoAbierto) {
+    const jornadaAnterior = jornadasActivas.find((j) => j.jornada.punto_fichaje_id === puntoTurnoAbierto.id)?.jornada
+    // 1s antes de la nueva entrada para que el orden quede salida → entrada
+    const horaCierre = new Date(ahora.getTime() - 1000)
+    await prisma.fichada.create({
+      data: {
+        empresa_id: punto.empresa_id,
+        colaborador_id: colaborador.id,
+        punto_fichaje_id: puntoTurnoAbierto.id,
+        tipo: "SALIDA",
+        metodo: "QR_WEB",
+        timestamp: horaCierre,
+        analisis: calcularAnalisis(horaCierre, "SALIDA", jornadaAnterior),
+        es_valida: true,
+        nota_manual: "Cierre automático al fichar en nuevo servicio",
+      },
+    })
+    cierreAutomatico = {
+      punto: puntoTurnoAbierto.nombre,
+      hora: horaCierre.toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" }),
     }
   }
 
@@ -293,6 +327,7 @@ export async function POST(req: Request) {
   return NextResponse.json({
     ok: true,
     fichada: { tipo: tipoFichada, hora, analisis, es_cobertura: esCobertura },
+    cierre_automatico: cierreAutomatico,
     colaborador: {
       id: colaborador.id,
       nombre: colaborador.nombre,

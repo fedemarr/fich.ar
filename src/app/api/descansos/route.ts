@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { hoyARG, inicioDiaARG, finDiaARG } from "@/lib/utils"
+import { buscarTurnoAbierto } from "@/lib/turno-abierto"
 
 // GET — listar descansos (admin / manager / supervisor)
 export async function GET(req: Request) {
@@ -58,15 +59,10 @@ export async function iniciarDescanso(colaboradorId: string, empresaId: string) 
   const inicio = inicioDiaARG(hoy)
   const fin = finDiaARG(hoy)
 
-  // Verificar que tiene entrada hoy sin salida
-  const fichadasHoy = await prisma.fichada.findMany({
-    where: { colaborador_id: colaboradorId, empresa_id: empresaId, timestamp: { gte: inicio, lte: fin }, es_valida: true },
-    select: { tipo: true },
-  })
-  const tieneEntrada = fichadasHoy.some((f) => f.tipo === "ENTRADA")
-  const tieneSalida = fichadasHoy.some((f) => f.tipo === "SALIDA")
+  // Tiene que estar trabajando: entrada sin salida (con varios servicios, cuenta el turno actual)
+  const turnoAbierto = await buscarTurnoAbierto(colaboradorId, empresaId, new Date())
 
-  if (!tieneEntrada || tieneSalida) {
+  if (!turnoAbierto) {
     return NextResponse.json({ error: "Solo podés tomar un descanso después de registrar la entrada y antes de la salida" }, { status: 400 })
   }
 
