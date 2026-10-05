@@ -274,7 +274,7 @@ export function ImportarColaboradoresDialog({ open, onClose, onSuccess, jornadas
                         {t === "asociados" ? "Lista de asociados" : "Servicios por operario"}
                       </p>
                       <p className="text-xs text-gray-400">
-                        {t === "asociados" ? "Columnas: Soc. N°, Apellido, DNI, CONTACTO, Sector... (opcional: Punto QR, Hora Entrada, Horas)" : "Columnas: NRO SOC, NOMBRE, OBJETIVO"}
+                        {t === "asociados" ? "Columnas: N° de asociado, Apellido, Nombre, DNI, Celular, Sector... (opcional: Punto QR, Hora Entrada, Horas). En el paso siguiente elegís qué columna es cada dato." : "Columnas: NRO SOC, NOMBRE, OBJETIVO"}
                       </p>
                     </div>
                   </label>
