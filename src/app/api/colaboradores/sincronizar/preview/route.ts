@@ -1,6 +1,8 @@
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { read, utils } from "xlsx"
+import { autodetectarMapeo, mapeoValido, separarNombreCompleto, CAMPOS_MAPEO, type Mapeo } from "@/lib/mapeo-colaboradores"
+import { normalizarLegajo } from "@/lib/legajo"
 
 type RowRaw = Record<string, string | number | boolean | null | undefined>
 
@@ -25,15 +27,6 @@ function col(row: RowRaw, ...keys: string[]): string {
   return ""
 }
 
-// Formato Olimpia: "APELLIDO1 APELLIDO2 NOMBRE1 NOMBRE2"
-// Primeras 2 palabras = apellido compuesto, resto = nombre
-function splitNombre(nombreCompleto: string): { apellido: string; nombre: string } {
-  const partes = nombreCompleto.trim().split(/\s+/).filter(Boolean)
-  if (partes.length <= 1) return { apellido: partes[0] ?? "", nombre: "" }
-  if (partes.length === 2) return { apellido: partes[0], nombre: partes[1] }
-  return { apellido: partes.slice(0, 2).join(" "), nombre: partes.slice(2).join(" ") }
-}
-
 function normalizarCelular(raw: string): string {
   if (!raw) return ""
   const solo = raw.replace(/\D/g, "")
@@ -45,8 +38,8 @@ function normalizarCelular(raw: string): string {
   return `+549${solo}`
 }
 
-function parsearFecha(raw: string | number): string {
-  if (!raw) return ""
+function parsearFecha(raw: string | number | boolean | null | undefined): string {
+  if (raw === null || raw === undefined || raw === "" || typeof raw === "boolean") return ""
   if (typeof raw === "number") {
     // Serial date de Excel
     const date = new Date((raw - 25569) * 86400 * 1000)
@@ -59,7 +52,7 @@ function parsearFecha(raw: string | number): string {
   return str
 }
 
-// Acepta "09:00", "9:00", "9", o serial de Excel ("0.375" tras pasar por col())
+// Acepta "09:00", "9:00", "9", o serial de Excel ("0.375")
 function parsearHora(raw: string): string {
   if (!raw) return ""
   const str = raw.trim()
@@ -113,6 +106,10 @@ export interface FilaAsociado {
   hora_salida?: string
 }
 
+export interface FilaExistente extends FilaAsociado {
+  titular: string
+}
+
 export interface ColabDesactivado {
   id: string
   legajo: string
@@ -120,13 +117,22 @@ export interface ColabDesactivado {
   nombre: string
 }
 
+export interface DuplicadoArchivo {
+  legajo: string
+  nombre: string
+}
+
 export interface PreviewAsociados {
   tipo: "asociados"
   sheets: string[]
   sheet_actual: string
+  columnas: string[]
+  muestra: Record<string, string>[]
+  mapeo: Mapeo
   creados: FilaAsociado[]
-  actualizados: FilaAsociado[]
+  actualizados: FilaExistente[]
   sinCambios: number
+  duplicados_archivo: DuplicadoArchivo[]
   desactivados: ColabDesactivado[]
   sinPuntoQr: string[]
 }
@@ -145,6 +151,20 @@ export interface PreviewServicios {
   asignaciones: FilaServicio[]
   sinColaborador: string[]
   sinPunto: string[]
+}
+
+function parsearMapeo(raw: FormDataEntryValue | null, headers: string[]): Mapeo | null {
+  if (typeof raw !== "string" || !raw) return null
+  let data: unknown
+  try { data = JSON.parse(raw) } catch { return null }
+  if (!data || typeof data !== "object") return null
+  const obj = data as Record<string, unknown>
+  const mapeo: Mapeo = { palabras_apellido: obj.palabras_apellido === 1 ? 1 : 2 }
+  for (const { key } of CAMPOS_MAPEO) {
+    const v = obj[key]
+    if (typeof v === "string" && headers.includes(v)) mapeo[key] = v
+  }
+  return mapeo
 }
 
 export async function POST(req: Request): Promise<Response> {
@@ -183,7 +203,7 @@ export async function POST(req: Request): Promise<Response> {
   let headerRowIndex = 0
   for (let i = 0; i < Math.min(rawRows.length, 10); i++) {
     const rowStr = rawRows[i].join(" ").toLowerCase()
-    if (rowStr.includes("apellido") || rowStr.includes("nombre") || rowStr.includes("soc") || rowStr.includes("dni")) {
+    if (rowStr.includes("apellido") || rowStr.includes("nombre") || rowStr.includes("soc") || rowStr.includes("dni") || rowStr.includes("legajo")) {
       headerRowIndex = i
       break
     }
@@ -202,16 +222,42 @@ export async function POST(req: Request): Promise<Response> {
     return Response.json({ error: "El archivo no tiene filas de datos válidas" }, { status: 400 })
   }
 
-  if (tipo === "asociados") return previewAsociados(rows, empresaId, sheets, sheetToUse)
+  if (tipo === "asociados") {
+    const columnas = headers.filter(Boolean)
+    const mapeo = parsearMapeo(formData.get("mapeo"), columnas) ?? autodetectarMapeo(columnas)
+    return previewAsociados(rows, columnas, mapeo, empresaId, sheets, sheetToUse)
+  }
   return previewServicios(rows, empresaId, sheets, sheetToUse)
+}
+
+function valor(row: RowRaw, columna: string | undefined): string {
+  if (!columna) return ""
+  const v = row[columna]
+  return v === undefined || v === null ? "" : v.toString().trim()
 }
 
 async function previewAsociados(
   rows: RowRaw[],
+  columnas: string[],
+  mapeo: Mapeo,
   empresaId: string,
   sheets: string[],
   sheetActual: string
 ): Promise<Response> {
+  const muestra = rows.slice(0, 3).map((r) => {
+    const fila: Record<string, string> = {}
+    for (const c of columnas) fila[c] = valor(r, c)
+    return fila
+  })
+
+  const base = { tipo: "asociados" as const, sheets, sheet_actual: sheetActual, columnas, muestra, mapeo }
+  const vacio: PreviewAsociados = {
+    ...base, creados: [], actualizados: [], sinCambios: 0, duplicados_archivo: [], desactivados: [], sinPuntoQr: [],
+  }
+
+  // Mapeo incompleto: se devuelve igual para que el usuario lo corrija en el paso de columnas
+  if (mapeoValido(mapeo)) return Response.json(vacio)
+
   const puntos = await prisma.puntoFichaje.findMany({
     where: { empresa_id: empresaId, activo: true },
     select: { id: true, nombre: true },
@@ -219,36 +265,40 @@ async function previewAsociados(
 
   const sinPuntoQrSet = new Set<string>()
   const excelMap = new Map<string, FilaAsociado>()
-  for (const row of rows) {
-    // Soporta: formato clásico (NRO SOC/NOMBRE), formato Olimpia (Soc. N°/Apellido), formulario Google (Nombre y Apellido/DNI)
-    const legajo = col(row, "NRO SOC", "NRO_SOC", "Soc. N°", "Soc N°", "SOC N", "Soc Nro", "N° Soc", "Legajo")
-    const nombreCompleto = col(row, "Nombre y Apellido", "Apellido", "APELLIDO", "NOMBRE", "nombre", "Nombre Completo")
-    const identificacion = col(row, "DNI", "dni").replace(/\./g, "").trim()
+  const duplicados_archivo: DuplicadoArchivo[] = []
 
-    // Necesitamos al menos nombre para importar
-    if (!nombreCompleto) continue
+  for (const row of rows) {
+    let apellido: string
+    let nombre: string
+    if (mapeo.apellido && mapeo.nombre) {
+      apellido = valor(row, mapeo.apellido)
+      nombre = valor(row, mapeo.nombre)
+    } else {
+      const sep = separarNombreCompleto(valor(row, mapeo.nombre_completo), mapeo.palabras_apellido ?? 2)
+      apellido = sep.apellido
+      nombre = sep.nombre
+    }
+    if (!apellido && !nombre) continue
+
+    const legajo = normalizarLegajo(valor(row, mapeo.legajo)) ?? ""
+    const identificacion = valor(row, mapeo.dni).replace(/\./g, "").trim()
 
     // Clave única: legajo si existe, sino DNI, sino nombre normalizado
-    const claveBase = legajo || identificacion || nombreCompleto.toLowerCase().replace(/\s+/g, "_")
-    const clave = legajo ? legajo : (identificacion ? `__dni__${identificacion}` : `__nom__${claveBase}`)
-    if (!clave) continue
+    const clave = legajo
+      ? legajo
+      : identificacion ? `__dni__${identificacion}` : `__nom__${`${apellido} ${nombre}`.toLowerCase().replace(/\s+/g, "_")}`
 
-    const { apellido, nombre } = splitNombre(nombreCompleto || identificacion)
-    const domicilio = col(row, "DOMICILIO", "domicilio")
-    const celularRaw = col(row, "CONTACTO", "contacto", "N° de teléfono personal", "N° de teléfono", "CELULAR", "celular", "Celular", "Telefono")
-    const celular = normalizarCelular(celularRaw)
-    const email = col(row, "MAIL Principal", "MAIL", "mail", "Email", "EMAIL", "Correo", "casilla", "¿Qué casilla")
-    const sectorRaw = col(row, "Sector de Trabajo", "Sector", "SECTOR", "sector")
-    const puesto = col(row, "Puesto de Trabajo", "Puesto", "PUESTO", "puesto", "Cargo", "CARGO")
+    if (excelMap.has(clave)) {
+      if (legajo) duplicados_archivo.push({ legajo, nombre: `${apellido} ${nombre}`.trim() })
+      continue
+    }
+
+    const sectorRaw = valor(row, mapeo.sector)
+    const puesto = valor(row, mapeo.puesto)
     const sector = sectorRaw && puesto ? `${sectorRaw} — ${puesto}` : sectorRaw || puesto
-    const fechaRaw = row["Fecha de Ingreso"] ?? row["FECHA DE INGRESO"] ?? row["fecha_ingreso"] ?? row["Fecha Ingreso"] ?? ""
-    const fecha_ingreso = parsearFecha(fechaRaw as string | number)
 
     // Punto QR + horario (opcional, por fila) — define la jornada del colaborador
-    const puntoQrNombre = col(row, "Punto QR", "PUNTO QR", "Punto", "PUNTO", "Lugar de Trabajo", "Objetivo")
-    const horaEntradaRaw = col(row, "Hora Entrada", "HORA ENTRADA", "Hora de Entrada", "Entrada")
-    const horasRaw = col(row, "Horas", "HORAS", "Horas Trabajo", "Horas Diarias", "Cantidad de Horas")
-
+    const puntoQrNombre = valor(row, mapeo.punto_qr)
     let punto_qr_nombre: string | undefined
     let punto_qr_id: string | null | undefined
     let hora_entrada: string | undefined
@@ -258,10 +308,10 @@ async function previewAsociados(
       punto_qr_nombre = puntoQrNombre
       const matchId = matchPunto(puntoQrNombre, puntos)
       punto_qr_id = matchId ?? null
-      if (!matchId) sinPuntoQrSet.add(`${legajo} ${nombreCompleto} — "${puntoQrNombre}"`)
+      if (!matchId) sinPuntoQrSet.add(`${legajo} ${apellido} ${nombre} — "${puntoQrNombre}"`)
 
-      const horaInicio = parsearHora(horaEntradaRaw)
-      const horas = parsearHorasNumero(horasRaw)
+      const horaInicio = parsearHora(valor(row, mapeo.hora_entrada))
+      const horas = parsearHorasNumero(valor(row, mapeo.horas))
       if (horaInicio && horas != null) {
         hora_entrada = horaInicio
         hora_salida = sumarHoras(horaInicio, horas)
@@ -269,15 +319,22 @@ async function previewAsociados(
     }
 
     excelMap.set(clave, {
-      legajo, apellido, nombre, identificacion, domicilio, celular, email, sector, fecha_ingreso,
+      legajo,
+      apellido,
+      nombre,
+      identificacion,
+      domicilio: valor(row, mapeo.domicilio),
+      celular: normalizarCelular(valor(row, mapeo.celular)),
+      email: valor(row, mapeo.email),
+      sector,
+      fecha_ingreso: mapeo.fecha_ingreso ? parsearFecha(row[mapeo.fecha_ingreso]) : "",
       punto_qr_nombre, punto_qr_id, hora_entrada, hora_salida,
     })
   }
 
   if (excelMap.size === 0) {
-    const headersEncontrados = rows[0] ? Object.keys(rows[0]).join(" | ") : "sin filas"
     return Response.json(
-      { error: `No se encontraron filas válidas. Columnas detectadas: ${headersEncontrados}` },
+      { error: `No se encontraron filas válidas con las columnas elegidas. Columnas: ${columnas.join(" | ")}` },
       { status: 400 }
     )
   }
@@ -288,10 +345,10 @@ async function previewAsociados(
   })
 
   const creados: FilaAsociado[] = []
-  const actualizados: FilaAsociado[] = []
+  const actualizados: FilaExistente[] = []
   let sinCambios = 0
 
-  for (const [clave, fila] of excelMap) {
+  for (const fila of excelMap.values()) {
     // Buscar por legajo si existe, con fallback a DNI (cubre el caso de importaciones previas sin legajo)
     const existente = fila.legajo
       ? (enDB.find((c) => c.legajo === fila.legajo) ?? (fila.identificacion ? enDB.find((c) => c.identificacion === fila.identificacion) : undefined))
@@ -313,7 +370,7 @@ async function previewAsociados(
     const estabaDesactivado = existente.estado === "DESACTIVADO"
 
     if (cambioNombre || cambioDNI || cambioCelular || cambioEmail || cambioSector || cambioJornada || estabaDesactivado) {
-      actualizados.push(fila)
+      actualizados.push({ ...fila, titular: `${existente.apellido}, ${existente.nombre}` })
     } else {
       sinCambios++
     }
@@ -324,13 +381,12 @@ async function previewAsociados(
     .map((c) => ({ id: c.id, legajo: c.legajo!, apellido: c.apellido, nombre: c.nombre }))
 
   const preview: PreviewAsociados = {
-    tipo: "asociados",
-    sheets,
-    sheet_actual: sheetActual,
+    ...base,
     sinPuntoQr: Array.from(sinPuntoQrSet),
     creados,
     actualizados,
     sinCambios,
+    duplicados_archivo,
     desactivados,
   }
   return Response.json(preview)

@@ -2,6 +2,7 @@ import { verificarAcceso } from "@/lib/auth-helpers"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
 import { tags, invalidateTag } from "@/lib/queries"
+import { normalizarLegajo } from "@/lib/legajo"
 
 // Vercel max duration — necesario para imports grandes
 export const maxDuration = 60
@@ -138,41 +139,61 @@ async function confirmarAsociados(
     return jornada_id
   }
 
-  // Crear todos los colaboradores nuevos en paralelo
-  const nuevos = await Promise.all(
-    data.creados.map((fila) =>
-      prisma.colaborador.create({
+  // N° de asociado único: no crear si ya existe activo o si viene repetido en el archivo
+  const legajosVistos = new Set<string>()
+  const omitidosDuplicados: string[] = []
+  const aCrear = data.creados.filter((fila) => {
+    const legajo = normalizarLegajo(fila.legajo)
+    if (!legajo) return true
+    if (mapaIdPorLegajo.has(legajo) || legajosVistos.has(legajo)) {
+      omitidosDuplicados.push(legajo)
+      return false
+    }
+    legajosVistos.add(legajo)
+    return true
+  })
+
+  const errores: ErrorFila[] = []
+  const etiqueta = (fila: z.infer<typeof FilaAsociadoSchema>) =>
+    `${fila.legajo ? `${fila.legajo} — ` : ""}${fila.apellido} ${fila.nombre}`.trim()
+
+  // Crear los nuevos en paralelo; si una fila falla se reporta y el resto sigue
+  const resultadosCreacion = await Promise.allSettled(
+    aCrear.map(async (fila) => {
+      const fechaIngreso = fila.fecha_ingreso ? new Date(fila.fecha_ingreso) : null
+      const colab = await prisma.colaborador.create({
         data: {
           empresa_id: empresaId,
-          legajo: fila.legajo,
+          legajo: normalizarLegajo(fila.legajo),
           apellido: fila.apellido,
-          nombre: fila.nombre || fila.apellido,
-          celular: fila.celular || `SIN_CEL_${fila.legajo}`,
+          nombre: fila.nombre,
+          celular: fila.celular || `SIN_CEL_${fila.legajo || crypto.randomUUID().slice(0, 8)}`,
           identificacion: fila.identificacion || null,
           domicilio: fila.domicilio || null,
           email: fila.email || null,
           sector: fila.sector || null,
-          fecha_ingreso: fila.fecha_ingreso ? new Date(fila.fecha_ingreso) : null,
+          fecha_ingreso: fechaIngreso && !isNaN(fechaIngreso.getTime()) ? fechaIngreso : null,
           estado: "ACTIVO",
         },
       })
-    )
-  )
-
-  // Asignar jornadas a los nuevos en paralelo (son nuevos — no tienen jornada previa, se omite el updateMany)
-  await Promise.all(
-    nuevos.map((colab, i) => {
-      const jornadaIdFinal = getJornadaId(data.creados[i])
-      if (!jornadaIdFinal) return Promise.resolve()
-      return prisma.colaboradorJornada.create({
-        data: { colaborador_id: colab.id, jornada_id: jornadaIdFinal, fecha_desde: new Date() },
-      })
+      // Son nuevos: no tienen jornada previa que cerrar
+      const jornadaIdFinal = getJornadaId(fila)
+      if (jornadaIdFinal) {
+        await prisma.colaboradorJornada.create({
+          data: { colaborador_id: colab.id, jornada_id: jornadaIdFinal, fecha_desde: new Date() },
+        })
+      }
+      return colab
     })
   )
+  let creados = 0
+  resultadosCreacion.forEach((r, i) => {
+    if (r.status === "fulfilled") creados++
+    else errores.push({ fila: etiqueta(aCrear[i]), motivo: describirError(r.reason) })
+  })
 
   // Actualizar colaboradores existentes en paralelo
-  let actualizados = 0
-  const resultadosUpdate = await Promise.all(
+  const resultadosUpdate = await Promise.allSettled(
     data.actualizados.map(async (fila) => {
       const id = fila.legajo
         ? (mapaIdPorLegajo.get(fila.legajo) ?? (fila.identificacion ? mapaIdPorDni.get(fila.identificacion) : undefined))
@@ -183,7 +204,7 @@ async function confirmarAsociados(
         where: { id },
         data: {
           apellido: fila.apellido,
-          nombre: fila.nombre || fila.apellido,
+          nombre: fila.nombre,
           ...(fila.identificacion && { identificacion: fila.identificacion }),
           ...(fila.domicilio && { domicilio: fila.domicilio }),
           ...(fila.celular && { celular: fila.celular }),
@@ -197,19 +218,30 @@ async function confirmarAsociados(
 
       const jornadaIdFinal = getJornadaId(fila)
       if (jornadaIdFinal) {
-        // Cerrar jornada anterior y abrir la nueva (paralelo con otros colabs — distinto colaborador_id)
-        await prisma.colaboradorJornada.updateMany({
-          where: { colaborador_id: id, fecha_hasta: null },
-          data: { fecha_hasta: new Date() },
+        // Si sigue en la misma jornada no se recrea la asignación: se perderían sus francos
+        const yaAsignada = await prisma.colaboradorJornada.findFirst({
+          where: { colaborador_id: id, jornada_id: jornadaIdFinal, fecha_hasta: null },
+          select: { id: true },
         })
-        await prisma.colaboradorJornada.create({
-          data: { colaborador_id: id, jornada_id: jornadaIdFinal, fecha_desde: new Date() },
-        })
+        if (!yaAsignada) {
+          // Cerrar jornada anterior y abrir la nueva (paralelo con otros colabs — distinto colaborador_id)
+          await prisma.colaboradorJornada.updateMany({
+            where: { colaborador_id: id, fecha_hasta: null },
+            data: { fecha_hasta: new Date() },
+          })
+          await prisma.colaboradorJornada.create({
+            data: { colaborador_id: id, jornada_id: jornadaIdFinal, fecha_desde: new Date() },
+          })
+        }
       }
       return true
     })
   )
-  actualizados = resultadosUpdate.filter(Boolean).length
+  let actualizados = 0
+  resultadosUpdate.forEach((r, i) => {
+    if (r.status === "fulfilled") { if (r.value) actualizados++ }
+    else errores.push({ fila: etiqueta(data.actualizados[i]), motivo: describirError(r.reason) })
+  })
 
   let desactivados = 0
   if (data.desactivarIds.length > 0) {
@@ -220,7 +252,28 @@ async function confirmarAsociados(
     desactivados = result.count
   }
 
-  return Response.json({ ok: true, creados: nuevos.length, actualizados, desactivados })
+  return Response.json({
+    ok: true,
+    exitosos: creados + actualizados,
+    creados,
+    actualizados,
+    desactivados,
+    omitidos_duplicados: omitidosDuplicados.length,
+    legajos_omitidos: omitidosDuplicados,
+    errores,
+  })
+}
+
+interface ErrorFila {
+  fila: string
+  motivo: string
+}
+
+function describirError(e: unknown): string {
+  if (e && typeof e === "object" && "code" in e && (e as { code: unknown }).code === "P2002") {
+    return "N° de asociado duplicado"
+  }
+  return e instanceof Error ? e.message.split("\n").filter(Boolean).pop() ?? "Error al guardar" : "Error al guardar"
 }
 
 async function confirmarServicios(
