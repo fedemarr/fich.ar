@@ -247,12 +247,116 @@ function AgregarColaboradorPanel({
   )
 }
 
+const DIA_LABEL: Record<Dia, string> = {
+  lunes: "Lun", martes: "Mar", miercoles: "Mié", jueves: "Jue",
+  viernes: "Vie", sabado: "Sáb", domingo: "Dom",
+}
+
+function diasDelTurno(j: Jornada): Dia[] {
+  const fields = j as unknown as Record<string, unknown>
+  return DIAS.filter((d) => fields[`${d}_presencial`] || fields[`${d}_virtual`])
+}
+
+function FrancoSelector({
+  jornadaId,
+  colaboradorId,
+  diasTurno,
+  diasFranco,
+  abierto,
+  onToggleAbierto,
+  onGuardado,
+}: {
+  jornadaId: string
+  colaboradorId: string
+  diasTurno: Dia[]
+  diasFranco: string[]
+  abierto: boolean
+  onToggleAbierto: () => void
+  onGuardado: () => void
+}) {
+  const [seleccion, setSeleccion] = useState<string[]>(diasFranco)
+  const [guardando, setGuardando] = useState(false)
+
+  async function toggle(dia: Dia) {
+    const anterior = seleccion
+    const nueva = anterior.includes(dia) ? anterior.filter((d) => d !== dia) : [...anterior, dia]
+    setSeleccion(nueva)
+    setGuardando(true)
+    try {
+      const res = await fetch(`/api/puntos/jornadas/${jornadaId}/colaboradores`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ colaborador_id: colaboradorId, dias_franco: nueva }),
+      })
+      if (!res.ok) {
+        const data = await res.json() as { error?: string }
+        setSeleccion(anterior)
+        toast.error(data.error ?? "No se pudo guardar el franco")
+        return
+      }
+      onGuardado()
+    } catch {
+      setSeleccion(anterior)
+      toast.error("Error de conexión")
+    } finally {
+      setGuardando(false)
+    }
+  }
+
+  const activos = DIAS.filter((d) => seleccion.includes(d))
+
+  return (
+    <div className="contents">
+      <button
+        type="button"
+        onClick={onToggleAbierto}
+        title="Días de franco"
+        className={`h-6 min-w-6 px-1.5 rounded-md text-[11px] font-bold border transition-colors shrink-0 ${
+          activos.length > 0
+            ? "bg-rose-100 text-rose-700 border-rose-200"
+            : abierto
+              ? "bg-white text-gray-600 border-gray-300"
+              : "bg-white text-gray-400 border-gray-200 hover:text-rose-600 hover:border-rose-200"
+        }`}
+      >
+        {activos.length > 0 ? `F · ${activos.map((d) => d.slice(0, 2)).join(" ")}` : "F"}
+      </button>
+      {abierto && (
+        <div className="order-last basis-full flex flex-wrap items-center gap-1.5 pt-2 pl-8">
+          <span className="text-[11px] text-gray-500 mr-1">Franco:</span>
+          {diasTurno.length === 0 ? (
+            <span className="text-[11px] text-gray-400 italic">El turno no tiene días cargados</span>
+          ) : diasTurno.map((d) => {
+            const sel = seleccion.includes(d)
+            return (
+              <button
+                key={d}
+                type="button"
+                disabled={guardando}
+                onClick={() => void toggle(d)}
+                className={`px-2 py-0.5 rounded text-[11px] font-medium border transition-colors disabled:opacity-60 ${
+                  sel
+                    ? "bg-rose-200 text-rose-700 border-rose-300"
+                    : "bg-white text-gray-500 border-gray-200 hover:border-rose-200"
+                }`}
+              >
+                {DIA_LABEL[d]}
+              </button>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export function JornadasDialog({ punto, colaboradores, colabsConJornada, onClose, onSuccess }: JornadasDialogProps) {
   const [mostrarForm, setMostrarForm] = useState(false)
   const [diasPresencial, setDiasPresencial] = useState<string[]>([])
   const [diasVirtual, setDiasVirtual] = useState<string[]>([])
   const [agregandoEnJornada, setAgregandoEnJornada] = useState<string | null>(null)
   const [quitando, setQuitando] = useState<string | null>(null)
+  const [francoAbierto, setFrancoAbierto] = useState<string | null>(null)
 
   const { register, handleSubmit, reset, formState: { errors, isSubmitting } } =
     useForm<FormData>({
@@ -364,14 +468,23 @@ export function JornadasDialog({ punto, colaboradores, colabsConJornada, onClose
                     j.colaboradores.map((cj) => (
                       <div
                         key={cj.id}
-                        className="flex items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 group"
+                        className="flex flex-wrap items-center gap-2 px-2 py-1.5 rounded-lg bg-gray-50 group"
                       >
                         <div className="w-6 h-6 rounded-full bg-blue-100 flex items-center justify-center text-[10px] font-bold text-blue-700 shrink-0">
                           {cj.colaborador.nombre[0]}{cj.colaborador.apellido[0]}
                         </div>
-                        <span className="text-sm text-gray-800 flex-1 truncate">
+                        <span className="text-sm text-gray-800 flex-1 min-w-0 truncate">
                           {cj.colaborador.apellido}, {cj.colaborador.nombre}
                         </span>
+                        <FrancoSelector
+                          jornadaId={j.id}
+                          colaboradorId={cj.colaborador_id}
+                          diasTurno={diasDelTurno(j)}
+                          diasFranco={cj.dias_franco}
+                          abierto={francoAbierto === cj.id}
+                          onToggleAbierto={() => setFrancoAbierto((prev) => (prev === cj.id ? null : cj.id))}
+                          onGuardado={onSuccess}
+                        />
                         <button
                           onClick={() => void quitarColaborador(
                             j.id,

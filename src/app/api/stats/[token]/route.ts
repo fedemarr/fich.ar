@@ -84,6 +84,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
       jornada: { activo: true },
     },
     select: {
+      dias_franco: true,
       jornada: {
         select: {
           lunes_presencial: true, martes_presencial: true, miercoles_presencial: true,
@@ -104,6 +105,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ token: s
   for (const a of asignaciones) {
     const j = a.jornada
     for (const d of DIAS_JORNADA) {
+      if (a.dias_franco.includes(d)) continue
       const presencial = j[`${d}_presencial` as keyof typeof j]
       const virtual = j[`${d}_virtual` as keyof typeof j]
       if (presencial || virtual) asistenciasEsperadas += diasSemana[d] ?? 0

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { enviarPlantilla } from "@/lib/whatsapp"
-import { esDiaPresencial, esDiaLaboral } from "@/lib/jornadas"
+import { esDiaPresencial, esDiaLaboral, esFranco } from "@/lib/jornadas"
 import { hoyARG, inicioDiaARG, finDiaARG } from "@/lib/utils"
 
 // Vercel Cron — runs 11:45 UTC = 08:45 ARG
@@ -47,9 +47,11 @@ export async function GET(req: Request) {
     const idsConFichada = new Set(fichadasHoy.map((f) => f.colaborador_id))
 
     for (const colab of colaboradores) {
-      const jornadaActiva = colab.jornadas[0]?.jornada
+      const asignacion = colab.jornadas[0]
+      const jornadaActiva = asignacion?.jornada
       if (!jornadaActiva) { totalOmitidos++; continue }
       if (!esDiaLaboral(jornadaActiva as Parameters<typeof esDiaLaboral>[0], inicioDia)) { totalOmitidos++; continue }
+      if (esFranco(asignacion.dias_franco, inicioDia)) { totalOmitidos++; continue }
       if (!esDiaPresencial(jornadaActiva as Parameters<typeof esDiaPresencial>[0], inicioDia)) { totalOmitidos++; continue }
 
       // Ya fichó — no recordar

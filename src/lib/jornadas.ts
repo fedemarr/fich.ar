@@ -111,7 +111,7 @@ const DIAS = [
   "sabado",
 ] as const
 
-type DiaSemana = (typeof DIAS)[number]
+export type DiaSemana = (typeof DIAS)[number]
 
 interface JornadaConDias extends JornadaRef {
   [key: string]: unknown
@@ -129,4 +129,16 @@ export function esDiaVirtual(jornada: JornadaConDias, fecha: Date): boolean {
 
 export function esDiaLaboral(jornada: JornadaConDias, fecha: Date): boolean {
   return esDiaPresencial(jornada, fecha) || esDiaVirtual(jornada, fecha)
+}
+
+export const DIAS_FRANCO_VALIDOS: readonly DiaSemana[] = DIAS
+
+export function esDiaSemanaValido(dia: string): dia is DiaSemana {
+  return (DIAS as readonly string[]).includes(dia)
+}
+
+// fecha debe ser el inicio del día ARG (03:00 UTC), igual que en esDiaPresencial
+export function esFranco(diasFranco: readonly string[] | null | undefined, fecha: Date): boolean {
+  if (!diasFranco || diasFranco.length === 0) return false
+  return diasFranco.includes(DIAS[fecha.getDay()])
 }

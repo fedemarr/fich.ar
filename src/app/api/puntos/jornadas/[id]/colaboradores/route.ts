@@ -2,7 +2,8 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { invalidateTag, tags } from "@/lib/queries"
-import { jornadasSeSolapan, type JornadaConFlags } from "@/lib/jornadas"
+import { esDiaSemanaValido, jornadasSeSolapan, type JornadaConFlags } from "@/lib/jornadas"
+import { z } from "zod"
 
 interface Params { params: Promise<{ id: string }> }
 
@@ -77,6 +78,49 @@ export async function POST(req: Request, { params }: Params) {
 
   invalidateTag(tags.puntos(session.user.empresaId))
   return NextResponse.json(asignacion, { status: 201 })
+}
+
+const francoSchema = z.object({
+  colaborador_id: z.string().uuid(),
+  dias_franco: z.array(z.string()).max(7),
+})
+
+// PATCH — definir los días de franco del colaborador dentro de este turno (sin crear turnos nuevos)
+export async function PATCH(req: Request, { params }: Params) {
+  const { error, session } = await verificarAcceso("EDITAR_PUNTO")
+  if (error) return error
+
+  const { id: jornadaId } = await params
+  const parsed = francoSchema.safeParse(await req.json())
+  if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
+
+  const jornada = await prisma.jornada.findFirst({
+    where: { id: jornadaId, empresa_id: session.user.empresaId },
+  })
+  if (!jornada) return NextResponse.json({ error: "Jornada no encontrada" }, { status: 404 })
+
+  const dias = [...new Set(parsed.data.dias_franco)]
+  for (const d of dias) {
+    if (!esDiaSemanaValido(d)) return NextResponse.json({ error: `Día inválido: ${d}` }, { status: 400 })
+    const fields = jornada as unknown as Record<string, unknown>
+    if (!fields[`${d}_presencial`] && !fields[`${d}_virtual`]) {
+      return NextResponse.json({ error: `El turno no trabaja el día ${d}` }, { status: 400 })
+    }
+  }
+
+  const { count } = await prisma.colaboradorJornada.updateMany({
+    where: {
+      colaborador_id: parsed.data.colaborador_id,
+      jornada_id: jornadaId,
+      colaborador: { empresa_id: session.user.empresaId },
+      OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }],
+    },
+    data: { dias_franco: dias },
+  })
+  if (count === 0) return NextResponse.json({ error: "El colaborador no está en este turno" }, { status: 404 })
+
+  invalidateTag(tags.puntos(session.user.empresaId))
+  return NextResponse.json({ ok: true, dias_franco: dias })
 }
 
 // DELETE — quitar colaborador de la jornada

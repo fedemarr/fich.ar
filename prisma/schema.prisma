@@ -266,6 +266,8 @@ model ColaboradorJornada {
   jornada_id     String
   fecha_desde    DateTime  @default(now())
   fecha_hasta    DateTime?
+  // Francos individuales dentro del turno base: ["domingo", "miercoles", ...]
+  dias_franco    String[]  @default([])
 
   colaborador Colaborador @relation(fields: [colaborador_id], references: [id])
   jornada     Jornada     @relation(fields: [jornada_id], references: [id])
