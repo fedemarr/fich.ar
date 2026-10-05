@@ -82,7 +82,7 @@ export function ColaboradorDialog({
     new Map(jornadas.map((j) => [j.punto_fichaje.id, j.punto_fichaje])).values()
   )
 
-  const { register, handleSubmit, setValue, reset, watch, formState: { errors, isSubmitting } } =
+  const { register, handleSubmit, setValue, setError, reset, watch, formState: { errors, isSubmitting } } =
     useForm<FormData>({
       resolver: zodResolver(schema),
       defaultValues: { estado: "ACTIVO" },
@@ -123,7 +123,11 @@ export function ColaboradorDialog({
     })
 
     if (!res.ok) {
-      toast.error("Error al guardar el colaborador")
+      const body = await res.json().catch(() => ({})) as { error?: string; campo?: string }
+      if (body.campo === "legajo" && body.error) {
+        setError("legajo", { message: body.error })
+      }
+      toast.error(body.error ?? "Error al guardar el colaborador")
       return
     }
 
@@ -185,8 +189,9 @@ export function ColaboradorDialog({
                 {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
               </div>
               <div className="space-y-1.5">
-                <Label>Legajo (opcional)</Label>
+                <Label>N° de asociado / Legajo (opcional)</Label>
                 <Input {...register("legajo")} />
+                {errors.legajo && <p className="text-xs text-red-500">{errors.legajo.message}</p>}
               </div>
             </div>
 

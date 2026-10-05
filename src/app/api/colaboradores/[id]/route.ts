@@ -5,6 +5,7 @@ import { normalizarCelular } from "@/lib/utils"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { registrarAudit } from "@/lib/audit"
 import { tags, invalidateTag } from "@/lib/queries"
+import { buscarTitularLegajo, mensajeLegajoDuplicado, normalizarLegajo } from "@/lib/legajo"
 
 const schema = z.object({
   nombre: z.string().min(1),
@@ -38,13 +39,22 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   })
   if (!colaborador) return NextResponse.json({ error: "No encontrado" }, { status: 404 })
 
+  const legajoNormalizado = normalizarLegajo(legajo)
+  const titular = await buscarTitularLegajo(empresaId, legajoNormalizado, id)
+  if (titular && legajoNormalizado) {
+    return NextResponse.json(
+      { error: mensajeLegajoDuplicado(legajoNormalizado, titular), campo: "legajo" },
+      { status: 409 }
+    )
+  }
+
   await prisma.colaborador.update({
     where: { id },
     data: {
       ...rest,
       celular: normalizarCelular(rest.celular),
       email: email || null,
-      legajo: legajo || null,
+      legajo: legajoNormalizado,
       sector: sector || null,
       domicilio: domicilio || null,
       identificacion: identificacion || null,
@@ -54,13 +64,20 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   })
 
   if (jornada_id) {
-    await prisma.colaboradorJornada.updateMany({
-      where: { colaborador_id: id, fecha_hasta: null },
-      data: { fecha_hasta: new Date() },
+    // Si sigue en la misma jornada no se recrea la asignación: se perderían sus francos
+    const yaAsignada = await prisma.colaboradorJornada.findFirst({
+      where: { colaborador_id: id, jornada_id, fecha_hasta: null },
+      select: { id: true },
     })
-    await prisma.colaboradorJornada.create({
-      data: { colaborador_id: id, jornada_id, fecha_desde: new Date() },
-    })
+    if (!yaAsignada) {
+      await prisma.colaboradorJornada.updateMany({
+        where: { colaborador_id: id, fecha_hasta: null },
+        data: { fecha_hasta: new Date() },
+      })
+      await prisma.colaboradorJornada.create({
+        data: { colaborador_id: id, jornada_id, fecha_desde: new Date() },
+      })
+    }
   }
 
   await registrarAudit({

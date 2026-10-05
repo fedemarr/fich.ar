@@ -5,6 +5,7 @@ import { normalizarCelular } from "@/lib/utils"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { registrarAudit } from "@/lib/audit"
 import { tags, invalidateTag } from "@/lib/queries"
+import { buscarTitularLegajo, mensajeLegajoDuplicado, normalizarLegajo } from "@/lib/legajo"
 
 const schema = z.object({
   nombre: z.string().min(1),
@@ -44,12 +45,21 @@ export async function POST(req: Request) {
     )
   }
 
+  const legajoNormalizado = normalizarLegajo(legajo)
+  const titular = await buscarTitularLegajo(empresaId, legajoNormalizado)
+  if (titular && legajoNormalizado) {
+    return NextResponse.json(
+      { error: mensajeLegajoDuplicado(legajoNormalizado, titular), campo: "legajo" },
+      { status: 409 }
+    )
+  }
+
   const colaborador = await prisma.colaborador.create({
     data: {
       ...rest,
       celular: celularNormalizado,
       email: email || null,
-      legajo: legajo || null,
+      legajo: legajoNormalizado,
       sector: sector || null,
       domicilio: domicilio || null,
       identificacion: identificacion || null,
