@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { ColaboradorDialog } from "@/components/colaboradores/colaborador-dialog"
 import { EliminarDialog } from "@/components/colaboradores/eliminar-dialog"
 import { ImportarColaboradoresDialog } from "@/components/colaboradores/importar-colaboradores-dialog"
+import { MovimientosSheet } from "@/components/colaboradores/movimientos-sheet"
 import { toast } from "sonner"
 import type { Colaborador, ColaboradorJornada, Jornada, PuntoFichaje } from "@/generated/prisma/client"
 
@@ -55,10 +56,12 @@ function TablaColaboradores({
   colaboradores,
   onEditar,
   onEliminar,
+  onVer,
 }: {
   colaboradores: ColaboradorConJornada[]
   onEditar: (c: ColaboradorConJornada) => void
   onEliminar: (c: ColaboradorConJornada) => void
+  onVer: (c: ColaboradorConJornada) => void
 }) {
   if (colaboradores.length === 0) {
     return (
@@ -78,7 +81,12 @@ function TablaColaboradores({
           const sector = puntoNombre ?? c.sector ?? null
 
           return (
-            <div key={c.id} className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/60">
+            <div
+              key={c.id}
+              onClick={() => onVer(c)}
+              className="flex items-center gap-3 px-4 py-3 hover:bg-gray-50/60 cursor-pointer"
+              title="Ver movimientos del día"
+            >
               <AvatarColaborador nombre={c.nombre} apellido={c.apellido} />
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-gray-800 truncate">{c.apellido} {c.nombre}</p>
@@ -95,14 +103,14 @@ function TablaColaboradores({
               </div>
               <div className="flex items-center gap-3 shrink-0">
                 <button
-                  onClick={() => onEditar(c)}
+                  onClick={(e) => { e.stopPropagation(); onEditar(c) }}
                   className="text-gray-300 hover:text-[#2563EB] transition-colors p-1"
                   title="Editar"
                 >
                   <Pencil size={16} />
                 </button>
                 <button
-                  onClick={() => onEliminar(c)}
+                  onClick={(e) => { e.stopPropagation(); onEliminar(c) }}
                   className="text-gray-300 hover:text-gray-500 transition-colors p-1"
                   title="Gestionar"
                 >
@@ -136,7 +144,12 @@ function TablaColaboradores({
               : [empresa, null]
 
             return (
-              <tr key={c.id} className="hover:bg-gray-50/60 transition-colors">
+              <tr
+                key={c.id}
+                onClick={() => onVer(c)}
+                className="hover:bg-gray-50/60 transition-colors cursor-pointer"
+                title="Ver movimientos del día"
+              >
                 <td className="px-5 py-3.5">
                   <div className="flex items-center gap-3">
                     <AvatarColaborador nombre={c.nombre} apellido={c.apellido} />
@@ -171,14 +184,14 @@ function TablaColaboradores({
                 <td className="px-4 py-3.5">
                   <div className="flex items-center gap-2.5 justify-end">
                     <button
-                      onClick={() => onEditar(c)}
+                      onClick={(e) => { e.stopPropagation(); onEditar(c) }}
                       className="text-gray-300 hover:text-[#2563EB] transition-colors"
                       title="Editar"
                     >
                       <Pencil size={15} />
                     </button>
                     <button
-                      onClick={() => onEliminar(c)}
+                      onClick={(e) => { e.stopPropagation(); onEliminar(c) }}
                       className="text-gray-300 hover:text-gray-500 transition-colors"
                       title="Gestionar"
                     >
@@ -204,6 +217,7 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
   const [eliminando, setEliminando] = useState<ColaboradorConJornada | null>(null)
   const [importarAbierto, setImportarAbierto] = useState(false)
   const [vaciando, setVaciando] = useState(false)
+  const [viendo, setViendo] = useState<ColaboradorConJornada | null>(null)
 
   const activos = useMemo(() => colaboradores.filter((c) => c.estado === "ACTIVO"), [colaboradores])
   const desactivados = useMemo(
@@ -357,12 +371,14 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
             colaboradores={filtrar(desactivados)}
             onEditar={abrirEditar}
             onEliminar={(c) => setEliminando(c)}
+            onVer={setViendo}
           />
         ) : (
           <TablaColaboradores
             colaboradores={filtrar(activos)}
             onEditar={abrirEditar}
             onEliminar={(c) => setEliminando(c)}
+            onVer={setViendo}
           />
         )}
       </div>
@@ -390,6 +406,8 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
         onClose={() => setImportarAbierto(false)}
         onSuccess={() => { router.refresh(); setImportarAbierto(false) }}
       />
+
+      <MovimientosSheet key={viendo?.id ?? "cerrado"} colaborador={viendo} onClose={() => setViendo(null)} />
 
       {/* FAB mobile — alta rápida */}
       <button
