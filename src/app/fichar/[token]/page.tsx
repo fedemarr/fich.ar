@@ -59,6 +59,7 @@ type Estado =
   | "supervision-confirmada"
   | "error-gps"
   | "gps-impreciso"
+  | "gps-sin-permiso"
   | "error-generico"
 
 const PRECISION_BUENA_M = 50
@@ -239,7 +240,7 @@ export default function FicharPage() {
       if (coordsRef.current) {
         setEstado("gps-impreciso")
       } else {
-        setErrorMsg("No pudimos obtener tu ubicación. Habilitá el GPS e intentá de nuevo.")
+        setErrorMsg("No pudimos obtener tu ubicación. Si estás adentro, acercate a una ventana o salí a la vereda e intentá de nuevo.")
         setEstado("error-generico")
       }
     }, ESPERA_MAXIMA_GPS_MS)
@@ -369,15 +370,19 @@ export default function FicharPage() {
           }, 5000)
         }
       },
-      () => {
+      (err) => {
         // Una vez validada la ubicación, un error posterior del seguimiento no debe sacarla de la pantalla
         if (proceeded) return
+        // iOS manda "posición no disponible" pasajero mientras busca señal: se sigue esperando hasta el timeout
+        if (err.code !== err.PERMISSION_DENIED) {
+          setGpsStatus("Buscando señal GPS...")
+          return
+        }
         proceeded = true
         clearTimeout(hardTimeout)
         if (softTimeout) clearTimeout(softTimeout)
         detenerGPS()
-        setErrorMsg("No pudimos obtener tu ubicación. Habilitá el GPS e intentá de nuevo.")
-        setEstado("error-generico")
+        setEstado("gps-sin-permiso")
       },
       // maximumAge: 0 — NUNCA usar posición cacheada, siempre fresca del satélite
       { enableHighAccuracy: true, maximumAge: 0, timeout: ESPERA_MAXIMA_GPS_MS + 5000 }
@@ -638,6 +643,8 @@ export default function FicharPage() {
   })
 
   const mostrarFallbackWa = Boolean(WA_NUMERO) && !!punto
+  // Solo se usa en pantallas que no se renderizan en el servidor (estado inicial "cargando")
+  const esIOS = typeof navigator !== "undefined" && /iPhone|iPad|iPod/i.test(navigator.userAgent)
 
   const gpsLabel =
     gpsAccuracy === null ? null
@@ -1069,6 +1076,40 @@ export default function FicharPage() {
               </div>
               <p className="text-gray-500 text-sm pt-1">{supervisor.nombre}</p>
               <p className="text-gray-400 text-sm">Podés cerrar esta página</p>
+            </div>
+          )}
+
+          {/* ── SIN PERMISO DE UBICACIÓN: el celular se la niega al navegador ── */}
+          {estado === "gps-sin-permiso" && (
+            <div className="bg-white rounded-2xl shadow-sm border border-amber-200 p-8 text-center space-y-4">
+              <MapPin size={44} className="text-amber-500 mx-auto" />
+              <div>
+                <p className="text-gray-800 font-semibold text-lg">Falta permitir la ubicación</p>
+                <p className="text-gray-500 text-sm mt-2">
+                  Aunque tengas la ubicación prendida, el navegador necesita permiso para usarla en esta página.
+                </p>
+              </div>
+              {esIOS ? (
+                <ol className="text-left text-sm text-gray-700 space-y-2 bg-amber-50 rounded-xl p-4 list-decimal list-inside">
+                  <li>Abrí <strong>Ajustes</strong> → <strong>Privacidad y seguridad</strong> → <strong>Localización</strong>.</li>
+                  <li>Verificá que <strong>Localización</strong> esté activada.</li>
+                  <li>Entrá a <strong>Sitios web de Safari</strong> y elegí <strong>“Al usar la app”</strong>. Activá <strong>“Ubicación exacta”</strong>.</li>
+                  <li>Volvé acá y tocá <strong>Reintentar</strong>. Si te pregunta, tocá <strong>Permitir</strong>.</li>
+                </ol>
+              ) : (
+                <ol className="text-left text-sm text-gray-700 space-y-2 bg-amber-50 rounded-xl p-4 list-decimal list-inside">
+                  <li>Tocá el <strong>candado</strong> (o los ajustes) al lado de la dirección, arriba.</li>
+                  <li>Entrá a <strong>Permisos</strong> → <strong>Ubicación</strong> y elegí <strong>Permitir</strong>.</li>
+                  <li>Volvé acá y tocá <strong>Reintentar</strong>.</li>
+                </ol>
+              )}
+              <Button
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
+                onClick={reintentar}
+              >
+                Reintentar
+              </Button>
+              {mostrarFallbackWa && <FallbackWhatsApp qrToken={token} />}
             </div>
           )}
 
