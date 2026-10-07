@@ -33,7 +33,7 @@ declare module "next-auth" {
 }
 
 const loginSchema = z.object({
-  email: z.string().email(),
+  email: z.string().trim().email(),
   password: z.string().min(1),
 })
 
@@ -48,7 +48,7 @@ export const { handlers, auth, signIn, signOut } = NextAuth({
         const { email, password } = parsed.data
 
         const usuario = await prisma.usuario.findFirst({
-          where: { email, deleted_at: null },
+          where: { email: { equals: email.trim(), mode: "insensitive" }, deleted_at: null },
           include: {
             empresa: { select: { slug: true, nombre: true, modulo_operaciones: true } },
             puntos_asignados: { select: { punto_fichaje_id: true } },

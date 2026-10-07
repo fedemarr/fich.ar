@@ -42,6 +42,11 @@ export function SupervisorModal({ puntos, colaboradores, supervisor, onClose, on
   )
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [busquedaPunto, setBusquedaPunto] = useState("")
+
+  const puntosVisibles = busquedaPunto.trim()
+    ? puntos.filter((p) => p.nombre.toLowerCase().includes(busquedaPunto.trim().toLowerCase()))
+    : puntos
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<Form>({
     resolver: zodResolver(schema),
@@ -68,6 +73,14 @@ export function SupervisorModal({ puntos, colaboradores, supervisor, onClose, on
   }
 
   async function onSubmit(data: Form) {
+    if (!supervisor && (data.password ?? "").length < 6) {
+      setError("La contraseña debe tener al menos 6 caracteres")
+      return
+    }
+    if (supervisor && data.password && data.password.length < 6) {
+      setError("La nueva contraseña debe tener al menos 6 caracteres")
+      return
+    }
     if (puntosSeleccionados.length === 0) {
       setError("Seleccioná al menos un punto QR")
       return
@@ -88,19 +101,23 @@ export function SupervisorModal({ puntos, colaboradores, supervisor, onClose, on
     const url = supervisor ? `/api/supervisores/${supervisor.id}` : "/api/supervisores"
     const method = supervisor ? "PUT" : "POST"
 
-    const res = await fetch(url, {
-      method,
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-
-    setLoading(false)
-    if (!res.ok) {
-      const body = await res.json()
-      setError(body.error ?? "Error al guardar")
-      return
+    try {
+      const res = await fetch(url, {
+        method,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: unknown }
+        setError(typeof body.error === "string" ? body.error : "No se pudo guardar el supervisor. Intentá de nuevo.")
+        return
+      }
+      onSaved()
+    } catch {
+      setError("Error de conexión. Intentá de nuevo.")
+    } finally {
+      setLoading(false)
     }
-    onSaved()
   }
 
   return (
@@ -156,11 +173,32 @@ export function SupervisorModal({ puntos, colaboradores, supervisor, onClose, on
           </div>
 
           <div className="space-y-2">
-            <Label className="flex items-center gap-2">
-              <MapPin size={14} /> Puntos QR asignados
-            </Label>
-            <div className="grid grid-cols-1 gap-1.5 max-h-40 overflow-y-auto">
-              {puntos.map((p) => (
+            <div className="flex items-center justify-between">
+              <Label className="flex items-center gap-2">
+                <MapPin size={14} /> Puntos QR asignados
+                <span className="text-xs font-normal text-gray-400">({puntosSeleccionados.length})</span>
+              </Label>
+              <button
+                type="button"
+                onClick={() => setPuntosSeleccionados((prev) => [...new Set([...prev, ...puntosVisibles.map((p) => p.id)])])}
+                className="text-xs text-[#2563EB] hover:underline"
+              >
+                {busquedaPunto.trim() ? "Marcar los encontrados" : "Marcar todos"}
+              </button>
+            </div>
+            {puntos.length > 6 && (
+              <Input
+                value={busquedaPunto}
+                onChange={(e) => setBusquedaPunto(e.target.value)}
+                placeholder="Buscar punto..."
+                className="h-8 text-sm"
+              />
+            )}
+            <div className="grid grid-cols-1 gap-1.5 max-h-48 overflow-y-auto">
+              {puntosVisibles.length === 0 && (
+                <p className="text-xs text-gray-400 px-1 py-2">Ningún punto coincide con la búsqueda</p>
+              )}
+              {puntosVisibles.map((p) => (
                 <label
                   key={p.id}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer transition-colors ${

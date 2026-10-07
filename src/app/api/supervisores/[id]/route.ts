@@ -3,15 +3,16 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import bcrypt from "bcryptjs"
 import { z } from "zod"
+import { puntosDeOtraEmpresa, verificarEmailSupervisor } from "@/lib/supervisor-cuentas"
 
 const editarSchema = z.object({
-  nombre: z.string().min(1),
-  email: z.string().email(),
-  password: z.string().min(6).optional(),
+  nombre: z.string().trim().min(1, "El nombre es obligatorio"),
+  email: z.string().trim().toLowerCase().email("Email inválido"),
+  password: z.string().min(6, "La contraseña debe tener al menos 6 caracteres").optional(),
   identificacion: z.string().optional(),
   activo: z.boolean(),
   puedeGestionarPuntos: z.boolean(),
-  puntosIds: z.array(z.string()).min(1),
+  puntosIds: z.array(z.string()).min(1, "Seleccioná al menos un punto QR"),
 })
 
 type Params = { params: Promise<{ id: string }> }
@@ -26,7 +27,7 @@ export async function PUT(req: Request, { params }: Params) {
   const body = await req.json()
   const parsed = editarSchema.safeParse(body)
   if (!parsed.success) {
-    return NextResponse.json({ error: parsed.error.flatten() }, { status: 400 })
+    return NextResponse.json({ error: parsed.error.issues[0]?.message ?? "Datos inválidos" }, { status: 400 })
   }
 
   const { nombre, email, password, identificacion, activo, puedeGestionarPuntos, puntosIds } = parsed.data
@@ -36,10 +37,16 @@ export async function PUT(req: Request, { params }: Params) {
   })
   if (!existing) return NextResponse.json({ error: "No encontrado" }, { status: 404 })
 
+  if (await puntosDeOtraEmpresa(session.user.empresaId, puntosIds)) {
+    return NextResponse.json({ error: "Alguno de los puntos seleccionados no existe" }, { status: 400 })
+  }
+  const chequeo = await verificarEmailSupervisor(session.user.empresaId, email, id)
+  if (chequeo.error) return NextResponse.json({ error: chequeo.error }, { status: 409 })
+
   const dataUpdate: Record<string, unknown> = {
     nombre,
     email,
-    identificacion: identificacion || null,
+    identificacion: identificacion?.trim() || null,
     activo,
     puede_gestionar_puntos: puedeGestionarPuntos,
   }
