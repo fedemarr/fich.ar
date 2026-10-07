@@ -2,6 +2,7 @@ import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { NotificacionesCliente } from "@/components/notificaciones/notificaciones-cliente"
+import { whereNotificacionesVisibles } from "@/lib/supervisor-helpers"
 
 export default async function NotificacionesPage({
   params,
@@ -12,10 +13,9 @@ export default async function NotificacionesPage({
   if (!session?.user) redirect("/login")
 
   await params
-  const empresaId = session.user.empresaId
 
   const notificaciones = await prisma.notificacion.findMany({
-    where: { empresa_id: empresaId },
+    where: await whereNotificacionesVisibles(session),
     include: { colaborador: true },
     orderBy: { created_at: "desc" },
     take: 100,

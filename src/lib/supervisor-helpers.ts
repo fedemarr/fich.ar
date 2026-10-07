@@ -6,8 +6,10 @@ import type { SesionVerificada } from "@/lib/auth-helpers"
  * Devuelve los IDs de colaboradores que pertenecen a los puntos del supervisor.
  * Para ADMIN/SUPER_ADMIN devuelve null (sin restricción).
  */
+type SesionMinima = { user: Pick<SesionVerificada["user"], "rol" | "empresaId" | "puntosIds"> }
+
 export async function getColaboradoresSupervisor(
-  session: SesionVerificada
+  session: SesionMinima
 ): Promise<string[] | null> {
   if (session.user.rol !== "SUPERVISOR") return null
 
@@ -24,6 +26,19 @@ export async function getColaboradoresSupervisor(
   })
 
   return jornadas.map((j) => j.colaborador_id)
+}
+
+/**
+ * Notificaciones visibles: el supervisor solo ve las de colaboradores asignados a sus puntos.
+ */
+export async function whereNotificacionesVisibles(
+  session: SesionMinima
+): Promise<{ empresa_id: string; colaborador_id?: { in: string[] } }> {
+  const colaboradorIds = await getColaboradoresSupervisor(session)
+  return {
+    empresa_id: session.user.empresaId,
+    ...(colaboradorIds !== null ? { colaborador_id: { in: colaboradorIds } } : {}),
+  }
 }
 
 /**

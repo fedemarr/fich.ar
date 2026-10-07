@@ -2,9 +2,10 @@
 
 import { useState, useMemo, useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { ClipboardList, Search, RefreshCw, Download } from "lucide-react"
+import { ClipboardList, Search, RefreshCw, Download, MapPin } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { FichadaManualDialog } from "@/components/listado/fichada-manual-dialog"
 import { SelectorFecha } from "@/components/listado/selector-fecha"
 import { exportarListadoExcel } from "@/lib/export"
@@ -29,8 +30,11 @@ interface FilaListado {
   edificio: string
   esCobertura: boolean
   edificioReal: string  // punto donde realmente fichó (puede diferir del asignado)
+  puntoId: string | null // punto real de la fila: donde fichó, o el asignado si todavía no fichó
   nroTurno: number
 }
+
+const TODOS_LOS_PUNTOS = "__todos__"
 
 interface ListadoClienteProps {
   colaboradores: ColaboradorConJornada[]
@@ -72,6 +76,7 @@ export function ListadoCliente({
 }: ListadoClienteProps) {
   const router = useRouter()
   const [busqueda, setBusqueda] = useState("")
+  const [filtroPunto, setFiltroPunto] = useState(TODOS_LOS_PUNTOS)
   const [modalFichada, setModalFichada] = useState(false)
 
   // Auto-refresh cada 30s solo si estamos viendo hoy en hora ARG
@@ -88,6 +93,7 @@ export function ListadoCliente({
         .filter((f) => f.colaborador_id === col.id)
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       const edificioAsignado = col.jornadas[0]?.jornada.punto_fichaje.nombre ?? "—"
+      const puntoAsignadoId = col.jornadas[0]?.jornada.punto_fichaje.id ?? null
 
       // Sin fichadas: una sola fila (sin registros)
       if (fichadasCol.length === 0) {
@@ -98,6 +104,7 @@ export function ListadoCliente({
           edificio: edificioAsignado,
           esCobertura: false,
           edificioReal: edificioAsignado,
+          puntoId: puntoAsignadoId,
           nroTurno: 1,
         })
         continue
@@ -119,7 +126,7 @@ export function ListadoCliente({
           return ta - tb
         })
 
-      puntosOrdenados.forEach(([, fichas], idx) => {
+      puntosOrdenados.forEach(([puntoKey, fichas], idx) => {
         const ordenadas = fichas.sort(
           (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
         )
@@ -134,6 +141,7 @@ export function ListadoCliente({
           edificio: edificioAsignado,
           esCobertura,
           edificioReal,
+          puntoId: puntoKey === "sin-punto" ? null : puntoKey,
           nroTurno: idx + 1,
         })
       })
@@ -141,13 +149,22 @@ export function ListadoCliente({
     return result
   }, [colaboradores, fichadas])
 
+  const opcionesPuntos = useMemo(() => {
+    const mapa = new Map<string, string>()
+    for (const f of filas) {
+      if (f.puntoId && f.edificioReal !== "—") mapa.set(f.puntoId, f.edificioReal)
+    }
+    return Array.from(mapa, ([id, nombre]) => ({ id, nombre })).sort((a, b) => a.nombre.localeCompare(b.nombre))
+  }, [filas])
+
   const filasFiltradas = useMemo(() => {
-    if (!busqueda.trim()) return filas
-    const q = busqueda.toLowerCase()
-    return filas.filter((f) =>
-      `${f.colaborador.nombre} ${f.colaborador.apellido}`.toLowerCase().includes(q)
-    )
-  }, [filas, busqueda])
+    const q = busqueda.trim().toLowerCase()
+    return filas.filter((f) => {
+      if (filtroPunto !== TODOS_LOS_PUNTOS && f.puntoId !== filtroPunto) return false
+      if (q && !`${f.colaborador.nombre} ${f.colaborador.apellido}`.toLowerCase().includes(q)) return false
+      return true
+    })
+  }, [filas, busqueda, filtroPunto])
 
   function handleExportar() {
     exportarListadoExcel(filasFiltradas, fechaInicial)
@@ -184,7 +201,30 @@ export function ListadoCliente({
           </Button>
           <SelectorFecha fechaInicial={fechaInicial} hastaInicial={hastaInicial} />
         </div>
-        <div className="flex items-center gap-2 sm:justify-end">
+        <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          {opcionesPuntos.length > 1 && (
+            <div className="w-full sm:w-auto sm:mr-auto flex items-center gap-2">
+              <MapPin size={14} className="text-gray-400 shrink-0" />
+              <Select value={filtroPunto} onValueChange={(v) => setFiltroPunto(v ?? TODOS_LOS_PUNTOS)}>
+                <SelectTrigger className="h-9 text-sm w-full sm:w-72">
+                  <SelectValue>
+                    {filtroPunto === TODOS_LOS_PUNTOS
+                      ? "Todos los puntos"
+                      : opcionesPuntos.find((p) => p.id === filtroPunto)?.nombre ?? "Todos los puntos"}
+                  </SelectValue>
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value={TODOS_LOS_PUNTOS}>Todos los puntos</SelectItem>
+                  {opcionesPuntos.map((p) => (
+                    <SelectItem key={p.id} value={p.id}>{p.nombre}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              {filtroPunto !== TODOS_LOS_PUNTOS && (
+                <span className="text-xs text-gray-400 shrink-0">{filasFiltradas.length} filas</span>
+              )}
+            </div>
+          )}
           <Button
             variant="outline"
             size="sm"

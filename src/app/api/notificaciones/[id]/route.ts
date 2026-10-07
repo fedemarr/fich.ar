@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
 import { z } from "zod"
+import { whereNotificacionesVisibles } from "@/lib/supervisor-helpers"
 
 const schema = z.object({
   estado: z.enum(["LEIDA", "NO_LEIDA"]),
@@ -20,7 +21,7 @@ export async function PUT(
   if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
 
   await prisma.notificacion.updateMany({
-    where: { id, empresa_id: session.user.empresaId },
+    where: { id, ...(await whereNotificacionesVisibles(session)) },
     data: { estado: parsed.data.estado },
   })
 

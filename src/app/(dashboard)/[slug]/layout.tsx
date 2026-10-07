@@ -6,6 +6,7 @@ import { Header } from "@/components/dashboard/header"
 import { MobileNav } from "@/components/dashboard/mobile-nav"
 import { Toaster } from "@/components/ui/sonner"
 import { ChatWidget } from "@/components/ai/chat-widget"
+import { whereNotificacionesVisibles } from "@/lib/supervisor-helpers"
 
 interface DashboardLayoutProps {
   children: React.ReactNode
@@ -20,9 +21,9 @@ export default async function DashboardLayout({ children, params }: DashboardLay
   if (session.user.empresaSlug !== slug) redirect(`/${session.user.empresaSlug}/resumen`)
 
   const [notifCount, empresa] = await Promise.all([
-    prisma.notificacion.count({
-      where: { empresa_id: session.user.empresaId, estado: "NO_LEIDA" },
-    }),
+    whereNotificacionesVisibles(session).then((where) =>
+      prisma.notificacion.count({ where: { ...where, estado: "NO_LEIDA" } })
+    ),
     prisma.empresa.findUnique({
       where: { id: session.user.empresaId },
       select: { modulo_operaciones: true },
