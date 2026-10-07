@@ -58,7 +58,34 @@ type Estado =
   | "supervisando"
   | "supervision-confirmada"
   | "error-gps"
+  | "gps-impreciso"
   | "error-generico"
+
+const PRECISION_BUENA_M = 50
+const PRECISION_ACEPTABLE_M = 150
+const ESPERA_MAXIMA_GPS_MS = 25000
+
+// Empresas con el bot de WhatsApp como alternativa cuando la PWA no puede fichar
+const EMPRESAS_CON_FALLBACK_WA = ["olimpia"]
+const WA_NUMERO = process.env.NEXT_PUBLIC_META_WA_NUMBER ?? ""
+
+function FallbackWhatsApp({ qrToken }: { qrToken: string }) {
+  const url = `https://api.whatsapp.com/send/?phone=${WA_NUMERO}&text=FICHAR%20${encodeURIComponent(qrToken)}&type=phone_number&app_absent=0`
+  return (
+    <div className="border-t border-gray-100 pt-4 space-y-2">
+      <p className="text-sm font-semibold text-gray-700">¿No podés fichar? ¡Intentá por WhatsApp!</p>
+      <a
+        href={url}
+        className="w-full h-12 bg-[#25D366] hover:bg-[#1ebe5d] active:bg-[#17a34a] text-white rounded-xl font-semibold flex items-center justify-center gap-2 transition-colors"
+      >
+        <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+          <path d="M17.47 14.38c-.3-.15-1.75-.86-2.02-.96-.27-.1-.47-.15-.67.15-.2.3-.77.96-.94 1.16-.17.2-.35.22-.64.07-.3-.15-1.25-.46-2.38-1.47-.88-.79-1.47-1.76-1.65-2.06-.17-.3-.02-.46.13-.6.13-.14.3-.35.45-.52.15-.17.2-.3.3-.5.1-.2.05-.37-.02-.52-.08-.15-.67-1.61-.92-2.2-.24-.58-.49-.5-.67-.51h-.57c-.2 0-.52.07-.79.37-.27.3-1.04 1.02-1.04 2.48s1.07 2.88 1.21 3.08c.15.2 2.1 3.2 5.08 4.49.71.31 1.26.49 1.69.63.71.22 1.36.19 1.87.12.57-.09 1.75-.72 2-1.41.25-.69.25-1.29.17-1.41-.07-.13-.27-.2-.57-.35zM12.04 21.5h-.01a9.4 9.4 0 0 1-4.8-1.32l-.34-.2-3.57.94.95-3.48-.22-.36a9.43 9.43 0 1 1 7.99 4.42zm8.02-17.45A11.3 11.3 0 0 0 12.04.75C5.8.75.72 5.83.72 12.07c0 2 .52 3.94 1.51 5.65L.62 23.25l5.66-1.48a11.3 11.3 0 0 0 5.76 1.47h.01c6.24 0 11.32-5.08 11.32-11.32 0-3.02-1.18-5.87-3.31-8z" />
+        </svg>
+        Fichar por WhatsApp
+      </a>
+    </div>
+  )
+}
 
 const STORAGE_ID = "fichar_colaborador_id"
 const STORAGE_NOMBRE = "fichar_colaborador_nombre"
@@ -198,15 +225,25 @@ export default function FicharPage() {
 
     let proceeded = false
     let softTimeout: ReturnType<typeof setTimeout> | null = null
+    let esperaCumplida = false
 
+    // Sin fix bueno no se valida: una lectura por antenas/wifi (±1–2 km) rechazaría a alguien que está en la puerta
     const hardTimeout = setTimeout(() => {
       if (proceeded) return
-      proceeded = true
       if (softTimeout) clearTimeout(softTimeout)
+      if (coordsRef.current && bestAccuracyRef.current <= PRECISION_ACEPTABLE_M) {
+        proceed()
+        return
+      }
+      proceeded = true
       detenerGPS()
-      setErrorMsg("No pudimos obtener tu ubicación. Habilitá el GPS e intentá de nuevo.")
-      setEstado("error-generico")
-    }, 15000)
+      if (coordsRef.current) {
+        setEstado("gps-impreciso")
+      } else {
+        setErrorMsg("No pudimos obtener tu ubicación. Habilitá el GPS e intentá de nuevo.")
+        setEstado("error-generico")
+      }
+    }, ESPERA_MAXIMA_GPS_MS)
 
     // Una vez que tenemos coords aceptables, validar en el servidor si hay colaborador guardado
     const validarYAvanzar = async (c: { lat: number; lon: number }) => {
@@ -317,14 +354,26 @@ export default function FicharPage() {
 
         if (proceeded) return
 
-        if (accuracy <= 25) {
+        if (accuracy <= PRECISION_BUENA_M) {
+          proceed()
+        } else if (esperaCumplida && bestAccuracyRef.current <= PRECISION_ACEPTABLE_M) {
           proceed()
         } else if (!softTimeout) {
-          // Primera lectura recibida: esperar hasta 5s por si mejora
-          softTimeout = setTimeout(proceed, 5000)
+          // Primera lectura recibida: esperar unos segundos por si mejora
+          softTimeout = setTimeout(() => {
+            esperaCumplida = true
+            if (bestAccuracyRef.current <= PRECISION_ACEPTABLE_M) {
+              proceed()
+            } else {
+              setGpsStatus("Señal GPS débil, buscando una ubicación más precisa...")
+            }
+          }, 5000)
         }
       },
       () => {
+        // Una vez validada la ubicación, un error posterior del seguimiento no debe sacarla de la pantalla
+        if (proceeded) return
+        proceeded = true
         clearTimeout(hardTimeout)
         if (softTimeout) clearTimeout(softTimeout)
         detenerGPS()
@@ -332,7 +381,7 @@ export default function FicharPage() {
         setEstado("error-generico")
       },
       // maximumAge: 0 — NUNCA usar posición cacheada, siempre fresca del satélite
-      { enableHighAccuracy: true, maximumAge: 0, timeout: 20000 }
+      { enableHighAccuracy: true, maximumAge: 0, timeout: ESPERA_MAXIMA_GPS_MS + 5000 }
     )
   }
 
@@ -588,6 +637,8 @@ export default function FicharPage() {
     month: "long",
     timeZone: "America/Argentina/Buenos_Aires",
   })
+
+  const mostrarFallbackWa = Boolean(WA_NUMERO) && !!punto && EMPRESAS_CON_FALLBACK_WA.includes(punto.empresa.slug)
 
   const gpsLabel =
     gpsAccuracy === null ? null
@@ -1022,8 +1073,38 @@ export default function FicharPage() {
             </div>
           )}
 
+          {/* ── GPS IMPRECISO: no se puede decidir si está o no en el lugar ── */}
+          {(estado === "gps-impreciso" || (estado === "error-gps" && (gpsAccuracy ?? 0) > PRECISION_ACEPTABLE_M)) && (
+            <div className="bg-white rounded-2xl shadow-sm border border-amber-200 p-8 text-center space-y-4">
+              <MapPin size={44} className="text-amber-500 mx-auto" />
+              <div>
+                <p className="text-gray-800 font-semibold text-lg">Tu GPS no está preciso</p>
+                {gpsAccuracy !== null && (
+                  <p className="text-amber-600 text-sm font-medium mt-1">
+                    Margen de error: ±{gpsAccuracy >= 1000 ? `${(gpsAccuracy / 1000).toFixed(1)} km` : `${gpsAccuracy} m`}
+                  </p>
+                )}
+                <p className="text-gray-500 text-sm mt-2">
+                  Así no podemos confirmar que estés en el lugar. Probá esto y reintentá:
+                </p>
+              </div>
+              <ol className="text-left text-sm text-gray-700 space-y-2 bg-amber-50 rounded-xl p-4 list-decimal list-inside">
+                <li>Activá la <strong>Ubicación</strong> del celular y la opción <strong>“Ubicación precisa”</strong>.</li>
+                <li>Si estás adentro, acercate a una ventana o salí a la vereda.</li>
+                <li>Esperá unos segundos con la pantalla prendida y tocá <strong>Reintentar</strong>.</li>
+              </ol>
+              <Button
+                className="w-full h-12 bg-blue-600 hover:bg-blue-700 text-white rounded-xl"
+                onClick={reintentar}
+              >
+                Reintentar
+              </Button>
+              {mostrarFallbackWa && <FallbackWhatsApp qrToken={token} />}
+            </div>
+          )}
+
           {/* ── ERROR GPS LEJOS ── */}
-          {estado === "error-gps" && errorGps && (
+          {estado === "error-gps" && errorGps && (gpsAccuracy ?? 0) <= PRECISION_ACEPTABLE_M && (
             <div className="bg-white rounded-2xl shadow-sm border border-red-100 p-8 text-center space-y-4">
               <XCircle size={48} className="text-red-400 mx-auto" />
               <div>
@@ -1080,6 +1161,7 @@ export default function FicharPage() {
               >
                 Reintentar
               </Button>
+              {mostrarFallbackWa && <FallbackWhatsApp qrToken={token} />}
             </div>
           )}
 
@@ -1091,6 +1173,7 @@ export default function FicharPage() {
               <Button variant="outline" className="w-full h-12 rounded-xl" onClick={reintentar}>
                 Reintentar
               </Button>
+              {mostrarFallbackWa && <FallbackWhatsApp qrToken={token} />}
             </div>
           )}
 
