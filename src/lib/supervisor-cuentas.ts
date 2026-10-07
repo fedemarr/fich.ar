@@ -25,7 +25,8 @@ export async function verificarEmailSupervisor(
   if (existente.empresa_id !== empresaId) {
     return { error: "Ese email ya está registrado en el sistema. Usá otro email para el supervisor." }
   }
-  if (existente.deleted_at && existente.rol === "SUPERVISOR" && !excluirId) {
+  // Cuenta dada de baja de la misma empresa (supervisor, manager, etc.): se reutiliza como supervisor
+  if (existente.deleted_at && !excluirId) {
     return { error: null, reactivarId: existente.id }
   }
   if (existente.deleted_at) {
