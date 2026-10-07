@@ -65,8 +65,7 @@ const PRECISION_BUENA_M = 50
 const PRECISION_ACEPTABLE_M = 150
 const ESPERA_MAXIMA_GPS_MS = 25000
 
-// Empresas con el bot de WhatsApp como alternativa cuando la PWA no puede fichar
-const EMPRESAS_CON_FALLBACK_WA = ["olimpia"]
+// Bot de WhatsApp como alternativa cuando la PWA no puede fichar
 const WA_NUMERO = process.env.NEXT_PUBLIC_META_WA_NUMBER ?? ""
 
 function FallbackWhatsApp({ qrToken }: { qrToken: string }) {
@@ -638,7 +637,7 @@ export default function FicharPage() {
     timeZone: "America/Argentina/Buenos_Aires",
   })
 
-  const mostrarFallbackWa = Boolean(WA_NUMERO) && !!punto && EMPRESAS_CON_FALLBACK_WA.includes(punto.empresa.slug)
+  const mostrarFallbackWa = Boolean(WA_NUMERO) && !!punto
 
   const gpsLabel =
     gpsAccuracy === null ? null
