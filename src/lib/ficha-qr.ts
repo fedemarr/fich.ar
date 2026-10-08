@@ -138,8 +138,14 @@ export function abrirVentanaImpresion(): Window | null {
 
 // Escribe todas las fichas (una por hoja A4) y lanza el diálogo de impresión → "Guardar como PDF".
 // El logo se pasa por referencia al window del popup para no repetir un base64 enorme en cada ficha.
-export function imprimirFichas(ventana: Window, titulo: string, fichas: FichaQrDatos[], logoBase64: string): void {
-  const html = `<!DOCTYPE html>
+// Documento completo de fichas. Sin logoSrc, el logo se toma de window.__logo (lo setea imprimirFichas).
+export function documentoFichasHtml(
+  titulo: string,
+  fichas: FichaQrDatos[],
+  opciones: { logoSrc?: string; autoImprimir: boolean }
+): string {
+  const logoJs = opciones.logoSrc ? JSON.stringify(opciones.logoSrc) : "window.__logo"
+  return `<!DOCTYPE html>
 <html lang="es">
 <head>
   <meta charset="UTF-8" />
@@ -149,11 +155,16 @@ export function imprimirFichas(ventana: Window, titulo: string, fichas: FichaQrD
 <body>
   ${fichas.map(fichaHtml).join("")}
   <script>
-    document.querySelectorAll('.__logo__').forEach(function (img) { if (window.__logo) img.src = window.__logo; });
-    window.onload = function () { window.print(); };
+    var logo = ${logoJs};
+    document.querySelectorAll('.__logo__').forEach(function (img) { if (logo) img.src = logo; });
+    ${opciones.autoImprimir ? "window.onload = function () { window.print(); };" : ""}
   </script>
 </body>
 </html>`
+}
+
+export function imprimirFichas(ventana: Window, titulo: string, fichas: FichaQrDatos[], logoBase64: string): void {
+  const html = documentoFichasHtml(titulo, fichas, { autoImprimir: true })
 
   if (logoBase64) {
     (ventana as Window & { __logo: string }).__logo = logoBase64

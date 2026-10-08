@@ -3,7 +3,7 @@ import { prisma } from "@/lib/prisma"
 import { calcularDistanciaMetros } from "@/lib/geo"
 import { calcularAnalisis, encontrarJornadaParaFichada } from "@/lib/jornadas"
 import { rateLimitQR } from "@/lib/rate-limit"
-import { hoyARG, inicioDiaARG } from "@/lib/utils"
+import { hoyARG } from "@/lib/utils"
 import { buscarTurnoAbierto } from "@/lib/turno-abierto"
 
 export async function POST(req: Request) {
@@ -150,41 +150,13 @@ export async function POST(req: Request) {
     include: { jornada: true },
   })
 
-  // 4b. Verificar fichadas de hoy
-  const inicioDia = inicioDiaARG(hoyARG())
-  const fichadasHoy = await prisma.fichada.findMany({
-    where: { colaborador_id: colaborador.id, timestamp: { gte: inicioDia }, es_valida: true },
-    select: { tipo: true, punto_fichaje_id: true },
-    orderBy: { timestamp: "asc" },
-  })
-
-  const esFichajeLibre = punto.empresa.fichaje_libre
-
-  const puntosAsignados = new Set(jornadasActivas.map((j) => j.jornada.punto_fichaje_id))
-  const limiteTurnos = Math.max(1, puntosAsignados.size)
-  const entradasHoy = fichadasHoy.filter((f) => f.tipo === "ENTRADA").length
-  const fichadasEnPunto = fichadasHoy.filter((f) => f.punto_fichaje_id === punto.id)
-  const entradaEnPunto = fichadasEnPunto.some((f) => f.tipo === "ENTRADA")
-  const salidaEnPunto = fichadasEnPunto.some((f) => f.tipo === "SALIDA")
-
-  // next_tipo: qué puede fichar a continuación (null = turnos completos)
-  // Clean Paz (fichaje libre): alternar por punto, cada punto con su propia entrada→salida.
-  // Resto: turnos encadenados — al cerrar un turno con la salida se habilita una nueva entrada,
-  // así quien tiene 2 o más servicios en el día puede fichar todos.
-  let next_tipo: "ENTRADA" | "SALIDA" | null
-  const turnoAbierto = esFichajeLibre ? null : await buscarTurnoAbierto(colaborador.id, punto.empresa_id, ahora)
-  if (esFichajeLibre) {
-    if (!entradaEnPunto && entradasHoy < limiteTurnos) {
-      next_tipo = "ENTRADA"
-    } else if (entradaEnPunto && !salidaEnPunto) {
-      next_tipo = "SALIDA"
-    } else {
-      next_tipo = null
-    }
-  } else {
-    // Entrada abierta en otro punto = se olvidó la salida: se ficha entrada acá y el anterior se cierra solo
-    next_tipo = turnoAbierto && turnoAbierto.punto_fichaje_id === punto.id ? "SALIDA" : "ENTRADA"
-  }
+  // 4b. Turnos encadenados (todas las empresas, incluida Clean Paz con fichaje libre):
+  // al cerrar un turno con la salida se habilita una nueva entrada, sin límite por día y en cualquier punto
+  // (coberturas y flotantes sin turno fijo incluidos).
+  const turnoAbierto = await buscarTurnoAbierto(colaborador.id, punto.empresa_id, ahora)
+  // Entrada abierta en otro punto = se olvidó la salida: se ficha entrada acá y el anterior se cierra solo
+  const next_tipo: "ENTRADA" | "SALIDA" =
+    turnoAbierto && turnoAbierto.punto_fichaje_id === punto.id ? "SALIDA" : "ENTRADA"
 
   const puntoTurnoAbierto =
     turnoAbierto?.punto_fichaje_id && turnoAbierto.punto_fichaje_id !== punto.id
@@ -203,38 +175,17 @@ export async function POST(req: Request) {
 
   // 5. Validar que el tipo pedido esté permitido
   const tipoFichada = tipo ?? next_tipo
-  if (!tipoFichada) {
-    return NextResponse.json({
-      error: esFichajeLibre ? "Ya completaste todos tus turnos de hoy" : "Ya registraste entrada y salida hoy",
-    }, { status: 400 })
+  const abiertoAca = turnoAbierto !== null && turnoAbierto.punto_fichaje_id === punto.id
+  if (tipoFichada === "ENTRADA" && abiertoAca) {
+    return NextResponse.json({ error: "Ya tenés una entrada abierta en este punto. Registrá tu salida." }, { status: 400 })
   }
-
-  if (esFichajeLibre) {
-    if (tipoFichada === "ENTRADA" && entradaEnPunto) {
-      return NextResponse.json({ error: "Ya registraste tu entrada en este punto hoy" }, { status: 400 })
-    }
-    if (tipoFichada === "ENTRADA" && entradasHoy >= limiteTurnos) {
-      return NextResponse.json({ error: "Alcanzaste tu límite de turnos de hoy" }, { status: 400 })
-    }
-    if (tipoFichada === "SALIDA" && !entradaEnPunto) {
-      return NextResponse.json({ error: "Primero debés registrar tu entrada en este punto" }, { status: 400 })
-    }
-    if (tipoFichada === "SALIDA" && salidaEnPunto) {
-      return NextResponse.json({ error: "Ya registraste tu salida en este punto hoy" }, { status: 400 })
-    }
-  } else {
-    const abiertoAca = turnoAbierto !== null && turnoAbierto.punto_fichaje_id === punto.id
-    if (tipoFichada === "ENTRADA" && abiertoAca) {
-      return NextResponse.json({ error: "Ya tenés una entrada abierta en este punto. Registrá tu salida." }, { status: 400 })
-    }
-    if (tipoFichada === "SALIDA" && !turnoAbierto) {
-      return NextResponse.json({ error: "No tenés una entrada abierta. Registrá primero tu entrada." }, { status: 400 })
-    }
-    if (tipoFichada === "SALIDA" && !abiertoAca) {
-      return NextResponse.json({
-        error: `Tu entrada abierta es en ${puntoTurnoAbierto?.nombre ?? "otro punto"}. Registrá la salida en ese punto.`,
-      }, { status: 400 })
-    }
+  if (tipoFichada === "SALIDA" && !turnoAbierto) {
+    return NextResponse.json({ error: "No tenés una entrada abierta. Registrá primero tu entrada." }, { status: 400 })
+  }
+  if (tipoFichada === "SALIDA" && !abiertoAca) {
+    return NextResponse.json({
+      error: `Tu entrada abierta es en ${puntoTurnoAbierto?.nombre ?? "otro punto"}. Registrá la salida en ese punto.`,
+    }, { status: 400 })
   }
 
   // 5b. Entrada en un servicio nuevo con otro turno sin cerrar: se cierra el anterior automáticamente
