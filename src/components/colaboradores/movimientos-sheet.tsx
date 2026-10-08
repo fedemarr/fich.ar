@@ -159,6 +159,18 @@ export function MovimientosSheet({ colaborador, onClose }: Props) {
                 </div>
               )}
 
+              {datos.servicios.some((s) => s.duracion_min !== null) && (
+                <div className="flex items-center justify-between rounded-xl bg-[#EFF6FF] border border-blue-100 px-3 py-2">
+                  <span className="text-xs font-medium text-gray-600">Total trabajado</span>
+                  <span className="text-sm font-bold text-[#2563EB]">
+                    {duracion(datos.servicios.reduce((acc, s) => acc + (s.duracion_min ?? 0), 0))}
+                    {datos.servicios.some((s) => s.estado === "EN_CURSO") && (
+                      <span className="ml-1 text-[11px] font-medium text-gray-400">+ turno en curso</span>
+                    )}
+                  </span>
+                </div>
+              )}
+
               {vacio && (
                 <div className="text-center py-10 text-sm text-gray-400">
                   Sin movimientos ni servicios asignados este día

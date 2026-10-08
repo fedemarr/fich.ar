@@ -40,20 +40,35 @@ interface FilaExport {
   entrada: { timestamp: Date | string } | null
   salida: { timestamp: Date | string } | null
   edificio: string
+  edificioReal: string
+  nroTurno: number
+  minutos: number | null
+  totalMinutos: number
 }
 
+const horaARG = (t: Date | string) =>
+  new Date(t).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit", timeZone: "America/Argentina/Buenos_Aires" })
+
+const fechaARG = (t: Date | string) =>
+  new Date(t).toLocaleDateString("es-AR", { day: "2-digit", month: "2-digit", year: "numeric", timeZone: "America/Argentina/Buenos_Aires" })
+
+// Horas en decimal (7,75) para poder sumarlas en Excel
+const horasDecimal = (min: number) => Math.round((min / 60) * 100) / 100
+
 export function exportarListadoExcel(filas: FilaExport[], fecha: string) {
-  const datos = filas.map((f) => ({
-    Colaborador: `${f.colaborador.apellido} ${f.colaborador.nombre}`,
-    Fecha: fecha,
-    Ingreso: f.entrada
-      ? new Date(f.entrada.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
-      : "—",
-    Egreso: f.salida
-      ? new Date(f.salida.timestamp).toLocaleTimeString("es-AR", { hour: "2-digit", minute: "2-digit" })
-      : "Pendiente",
-    Edificio: f.edificio,
-  }))
+  const datos = filas.map((f) => {
+    const ref = f.entrada ?? f.salida
+    return {
+      Colaborador: `${f.colaborador.apellido} ${f.colaborador.nombre}`,
+      Fecha: ref ? fechaARG(ref.timestamp) : fecha,
+      Turno: f.nroTurno,
+      Ingreso: f.entrada ? horaARG(f.entrada.timestamp) : "—",
+      Egreso: f.salida ? horaARG(f.salida.timestamp) : "Pendiente",
+      "Horas turno": f.minutos !== null ? horasDecimal(f.minutos) : "",
+      "Total horas colaborador": f.nroTurno === 1 && f.totalMinutos > 0 ? horasDecimal(f.totalMinutos) : "",
+      Edificio: f.edificioReal,
+    }
+  })
 
   const ws = XLSX.utils.json_to_sheet(datos)
   const wb = XLSX.utils.book_new()

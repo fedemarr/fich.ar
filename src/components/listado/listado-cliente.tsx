@@ -32,6 +32,14 @@ interface FilaListado {
   edificioReal: string  // punto donde realmente fichó (puede diferir del asignado)
   puntoId: string | null // punto real de la fila: donde fichó, o el asignado si todavía no fichó
   nroTurno: number
+  minutos: number | null       // duración de este turno (entrada → salida)
+  totalMinutos: number          // suma de todos los turnos cerrados del colaborador en el período
+  cantTurnos: number
+}
+
+function formatDuracion(min: number | null): string {
+  if (min === null) return "—"
+  return `${Math.floor(min / 60)}h ${String(min % 60).padStart(2, "0")}m`
 }
 
 const TODOS_LOS_PUNTOS = "__todos__"
@@ -106,43 +114,50 @@ export function ListadoCliente({
           edificioReal: edificioAsignado,
           puntoId: puntoAsignadoId,
           nroTurno: 1,
+          minutos: null,
+          totalMinutos: 0,
+          cantTurnos: 1,
         })
         continue
       }
 
-      // Turno doble: agrupar fichadas por punto (cada punto = un turno)
-      const porPunto = new Map<string, FichadaConRelaciones[]>()
+      // Turnos en orden: cada entrada abre un turno y la salida siguiente lo cierra.
+      // Así se ven todos aunque se repita el punto en el día (turnos encadenados).
+      const turnos: { entrada: FichadaConRelaciones | null; salida: FichadaConRelaciones | null }[] = []
+      let abierto: { entrada: FichadaConRelaciones | null; salida: FichadaConRelaciones | null } | null = null
       for (const f of fichadasCol) {
-        const key = f.punto_fichaje_id ?? "sin-punto"
-        const arr = porPunto.get(key) ?? []
-        arr.push(f)
-        porPunto.set(key, arr)
+        if (f.tipo === "ENTRADA") {
+          abierto = { entrada: f, salida: null }
+          turnos.push(abierto)
+        } else if (abierto && !abierto.salida) {
+          abierto.salida = f
+          abierto = null
+        } else {
+          turnos.push({ entrada: null, salida: f })
+        }
       }
-      // Ordenar los puntos por la hora de su primera fichada
-      const puntosOrdenados = Array.from(porPunto.entries())
-        .sort((a, b) => {
-          const ta = new Date(a[1][0].timestamp).getTime()
-          const tb = new Date(b[1][0].timestamp).getTime()
-          return ta - tb
-        })
 
-      puntosOrdenados.forEach(([puntoKey, fichas], idx) => {
-        const ordenadas = fichas.sort(
-          (a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime()
-        )
-        const entrada = ordenadas.find((f) => f.tipo === "ENTRADA") ?? null
-        const salida = ordenadas.find((f) => f.tipo === "SALIDA") ?? null
-        const esCobertura = !!entrada?.es_cobertura
-        const edificioReal = entrada?.punto_fichaje?.nombre ?? edificioAsignado
+      const duraciones = turnos.map(({ entrada, salida }) =>
+        entrada && salida
+          ? Math.max(0, Math.round((new Date(salida.timestamp).getTime() - new Date(entrada.timestamp).getTime()) / 60000))
+          : null
+      )
+      const totalMinutos = duraciones.reduce<number>((acc, d) => acc + (d ?? 0), 0)
+
+      turnos.forEach(({ entrada, salida }, idx) => {
+        const ref = entrada ?? salida
         result.push({
           colaborador: col,
           entrada,
           salida,
           edificio: edificioAsignado,
-          esCobertura,
-          edificioReal,
-          puntoId: puntoKey === "sin-punto" ? null : puntoKey,
+          esCobertura: !!entrada?.es_cobertura,
+          edificioReal: ref?.punto_fichaje?.nombre ?? edificioAsignado,
+          puntoId: ref?.punto_fichaje_id ?? null,
           nroTurno: idx + 1,
+          minutos: duraciones[idx],
+          totalMinutos,
+          cantTurnos: turnos.length,
         })
       })
     }
@@ -252,7 +267,7 @@ export function ListadoCliente({
           <div className="text-center text-gray-400 py-12 text-sm">Sin registros para esta fecha</div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno }, idx) => {
+            {filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno, minutos, totalMinutos, cantTurnos }) => {
               const analisisEntrada = getAnalisisEntrada(entrada)
               const esTarde = analisisEntrada === "Llegada tarde"
               const esTurnoExtra = nroTurno > 1
@@ -306,6 +321,12 @@ export function ListadoCliente({
                         {analisisEntrada}
                       </p>
                     )}
+                    {minutos !== null && (
+                      <p className="text-[10px] text-gray-500 mt-0.5">{formatDuracion(minutos)}</p>
+                    )}
+                    {nroTurno === 1 && cantTurnos > 1 && totalMinutos > 0 && (
+                      <p className="text-[10px] font-semibold text-[#2563EB] mt-0.5">Total {formatDuracion(totalMinutos)}</p>
+                    )}
                   </div>
                 </div>
               )
@@ -323,6 +344,7 @@ export function ListadoCliente({
               <th className="text-left px-4 py-3 font-medium text-gray-600">Fecha</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Ingreso</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Egreso</th>
+              <th className="text-left px-4 py-3 font-medium text-gray-600">Horas</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Análisis</th>
               <th className="text-left px-4 py-3 font-medium text-gray-600">Edificio</th>
             </tr>
@@ -330,12 +352,12 @@ export function ListadoCliente({
           <tbody>
             {filasFiltradas.length === 0 ? (
               <tr>
-                <td colSpan={6} className="text-center text-gray-400 py-12">
+                <td colSpan={7} className="text-center text-gray-400 py-12">
                   Sin registros para esta fecha
                 </td>
               </tr>
             ) : (
-              filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno }) => {
+              filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno, minutos, totalMinutos, cantTurnos }) => {
                 const analisisEntrada = getAnalisisEntrada(entrada)
                 const analisisSalida = getAnalisisSalida(salida)
                 const esTarde = analisisEntrada === "Llegada tarde"
@@ -384,6 +406,12 @@ export function ListadoCliente({
                     </td>
                     <td className="px-4 py-3 text-gray-500">
                       {salida ? formatHora(salida.timestamp) : "Pendiente"}
+                    </td>
+                    <td className="px-4 py-3 text-gray-700 text-xs whitespace-nowrap">
+                      <div>{formatDuracion(minutos)}</div>
+                      {nroTurno === 1 && cantTurnos > 1 && totalMinutos > 0 && (
+                        <div className="font-semibold text-[#2563EB] mt-0.5">Total {formatDuracion(totalMinutos)}</div>
+                      )}
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex flex-col gap-0.5">
