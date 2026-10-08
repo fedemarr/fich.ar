@@ -73,7 +73,7 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
           nombrePunto: p.nombre,
           empresaNombre,
           url,
-          qrDataUrl: await generarQrPng(url, logoBase64, "#000000"),
+          qrDataUrl: await generarQrPng(url, "", "#000000"),
           modo: "pwa" as const,
           conLogo: !!logoBase64,
         }

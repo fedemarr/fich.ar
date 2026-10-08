@@ -6,7 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button"
 import { Download, Printer, Smartphone, Globe } from "lucide-react"
 import type { PuntoFichaje } from "@/generated/prisma/client"
-import { abrirVentanaImpresion, cargarImagenBase64, imprimirFichas } from "@/lib/ficha-qr"
+import { abrirVentanaImpresion, cargarImagenBase64, generarQrPng, imprimirFichas } from "@/lib/ficha-qr"
 
 interface QrDialogProps {
   punto: PuntoFichaje
@@ -64,7 +64,8 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
   async function imprimirFicha() {
     const ventana = abrirVentanaImpresion()
     if (!ventana) { alert("Permitir ventanas emergentes para imprimir"); return }
-    const qrDataUrl = await svgToPngDataUrl(600)
+    // QR limpio, sin logo al centro: escanea mejor y el logo ya va grande arriba de la ficha
+    const qrDataUrl = await generarQrPng(url, "", modo === "wa" ? "#075E54" : "#000000")
     imprimirFichas(ventana, `Ficha QR — ${punto.nombre}`, [{
       nombrePunto: punto.nombre,
       empresaNombre,

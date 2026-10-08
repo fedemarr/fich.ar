@@ -39,9 +39,12 @@ const FICHA_CSS = `
   body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; background: white; }
   .pagina {
     width: 210mm; height: 297mm;
-    display: flex; align-items: center; justify-content: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
     page-break-after: always; break-after: page;
   }
+  .marca-empresa { margin-bottom: 22px; display: flex; align-items: center; justify-content: center; }
+  .marca-empresa img { max-height: 130px; max-width: 440px; object-fit: contain; }
+  .marca-empresa-texto { font-size: 34px; font-weight: 800; color: #111827; letter-spacing: -0.5px; text-align: center; }
   .pagina:last-child { page-break-after: auto; break-after: auto; }
   .ficha {
     width: 500px; background: white;
@@ -52,12 +55,6 @@ const FICHA_CSS = `
     display: flex; flex-direction: column; align-items: center; gap: 10px;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  .logo-wrapper {
-    background: white; border-radius: 10px; padding: 8px 16px;
-    display: inline-flex; align-items: center; justify-content: center;
-  }
-  .empresa-logo { height: 44px; max-width: 160px; object-fit: contain; }
-  .empresa-nombre-text { font-size: 20px; font-weight: 800; color: white; letter-spacing: -0.3px; }
   .logo-fichar { font-size: 12px; font-weight: 500; color: rgba(255,255,255,0.6); letter-spacing: 0.05em; }
   .punto-nombre {
     font-size: 15px; font-weight: 600; color: rgba(255,255,255,0.9);
@@ -96,9 +93,10 @@ const FICHA_CSS = `
 `
 
 function fichaHtml(d: FichaQrDatos): string {
-  const logoHtml = d.conLogo
-    ? `<div class="logo-wrapper"><img class="empresa-logo __logo__" /></div>`
-    : `<span class="empresa-nombre-text">${escapar(d.empresaNombre)}</span>`
+  // Logo grande arriba, afuera de la tarjeta (modelo pedido por FourMaster); sin logo, el nombre de la empresa
+  const marcaHtml = d.conLogo
+    ? `<div class="marca-empresa"><img class="__logo__" alt="${escapar(d.empresaNombre)}" /></div>`
+    : `<div class="marca-empresa"><span class="marca-empresa-texto">${escapar(d.empresaNombre)}</span></div>`
   const pasos = (d.modo === "wa" ? PASOS_WA : PASOS_PWA)
     .map(([texto, sub], i) => `
       <div class="paso"><div class="paso-num">${i + 1}</div><div>
@@ -109,9 +107,9 @@ function fichaHtml(d: FichaQrDatos): string {
 
   return `
   <div class="pagina">
+    ${marcaHtml}
     <div class="ficha">
       <div class="header">
-        ${logoHtml}
         <span class="logo-fichar">powered by Jornada.OH</span>
         <span class="punto-nombre">📍 ${escapar(d.nombrePunto)}</span>
       </div>
