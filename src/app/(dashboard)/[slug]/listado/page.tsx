@@ -45,11 +45,14 @@ export default async function ListadoPage({ params, searchParams }: ListadoPageP
         ...(colaboradoresFiltroIds ? { id: { in: colaboradoresFiltroIds } } : {}),
       },
       include: {
+        // Todas las jornadas activas: quien tiene varios servicios debe aparecer en cada uno aunque no haya fichado
         jornadas: {
-          where: { OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }] },
+          where: {
+            OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }],
+            jornada: { activo: true, ...(puntosIds ? { punto_fichaje_id: { in: puntosIds } } : {}) },
+          },
           include: { jornada: { include: { punto_fichaje: true } } },
           orderBy: { fecha_desde: "desc" },
-          take: 1,
         },
       },
       orderBy: [{ apellido: "asc" }, { nombre: "asc" }],

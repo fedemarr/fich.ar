@@ -35,6 +35,14 @@ interface FilaListado {
   minutos: number | null       // duración de este turno (entrada → salida)
   totalMinutos: number          // suma de todos los turnos cerrados del colaborador en el período
   cantTurnos: number
+  horario: string | null        // horario del servicio programado (filas "Sin fichada")
+}
+
+const DIAS_SEMANA = ["domingo", "lunes", "martes", "miercoles", "jueves", "viernes", "sabado"] as const
+
+function trabajaEseDia(j: Jornada, dia: string): boolean {
+  const campos = j as unknown as Record<string, unknown>
+  return Boolean(campos[`${dia}_presencial`]) || Boolean(campos[`${dia}_virtual`])
 }
 
 function formatDuracion(min: number | null): string {
@@ -95,6 +103,10 @@ export function ListadoCliente({
   }, [fechaInicial, router])
 
   const filas: FilaListado[] = useMemo(() => {
+    // Servicios programados: solo cuando se mira un único día (en un rango no hay un día de semana fijo)
+    const esUnDia = !hastaInicial || hastaInicial === fechaInicial
+    const diaKey = DIAS_SEMANA[new Date(fechaInicial + "T12:00:00Z").getUTCDay()]
+
     const result: FilaListado[] = []
     for (const col of colaboradores) {
       const fichadasCol = fichadas
@@ -102,24 +114,6 @@ export function ListadoCliente({
         .sort((a, b) => new Date(a.timestamp).getTime() - new Date(b.timestamp).getTime())
       const edificioAsignado = col.jornadas[0]?.jornada.punto_fichaje.nombre ?? "—"
       const puntoAsignadoId = col.jornadas[0]?.jornada.punto_fichaje.id ?? null
-
-      // Sin fichadas: una sola fila (sin registros)
-      if (fichadasCol.length === 0) {
-        result.push({
-          colaborador: col,
-          entrada: null,
-          salida: null,
-          edificio: edificioAsignado,
-          esCobertura: false,
-          edificioReal: edificioAsignado,
-          puntoId: puntoAsignadoId,
-          nroTurno: 1,
-          minutos: null,
-          totalMinutos: 0,
-          cantTurnos: 1,
-        })
-        continue
-      }
 
       // Turnos en orden: cada entrada abre un turno y la salida siguiente lo cierra.
       // Así se ven todos aunque se repita el punto en el día (turnos encadenados).
@@ -144,9 +138,10 @@ export function ListadoCliente({
       )
       const totalMinutos = duraciones.reduce<number>((acc, d) => acc + (d ?? 0), 0)
 
-      turnos.forEach(({ entrada, salida }, idx) => {
+      type FilaBase = Omit<FilaListado, "nroTurno" | "cantTurnos" | "totalMinutos">
+      const filasCol: FilaBase[] = turnos.map(({ entrada, salida }, idx) => {
         const ref = entrada ?? salida
-        result.push({
+        return {
           colaborador: col,
           entrada,
           salida,
@@ -154,15 +149,60 @@ export function ListadoCliente({
           esCobertura: !!entrada?.es_cobertura,
           edificioReal: ref?.punto_fichaje?.nombre ?? edificioAsignado,
           puntoId: ref?.punto_fichaje_id ?? null,
-          nroTurno: idx + 1,
           minutos: duraciones[idx],
-          totalMinutos,
-          cantTurnos: turnos.length,
+          horario: null,
+        }
+      })
+
+      // Servicios que le tocan ese día y en los que todavía no fichó: una fila "Sin fichada" por cada uno
+      if (esUnDia) {
+        const puntosFichados = new Set(turnos.map((t) => (t.entrada ?? t.salida)?.punto_fichaje_id ?? null))
+        const vistos = new Set<string>()
+        const pendientes = col.jornadas
+          .filter((cj) => {
+            const pid = cj.jornada.punto_fichaje_id
+            if (vistos.has(pid) || puntosFichados.has(pid)) return false
+            if (!trabajaEseDia(cj.jornada, diaKey) || cj.dias_franco.includes(diaKey)) return false
+            vistos.add(pid)
+            return true
+          })
+          .sort((a, b) => a.jornada.hora_inicio.localeCompare(b.jornada.hora_inicio))
+        for (const cj of pendientes) {
+          filasCol.push({
+            colaborador: col,
+            entrada: null,
+            salida: null,
+            edificio: cj.jornada.punto_fichaje.nombre,
+            esCobertura: false,
+            edificioReal: cj.jornada.punto_fichaje.nombre,
+            puntoId: cj.jornada.punto_fichaje_id,
+            minutos: null,
+            horario: `${cj.jornada.hora_inicio}–${cj.jornada.hora_fin}`,
+          })
+        }
+      }
+
+      // Sin fichadas ni servicios ese día: una fila con su punto asignado (como siempre)
+      if (filasCol.length === 0) {
+        filasCol.push({
+          colaborador: col,
+          entrada: null,
+          salida: null,
+          edificio: edificioAsignado,
+          esCobertura: false,
+          edificioReal: edificioAsignado,
+          puntoId: puntoAsignadoId,
+          minutos: null,
+          horario: null,
         })
+      }
+
+      filasCol.forEach((f, idx) => {
+        result.push({ ...f, nroTurno: idx + 1, cantTurnos: filasCol.length, totalMinutos })
       })
     }
     return result
-  }, [colaboradores, fichadas])
+  }, [colaboradores, fichadas, fechaInicial, hastaInicial])
 
   const opcionesPuntos = useMemo(() => {
     const mapa = new Map<string, string>()
@@ -267,7 +307,7 @@ export function ListadoCliente({
           <div className="text-center text-gray-400 py-12 text-sm">Sin registros para esta fecha</div>
         ) : (
           <div className="divide-y divide-gray-100">
-            {filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno, minutos, totalMinutos, cantTurnos }) => {
+            {filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno, minutos, totalMinutos, cantTurnos, horario }) => {
               const analisisEntrada = getAnalisisEntrada(entrada)
               const esTarde = analisisEntrada === "Llegada tarde"
               const esTurnoExtra = nroTurno > 1
@@ -297,7 +337,7 @@ export function ListadoCliente({
                       </p>
                     )}
                     <div className="flex items-center gap-1.5">
-                      <p className="text-xs text-gray-400 truncate">{edificioReal}</p>
+                      <p className="text-xs text-gray-400 truncate">{edificioReal}{horario && ` · ${horario}`}</p>
                       {esCobertura && (
                         <span className="text-[10px] bg-purple-100 text-purple-700 rounded px-1 py-0.5 font-medium shrink-0">🔄 Cob.</span>
                       )}
@@ -357,7 +397,7 @@ export function ListadoCliente({
                 </td>
               </tr>
             ) : (
-              filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno, minutos, totalMinutos, cantTurnos }) => {
+              filasFiltradas.map(({ colaborador, entrada, salida, esCobertura, edificioReal, nroTurno, minutos, totalMinutos, cantTurnos, horario }) => {
                 const analisisEntrada = getAnalisisEntrada(entrada)
                 const analisisSalida = getAnalisisSalida(salida)
                 const esTarde = analisisEntrada === "Llegada tarde"
@@ -434,6 +474,7 @@ export function ListadoCliente({
                     <td className="px-4 py-3 text-gray-600 text-xs">
                       <div className="flex items-center gap-1.5">
                         <span>{edificioReal}</span>
+                        {horario && <span className="text-gray-400 whitespace-nowrap">· {horario}</span>}
                         {esCobertura && (
                           <span className="bg-purple-100 text-purple-700 rounded px-1.5 py-0.5 text-[10px] font-medium whitespace-nowrap">
                             🔄 Cobertura
