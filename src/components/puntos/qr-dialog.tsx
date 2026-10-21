@@ -4,7 +4,7 @@ import { useRef, useEffect, useState } from "react"
 import { QRCodeSVG } from "qrcode.react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { Download, Printer, Smartphone, Globe } from "lucide-react"
+import { Download, Printer, Smartphone, Globe, Copy, Check } from "lucide-react"
 import type { PuntoFichaje } from "@/generated/prisma/client"
 import { abrirVentanaImpresion, cargarImagenBase64, generarQrPng, imprimirFichas } from "@/lib/ficha-qr"
 
@@ -26,6 +26,25 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
     ? `https://api.whatsapp.com/send/?phone=${waNumber}&text=FICHAR%20${punto.qr_token}&type=phone_number&app_absent=0`
     : ""
   const url = modo === "wa" && urlWa ? urlWa : urlPwa
+  // Link corto para mandar por chat a operarios sin cámara o sin datos: abre el bot con el punto cargado
+  const linkWaCompartir = waNumber ? `https://wa.me/${waNumber}?text=FICHAR%20${punto.qr_token}` : ""
+  const [copiado, setCopiado] = useState(false)
+
+  async function copiarLinkWa() {
+    try {
+      await navigator.clipboard.writeText(linkWaCompartir)
+    } catch {
+      // Navegadores sin permiso de portapapeles
+      const area = document.createElement("textarea")
+      area.value = linkWaCompartir
+      document.body.appendChild(area)
+      area.select()
+      document.execCommand("copy")
+      area.remove()
+    }
+    setCopiado(true)
+    setTimeout(() => setCopiado(false), 2000)
+  }
 
   const [logoBase64, setLogoBase64] = useState<string>("")
 
@@ -145,6 +164,21 @@ export function QrDialog({ punto, empresaNombre, empresaLogoUrl, onClose }: QrDi
               Imprimir ficha
             </Button>
           </div>
+          {modo === "wa" && linkWaCompartir && (
+            <div className="w-full space-y-1.5">
+              <Button
+                variant="outline"
+                className={`w-full gap-2 ${copiado ? "border-[#25D366] text-[#128C7E] bg-green-50" : "border-[#25D366] text-[#128C7E] hover:bg-green-50"}`}
+                onClick={() => void copiarLinkWa()}
+              >
+                {copiado ? <Check size={15} /> : <Copy size={15} />}
+                {copiado ? "¡Link copiado!" : "Copiar link de WhatsApp"}
+              </Button>
+              <p className="text-[11px] text-gray-400 text-center">
+                Mandáselo por chat al operario: lo toca, se abre el bot con este punto y ficha sin escanear el QR.
+              </p>
+            </div>
+          )}
         </div>
       </DialogContent>
     </Dialog>
