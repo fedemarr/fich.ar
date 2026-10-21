@@ -4,6 +4,7 @@ import { redirect } from "next/navigation"
 import { LayoutDashboard } from "lucide-react"
 import { GraficoFichadas } from "@/components/resumen/grafico-fichadas"
 import { AutoRefresh } from "@/components/resumen/auto-refresh"
+import { UltimasFichadas } from "@/components/resumen/ultimas-fichadas"
 import { hoyARG, inicioDiaARG, finDiaARG, horaARG, formatHoraARG } from "@/lib/utils"
 import type { DatoGrafico } from "@/types"
 
@@ -57,6 +58,7 @@ export default async function ResumenPage({
         timestamp: true,
         colaborador_id: true,
         colaborador: { select: { id: true, nombre: true, apellido: true } },
+        punto_fichaje: { select: { nombre: true } },
       },
       orderBy: { timestamp: "asc" },
     }),
@@ -118,27 +120,15 @@ export default async function ResumenPage({
 
       <div className="bg-white rounded-xl border border-gray-200 p-6">
         <h2 className="text-sm font-semibold text-gray-700 mb-4">Últimas fichadas de hoy</h2>
-        {fichadasHoy.length === 0 ? (
-          <p className="text-sm text-gray-400 text-center py-8">Sin fichadas registradas hoy</p>
-        ) : (
-          <div className="space-y-2">
-            {fichadasHoy.slice(-10).reverse().map((f) => (
-              <div key={f.id} className="flex items-center justify-between py-2 border-b border-gray-50 last:border-0">
-                <div className="flex items-center gap-3">
-                  <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    f.tipo === "ENTRADA" ? "bg-green-50 text-green-700" : "bg-orange-50 text-orange-700"
-                  }`}>
-                    {f.tipo === "ENTRADA" ? "↑ Entrada" : "↓ Salida"}
-                  </span>
-                  <span className="text-sm text-gray-800">
-                    {f.colaborador.nombre} {f.colaborador.apellido}
-                  </span>
-                </div>
-                <span className="text-xs text-gray-500">{formatHoraARG(f.timestamp)}</span>
-              </div>
-            ))}
-          </div>
-        )}
+        <UltimasFichadas
+          fichadas={[...fichadasHoy].reverse().map((f) => ({
+            id: f.id,
+            tipo: f.tipo,
+            hora: formatHoraARG(f.timestamp),
+            colaborador: `${f.colaborador.nombre} ${f.colaborador.apellido}`,
+            punto: f.punto_fichaje?.nombre ?? null,
+          }))}
+        />
       </div>
     </div>
   )
