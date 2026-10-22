@@ -3,16 +3,17 @@
 import { useCallback, useEffect, useState } from "react"
 import { ClipboardCheck, CheckCircle2, AlertTriangle, Loader2, ChevronDown, MapPin } from "lucide-react"
 import { cn } from "@/lib/utils"
+import { checklistParaMostrar, SATISFACCION_LABELS } from "@/lib/checklist-supervision"
 
 interface Supervision {
   id: string
   timestamp: string
   estado: "ok" | "novedad"
-  checklist_json: { limpieza?: boolean; insumos?: boolean; personal?: boolean }
+  checklist_json: unknown
   observaciones: string | null
   supervisor_nombre: string
   supervisor_tipo: "colaborador" | "usuario"
-  fotos: string[]
+  cant_fotos: number
   punto_id: string
   punto_nombre: string
 }
@@ -20,12 +21,6 @@ interface Supervision {
 interface Punto { id: string; nombre: string }
 
 interface Props { puntos: Punto[] }
-
-const CHECKLIST_LABELS: Record<string, string> = {
-  limpieza: "Limpieza",
-  insumos: "Insumos",
-  personal: "Personal",
-}
 
 function fechaLarga(iso: string) {
   return new Date(iso).toLocaleString("es-AR", {
@@ -40,8 +35,23 @@ function fechaLarga(iso: string) {
 
 function CardSupervision({ s }: { s: Supervision }) {
   const [abierto, setAbierto] = useState(false)
-  const checklist = s.checklist_json ?? {}
-  const items = Object.entries(checklist) as [string, boolean][]
+  const [fotos, setFotos] = useState<string[] | null>(null)
+  const [errorFotos, setErrorFotos] = useState(false)
+  const { items, satisfaccion } = checklistParaMostrar(s.checklist_json)
+
+  function toggle() {
+    const abrir = !abierto
+    setAbierto(abrir)
+    if (abrir && s.cant_fotos > 0 && fotos === null) {
+      fetch(`/api/supervisiones/${s.id}/fotos`)
+        .then(async (r) => {
+          if (!r.ok) throw new Error()
+          const data = await r.json() as { fotos: string[] }
+          setFotos(data.fotos)
+        })
+        .catch(() => setErrorFotos(true))
+    }
+  }
 
   return (
     <div className={cn(
@@ -49,7 +59,7 @@ function CardSupervision({ s }: { s: Supervision }) {
       s.estado === "ok" ? "border-green-200" : "border-amber-200"
     )}>
       <button
-        onClick={() => setAbierto(v => !v)}
+        onClick={toggle}
         className="w-full flex items-start gap-3 p-3.5 text-left hover:bg-gray-50 transition-colors"
       >
         <div className={cn(
@@ -67,8 +77,11 @@ function CardSupervision({ s }: { s: Supervision }) {
           <div className="flex items-center gap-1.5 mt-1 text-xs text-gray-500">
             <MapPin size={11} className="text-gray-300" />
             {s.punto_nombre}
-            {s.fotos.length > 0 && (
-              <span className="ml-1 text-gray-400">· {s.fotos.length} foto{s.fotos.length > 1 ? "s" : ""}</span>
+            {s.cant_fotos > 0 && (
+              <span className="ml-1 text-gray-400">· {s.cant_fotos} foto{s.cant_fotos > 1 ? "s" : ""}</span>
+            )}
+            {satisfaccion !== null && (
+              <span className="ml-1 text-gray-400">· Cliente {satisfaccion}/5</span>
             )}
           </div>
           {s.observaciones && !abierto && (
@@ -82,18 +95,29 @@ function CardSupervision({ s }: { s: Supervision }) {
       {abierto && (
         <div className="border-t border-gray-100 px-3.5 py-3 space-y-3 bg-gray-50/50">
           {items.length > 0 && (
-            <div className="flex flex-wrap gap-1.5">
-              {items.map(([key, ok]) => (
-                <span
-                  key={key}
-                  className={cn(
-                    "inline-flex items-center gap-1 text-xs font-medium rounded-full px-2 py-0.5",
-                    ok ? "bg-green-50 text-green-700" : "bg-red-50 text-red-600"
-                  )}
-                >
-                  {ok ? "✓" : "✗"} {CHECKLIST_LABELS[key] ?? key}
-                </span>
+            <div className="space-y-1">
+              {items.map((item) => (
+                <div key={item.titulo} className="flex items-center justify-between gap-3 text-xs">
+                  <span className="text-gray-500">{item.titulo}</span>
+                  <span className={cn(
+                    "font-semibold rounded-full px-2 py-0.5 text-right",
+                    item.ok ? "bg-green-50 text-green-700" : "bg-amber-50 text-amber-700"
+                  )}>
+                    {item.ok ? "✓" : "⚠"} {item.valor}
+                  </span>
+                </div>
               ))}
+              {satisfaccion !== null && (
+                <div className="flex items-center justify-between gap-3 text-xs">
+                  <span className="text-gray-500">Satisfacción del cliente</span>
+                  <span className={cn(
+                    "font-semibold rounded-full px-2 py-0.5",
+                    satisfaccion >= 4 ? "bg-green-50 text-green-700" : satisfaccion === 3 ? "bg-amber-50 text-amber-700" : "bg-red-50 text-red-600"
+                  )}>
+                    {satisfaccion}/5 · {SATISFACCION_LABELS[satisfaccion]}
+                  </span>
+                </div>
+              )}
             </div>
           )}
 
@@ -104,11 +128,17 @@ function CardSupervision({ s }: { s: Supervision }) {
             </div>
           )}
 
-          {s.fotos.length > 0 && (
+          {s.cant_fotos > 0 && (
             <div>
               <p className="text-xs font-semibold text-gray-500 mb-1.5">FOTOS</p>
+              {errorFotos && <p className="text-xs text-red-500">No se pudieron cargar las fotos</p>}
+              {!errorFotos && fotos === null && (
+                <div className="flex items-center gap-2 text-xs text-gray-400">
+                  <Loader2 size={14} className="animate-spin" /> Cargando {s.cant_fotos} foto{s.cant_fotos > 1 ? "s" : ""}...
+                </div>
+              )}
               <div className="flex gap-2 flex-wrap">
-                {s.fotos.map((f, i) => (
+                {(fotos ?? []).map((f, i) => (
                   <a key={i} href={f} target="_blank" rel="noreferrer">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img

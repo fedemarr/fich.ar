@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useParams } from "next/navigation"
 import { MapPin, LogIn, LogOut, CheckCircle2, XCircle, Loader2, User, Coffee, ClipboardCheck, AlertCircle, Camera } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { ITEMS_SUPERVISION, MAX_FOTOS_SUPERVISION, SATISFACCION_LABELS } from "@/lib/checklist-supervision"
 
 interface PuntoInfo {
   id: string
@@ -99,7 +100,8 @@ function comprimirImagen(file: File): Promise<string> {
       const img = new Image()
       img.onerror = reject
       img.onload = () => {
-        const MAX = 1200
+        // Hasta 6 fotos por ronda en un solo envío: tamaño acotado para no pasar el límite del servidor
+        const MAX = 1024
         let { width, height } = img
         if (width > MAX || height > MAX) {
           if (width >= height) {
@@ -116,7 +118,7 @@ function comprimirImagen(file: File): Promise<string> {
         const ctx = canvas.getContext("2d")
         if (!ctx) { reject(new Error("canvas")); return }
         ctx.drawImage(img, 0, 0, width, height)
-        resolve(canvas.toDataURL("image/jpeg", 0.82))
+        resolve(canvas.toDataURL("image/jpeg", 0.75))
       }
       img.src = ev.target?.result as string
     }
@@ -143,9 +145,8 @@ export default function FicharPage() {
   const [supervisionOk, setSupervisionOk] = useState<SupervisionOk | null>(null)
   // Checklist supervisión
   const [svEstado, setSvEstado] = useState<"ok" | "novedad">("ok")
-  const [svLimpieza, setSvLimpieza] = useState(false)
-  const [svInsumos, setSvInsumos] = useState(false)
-  const [svPersonal, setSvPersonal] = useState(false)
+  const [svChecklist, setSvChecklist] = useState<Record<string, string>>({})
+  const [svSatisfaccion, setSvSatisfaccion] = useState<number | null>(null)
   const [svObservaciones, setSvObservaciones] = useState("")
   const [svGuardando, setSvGuardando] = useState(false)
   const [svError, setSvError] = useState("")
@@ -463,8 +464,23 @@ export default function FicharPage() {
     }
   }
 
+  function elegirOpcion(key: string, valor: string, ok: boolean) {
+    setSvChecklist((prev) => ({ ...prev, [key]: valor }))
+    if (!ok) setSvEstado("novedad")
+  }
+
+  function elegirSatisfaccion(n: number) {
+    setSvSatisfaccion((prev) => (prev === n ? null : n))
+    if (n <= 3) setSvEstado("novedad")
+  }
+
   async function guardarSupervision() {
     if (!supervisor || !punto) return
+    const faltante = ITEMS_SUPERVISION.find((item) => !svChecklist[item.key])
+    if (faltante) {
+      setSvError(`Completá: ${faltante.titulo}`)
+      return
+    }
     setSvGuardando(true)
     setSvError("")
     try {
@@ -477,7 +493,15 @@ export default function FicharPage() {
             ? { colaborador_id: supervisor.id }
             : { supervisor_id: supervisor.id }),
           estado: svEstado,
-          checklist_json: { limpieza: svLimpieza, insumos: svInsumos, personal: svPersonal },
+          checklist_json: {
+            version: 2,
+            limpieza: svChecklist.limpieza,
+            insumos: svChecklist.insumos,
+            personal: svChecklist.personal,
+            epp: svChecklist.epp,
+            maquinas: svChecklist.maquinas,
+            satisfaccion: svSatisfaccion,
+          },
           observaciones: svObservaciones || undefined,
           ...(svFotos.length > 0 ? { fotos: svFotos } : {}),
         }),
@@ -500,7 +524,7 @@ export default function FicharPage() {
     const file = e.target.files?.[0]
     e.target.value = ""
     if (!file) return
-    if (svFotos.length >= 3) { setSvError("Máximo 3 fotos por ronda"); return }
+    if (svFotos.length >= MAX_FOTOS_SUPERVISION) { setSvError(`Máximo ${MAX_FOTOS_SUPERVISION} fotos por ronda`); return }
     try {
       const dataUrl = await comprimirImagen(file)
       setSvFotos(prev => [...prev, dataUrl])
@@ -979,24 +1003,59 @@ export default function FicharPage() {
                 </div>
               </div>
 
-              <div>
-                <p className="text-xs font-semibold text-gray-500 mb-2">CHECKLIST RÁPIDO</p>
-                <div className="space-y-2">
-                  {[
-                    { key: "limpieza" as const, val: svLimpieza, set: setSvLimpieza, label: "Rutina de limpieza completada" },
-                    { key: "insumos"  as const, val: svInsumos,  set: setSvInsumos,  label: "Materiales e insumos suficientes" },
-                    { key: "personal" as const, val: svPersonal, set: setSvPersonal, label: "Personal presente conforme dotación" },
-                  ].map(item => (
-                    <label key={item.key} className="flex items-center gap-3 cursor-pointer p-2.5 rounded-xl border border-gray-100 hover:bg-gray-50">
-                      <input
-                        type="checkbox"
-                        checked={item.val}
-                        onChange={e => item.set(e.target.checked)}
-                        className="w-4 h-4 accent-indigo-600"
-                      />
-                      <span className="text-sm text-gray-700">{item.label}</span>
-                    </label>
-                  ))}
+              <div className="space-y-4">
+                <p className="text-xs font-semibold text-gray-500">CONTROL DEL SERVICIO</p>
+                {ITEMS_SUPERVISION.map((item) => (
+                  <div key={item.key}>
+                    <p className="text-sm font-medium text-gray-700 mb-1.5">{item.titulo}</p>
+                    <div className="flex flex-wrap gap-1.5">
+                      {item.opciones.map((op) => {
+                        const sel = svChecklist[item.key] === op.valor
+                        return (
+                          <button
+                            key={op.valor}
+                            type="button"
+                            onClick={() => elegirOpcion(item.key, op.valor, op.ok)}
+                            className={`px-3 py-2 rounded-xl text-xs font-semibold border-2 transition-colors ${
+                              sel
+                                ? op.ok ? "bg-green-500 border-green-500 text-white" : "bg-amber-500 border-amber-500 text-white"
+                                : "border-gray-200 text-gray-600 hover:border-gray-300"
+                            }`}
+                          >
+                            {op.label}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ))}
+
+                <div>
+                  <p className="text-sm font-medium text-gray-700 mb-1.5">
+                    Satisfacción del cliente <span className="font-normal text-gray-400">(opcional)</span>
+                  </p>
+                  <div className="grid grid-cols-6 gap-1.5">
+                    {[0, 1, 2, 3, 4, 5].map((n) => {
+                      const sel = svSatisfaccion === n
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          onClick={() => elegirSatisfaccion(n)}
+                          className={`h-10 rounded-xl text-sm font-bold border-2 transition-colors ${
+                            sel
+                              ? n >= 4 ? "bg-green-500 border-green-500 text-white" : n === 3 ? "bg-amber-500 border-amber-500 text-white" : "bg-red-500 border-red-500 text-white"
+                              : "border-gray-200 text-gray-600 hover:border-gray-300"
+                          }`}
+                        >
+                          {n}
+                        </button>
+                      )
+                    })}
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1.5 text-center h-4">
+                    {svSatisfaccion !== null ? SATISFACCION_LABELS[svSatisfaccion] : "0 muy insatisfecho · 5 muy conforme"}
+                  </p>
                 </div>
               </div>
 
@@ -1013,7 +1072,7 @@ export default function FicharPage() {
 
               <div>
                 <p className="text-xs font-semibold text-gray-500 mb-2">
-                  FOTOS <span className="font-normal text-gray-400">(opcional, máx. 3)</span>
+                  FOTOS <span className="font-normal text-gray-400">(opcional, máx. {MAX_FOTOS_SUPERVISION}) · {svFotos.length}/{MAX_FOTOS_SUPERVISION}</span>
                 </p>
                 <div className="flex gap-2 flex-wrap">
                   {svFotos.map((f, i) => (
@@ -1030,7 +1089,7 @@ export default function FicharPage() {
                       </button>
                     </div>
                   ))}
-                  {svFotos.length < 3 && (
+                  {svFotos.length < MAX_FOTOS_SUPERVISION && (
                     <label className="w-20 h-20 rounded-xl border-2 border-dashed border-gray-200 flex flex-col items-center justify-center gap-1 cursor-pointer text-gray-400 hover:border-indigo-400 hover:text-indigo-500 transition-colors">
                       <Camera size={20} />
                       <span className="text-[10px] font-medium">Agregar</span>

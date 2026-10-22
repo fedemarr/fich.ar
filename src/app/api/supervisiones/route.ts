@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { prisma } from "@/lib/prisma"
 import { verificarAcceso } from "@/lib/auth-helpers"
 import { z } from "zod"
+import { checklistV1Schema, checklistV2Schema, MAX_FOTOS_SUPERVISION } from "@/lib/checklist-supervision"
 
 const schema = z.object({
   qr_token: z.string(),
@@ -9,13 +10,9 @@ const schema = z.object({
   colaborador_id: z.string().uuid().optional(),
   supervisor_id: z.string().uuid().optional(),
   estado: z.enum(["ok", "novedad"]),
-  checklist_json: z.object({
-    limpieza: z.boolean(),
-    insumos: z.boolean(),
-    personal: z.boolean(),
-  }),
+  checklist_json: z.union([checklistV2Schema, checklistV1Schema]),
   observaciones: z.string().max(1000).optional(),
-  fotos: z.array(z.string().max(2_500_000)).max(3).optional(),
+  fotos: z.array(z.string().startsWith("data:image/").max(1_500_000)).max(MAX_FOTOS_SUPERVISION).optional(),
 }).refine((d) => d.colaborador_id ?? d.supervisor_id, {
   message: "Se requiere colaborador_id o supervisor_id",
 })
@@ -84,7 +81,6 @@ export async function POST(req: Request) {
       checklist_json: true,
       observaciones: true,
       supervisor_nombre: true,
-      fotos: true,
     },
   })
 
@@ -124,7 +120,6 @@ export async function GET(req: Request) {
       checklist_json: true,
       observaciones: true,
       supervisor_nombre: true,
-      fotos: true,
       colaborador_id: true,
       usuario_id: true,
       punto_fichaje: { select: { id: true, nombre: true } },
@@ -132,6 +127,14 @@ export async function GET(req: Request) {
     orderBy: { timestamp: "desc" },
     take: limite,
   })
+
+  // Las fotos (base64) no viajan en el listado: se cargan al abrir cada ronda
+  const ids = supervisiones.map((s) => s.id)
+  const conteos = ids.length
+    ? await prisma.$queryRaw<{ id: string; n: number }[]>`
+        SELECT id, COALESCE(cardinality(fotos), 0)::int AS n FROM supervisiones WHERE id = ANY(${ids}::text[])`
+    : []
+  const cantFotos = new Map(conteos.map((c) => [c.id, c.n]))
 
   return NextResponse.json({
     supervisiones: supervisiones.map((s) => ({
@@ -142,7 +145,7 @@ export async function GET(req: Request) {
       observaciones: s.observaciones,
       supervisor_nombre: s.supervisor_nombre,
       supervisor_tipo: s.colaborador_id ? "colaborador" : "usuario",
-      fotos: s.fotos,
+      cant_fotos: cantFotos.get(s.id) ?? 0,
       punto_id: s.punto_fichaje.id,
       punto_nombre: s.punto_fichaje.nombre,
     })),
