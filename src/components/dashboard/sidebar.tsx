@@ -28,6 +28,7 @@ interface SidebarProps {
   rol?: string
   puedeGestionarPuntos?: boolean
   moduloOperaciones?: boolean
+  descansosHabilitados?: boolean
 }
 
 const navAdmin = [
@@ -85,7 +86,9 @@ function NavLink({ href, label, icon: Icon, slug, badge }: { href: string; label
   )
 }
 
-export function Sidebar({ slug, rol, puedeGestionarPuntos, moduloOperaciones }: SidebarProps) {
+export function Sidebar({ slug, rol, puedeGestionarPuntos, moduloOperaciones, descansosHabilitados = true }: SidebarProps) {
+  const visible = (href: string) =>
+    (href !== "operaciones" || moduloOperaciones) && (href !== "descansos" || descansosHabilitados)
   const pathname = usePathname()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoError, setLogoError] = useState(false)
@@ -134,7 +137,7 @@ export function Sidebar({ slug, rol, puedeGestionarPuntos, moduloOperaciones }: 
         {rol === "SUPERVISOR" ? (
           <>
             {navSupervisor
-              .filter((item) => item.href !== "operaciones" || moduloOperaciones)
+              .filter((item) => visible(item.href))
               .map((item) => (
                 <NavLink
                   key={item.href}
@@ -150,7 +153,7 @@ export function Sidebar({ slug, rol, puedeGestionarPuntos, moduloOperaciones }: 
         ) : (
           <>
             {navAdmin
-              .filter((item) => item.href !== "operaciones" || moduloOperaciones)
+              .filter((item) => visible(item.href))
               .map((item) => (
                 <NavLink
                   key={item.href}

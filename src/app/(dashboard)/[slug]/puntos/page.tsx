@@ -20,7 +20,7 @@ export default async function PuntosPage({
     getPuntos(empresaId),
     prisma.empresa.findUnique({
       where: { id: empresaId },
-      select: { logo_url: true },
+      select: { logo_url: true, descanso_wa: true },
     }),
     prisma.colaborador.findMany({
       where: { empresa_id: empresaId, estado: "ACTIVO", deleted_at: null },
@@ -36,6 +36,7 @@ export default async function PuntosPage({
       empresaId={empresaId}
       empresaNombre={empresaNombre}
       empresaLogoUrl={empresaData?.logo_url ?? null}
+      descansosHabilitados={empresaData?.descanso_wa ?? true}
     />
   )
 }

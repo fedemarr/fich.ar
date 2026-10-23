@@ -25,6 +25,12 @@ export async function PUT(
   if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
 
   const { descanso_activo, ...rest } = parsed.data
+  if (descanso_activo === true) {
+    const empresa = await prisma.empresa.findUnique({ where: { id: session.user.empresaId }, select: { descanso_wa: true } })
+    if (empresa && !empresa.descanso_wa) {
+      return NextResponse.json({ error: "Los descansos no están habilitados para esta empresa" }, { status: 403 })
+    }
+  }
   const updateData = {
     ...rest,
     ...(descanso_activo !== undefined && {

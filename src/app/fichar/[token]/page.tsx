@@ -934,7 +934,7 @@ export default function FicharPage() {
                 </div>
               )}
               {/* Botón de descanso tras entrada exitosa */}
-              {fichada.tipo === "ENTRADA" && !descanso?.usado && (
+              {fichada.tipo === "ENTRADA" && (punto?.empresa.descanso_wa ?? true) && !descanso?.usado && (
                 <button
                   onClick={() => void tomarDescanso()}
                   disabled={accionandoDescanso}
@@ -946,7 +946,7 @@ export default function FicharPage() {
                   </span>
                 </button>
               )}
-              {descanso?.activo && fichada.tipo === "ENTRADA" && (
+              {descanso?.activo && fichada.tipo === "ENTRADA" && (punto?.empresa.descanso_wa ?? true) && (
                 <button
                   onClick={() => void terminarDescanso()}
                   disabled={accionandoDescanso}

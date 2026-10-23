@@ -55,6 +55,11 @@ export async function POST(req: Request) {
 }
 
 export async function iniciarDescanso(colaboradorId: string, empresaId: string) {
+  const empresa = await prisma.empresa.findUnique({ where: { id: empresaId }, select: { descanso_wa: true } })
+  if (empresa && !empresa.descanso_wa) {
+    return NextResponse.json({ error: "Los descansos no están habilitados para esta empresa" }, { status: 403 })
+  }
+
   const hoy = hoyARG()
   const inicio = inicioDiaARG(hoy)
   const fin = finDiaARG(hoy)

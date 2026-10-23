@@ -34,9 +34,10 @@ interface PuntosClienteProps {
   empresaId: string
   empresaNombre: string
   empresaLogoUrl: string | null
+  descansosHabilitados: boolean
 }
 
-export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre, empresaLogoUrl }: PuntosClienteProps) {
+export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre, empresaLogoUrl, descansosHabilitados }: PuntosClienteProps) {
   const router = useRouter()
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   const [importarAbierto, setImportarAbierto] = useState(false)
@@ -239,7 +240,7 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
                     <QrCode size={13} />
                     Ver QR
                   </Button>
-                  <Button
+                  {descansosHabilitados && <Button
                     variant="outline"
                     size="sm"
                     title={p.descanso_activo ? "Desactivar descanso grupal" : "Activar descanso grupal"}
@@ -268,7 +269,7 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
                     }}
                   >
                     <Coffee size={13} />
-                  </Button>
+                  </Button>}
                   <Button
                     variant="outline"
                     size="sm"
