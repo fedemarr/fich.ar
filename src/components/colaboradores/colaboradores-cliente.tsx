@@ -2,7 +2,7 @@
 
 import { useState, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { Users, Pencil, UserCog, Download, Upload, Trash2, Plus, ShieldCheck } from "lucide-react"
+import { Users, Pencil, UserCog, Download, Upload, Trash2, Plus, ShieldCheck, Dumbbell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { ColaboradorDialog } from "@/components/colaboradores/colaborador-dialog"
 import { EliminarDialog } from "@/components/colaboradores/eliminar-dialog"
@@ -22,6 +22,7 @@ interface Props {
   colaboradores: ColaboradorConJornada[]
   jornadas: JornadaConPunto[]
   empresaId: string
+  modoClases?: boolean
 }
 
 function AvatarColaborador({ nombre, apellido }: { nombre: string; apellido: string }) {
@@ -98,6 +99,11 @@ function TablaColaboradores({
                       <ShieldCheck size={10} /> Supervisor
                     </span>
                   )}
+                  {c.es_profe && (
+                    <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5">
+                      <Dumbbell size={10} /> Profe
+                    </span>
+                  )}
                   {sector && <span className="text-xs text-gray-400 truncate max-w-[120px]">{sector}</span>}
                 </div>
               </div>
@@ -161,6 +167,11 @@ function TablaColaboradores({
                         <ShieldCheck size={10} /> Supervisor
                       </span>
                     )}
+                    {c.es_profe && (
+                      <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-blue-700 bg-blue-50 border border-blue-200 rounded-full px-1.5 py-0.5 align-middle">
+                        <Dumbbell size={10} /> Profe
+                      </span>
+                    )}
                   </div>
                 </td>
                 <td className="px-4 py-3.5 text-gray-500 font-mono text-xs">{c.legajo ?? "—"}</td>
@@ -208,7 +219,7 @@ function TablaColaboradores({
   )
 }
 
-export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Props) {
+export function ColaboradoresCliente({ colaboradores, jornadas, empresaId, modoClases = false }: Props) {
   const router = useRouter()
   const [tab, setTab] = useState<"nomina" | "alta" | "desactivados">("nomina")
   const [busqueda, setBusqueda] = useState("")
@@ -390,6 +401,7 @@ export function ColaboradoresCliente({ colaboradores, jornadas, empresaId }: Pro
         colaborador={editando}
         jornadas={jornadas}
         empresaId={empresaId}
+        modoClases={modoClases}
         onSuccess={() => { router.refresh(); setDialogoAbierto(false); setTab("nomina") }}
       />
 

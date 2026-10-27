@@ -170,6 +170,8 @@ model Colaborador {
   fecha_ingreso         DateTime?
   omitir_recordatorio   Boolean           @default(false)
   es_supervisor         Boolean           @default(false)
+  // Fichaje por clase (gimnasios): el profe elige la clase al fichar; el resto ficha entrada/salida
+  es_profe              Boolean           @default(false)
   created_at            DateTime          @default(now())
   updated_at            DateTime          @updatedAt
   deleted_at            DateTime?

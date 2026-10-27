@@ -1,4 +1,5 @@
 import { auth } from "@/lib/auth"
+import { prisma } from "@/lib/prisma"
 import { redirect } from "next/navigation"
 import { ColaboradoresCliente } from "@/components/colaboradores/colaboradores-cliente"
 import { getColaboradoresActivos, getJornadas } from "@/lib/queries"
@@ -14,9 +15,10 @@ export default async function ColaboradoresPage({
   await params
   const empresaId = session.user.empresaId
 
-  const [colaboradores, jornadas] = await Promise.all([
+  const [colaboradores, jornadas, empresa] = await Promise.all([
     getColaboradoresActivos(empresaId),
     getJornadas(empresaId),
+    prisma.empresa.findUnique({ where: { id: empresaId }, select: { fichaje_por_clase: true } }),
   ])
 
   return (
@@ -24,6 +26,7 @@ export default async function ColaboradoresPage({
       colaboradores={colaboradores}
       jornadas={jornadas}
       empresaId={empresaId}
+      modoClases={empresa?.fichaje_por_clase ?? false}
     />
   )
 }

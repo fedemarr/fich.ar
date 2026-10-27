@@ -19,6 +19,7 @@ const schema = z.object({
   estado: z.enum(["ACTIVO", "INACTIVO", "DESACTIVADO"]),
   omitir_recordatorio: z.boolean().optional().default(false),
   es_supervisor: z.boolean().optional().default(false),
+  es_profe: z.boolean().optional().default(false),
   jornada_id: z.string().optional(),
 })
 
@@ -32,7 +33,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
   if (!parsed.success) return NextResponse.json({ error: "Datos inválidos" }, { status: 400 })
 
   const empresaId = session.user.empresaId
-  const { jornada_id, email, legajo, sector, domicilio, identificacion, omitir_recordatorio, es_supervisor, ...rest } = parsed.data
+  const { jornada_id, email, legajo, sector, domicilio, identificacion, omitir_recordatorio, es_supervisor, es_profe, ...rest } = parsed.data
 
   const colaborador = await prisma.colaborador.findFirst({
     where: { id, empresa_id: empresaId, deleted_at: null },
@@ -60,6 +61,7 @@ export async function PUT(req: Request, { params }: { params: Promise<{ id: stri
       identificacion: identificacion || null,
       omitir_recordatorio: omitir_recordatorio ?? false,
       es_supervisor: es_supervisor ?? false,
+      es_profe: es_profe ?? false,
     },
   })
 

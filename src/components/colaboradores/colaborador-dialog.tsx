@@ -5,7 +5,7 @@ import { useForm } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { CalendarDays, BellOff, ShieldCheck } from "lucide-react"
+import { CalendarDays, BellOff, ShieldCheck, Dumbbell } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -26,6 +26,7 @@ const schema = z.object({
   estado: z.enum(["ACTIVO", "INACTIVO", "DESACTIVADO"]),
   omitir_recordatorio: z.boolean(),
   es_supervisor: z.boolean(),
+  es_profe: z.boolean(),
   jornada_id: z.string().optional(),
 })
 
@@ -45,6 +46,7 @@ interface ColaboradorDialogProps {
   colaborador: ColaboradorConJornada | null
   jornadas: JornadaConPunto[]
   empresaId: string
+  modoClases?: boolean
   onSuccess: () => void
 }
 
@@ -71,6 +73,7 @@ export function ColaboradorDialog({
   onClose,
   colaborador,
   jornadas,
+  modoClases = false,
   onSuccess,
 }: ColaboradorDialogProps) {
   const esEdicion = !!colaborador
@@ -105,10 +108,11 @@ export function ColaboradorDialog({
         estado: colaborador.estado,
         omitir_recordatorio: colaborador.omitir_recordatorio ?? false,
         es_supervisor: colaborador.es_supervisor ?? false,
+        es_profe: colaborador.es_profe ?? false,
         jornada_id: colaborador.jornadas[0]?.jornada_id ?? "",
       })
     } else {
-      reset({ estado: "ACTIVO", nombre: "", apellido: "", celular: "", identificacion: "", omitir_recordatorio: false, es_supervisor: false })
+      reset({ estado: "ACTIVO", nombre: "", apellido: "", celular: "", identificacion: "", omitir_recordatorio: false, es_supervisor: false, es_profe: false })
     }
   }, [colaborador, open, reset])
 
@@ -333,6 +337,40 @@ export function ColaboradorDialog({
                 }`} />
               </button>
             </div>
+
+            {/* Profe (solo empresas con fichaje por clase) */}
+            {modoClases && (
+              <div
+                className={`flex items-center justify-between rounded-xl border px-4 py-3 ${
+                  watch("es_profe")
+                    ? "border-blue-200 bg-blue-50"
+                    : "border-gray-200 bg-gray-50"
+                }`}
+              >
+                <div className="flex items-center gap-2">
+                  <Dumbbell size={15} className={watch("es_profe") ? "text-blue-600 shrink-0" : "text-gray-400 shrink-0"} />
+                  <div>
+                    <p className="text-sm font-medium text-gray-700">Es profe</p>
+                    <p className="text-xs text-gray-400">
+                      Al fichar elige la clase que da. Sin marcar, ficha entrada y salida de su turno.
+                    </p>
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={watch("es_profe")}
+                  onClick={() => setValue("es_profe", !watch("es_profe"))}
+                  className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors focus:outline-none ${
+                    watch("es_profe") ? "bg-blue-600" : "bg-gray-200"
+                  }`}
+                >
+                  <span className={`pointer-events-none inline-block h-4 w-4 rounded-full bg-white shadow transform transition-transform ${
+                    watch("es_profe") ? "translate-x-4" : "translate-x-0"
+                  }`} />
+                </button>
+              </div>
+            )}
 
             <div className="flex gap-2 pt-2">
               <Button type="button" variant="outline" className="flex-1" onClick={onClose}>

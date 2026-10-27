@@ -165,9 +165,9 @@ export async function POST(req: Request) {
       ? await prisma.puntoFichaje.findUnique({ where: { id: turnoAbierto.punto_fichaje_id }, select: { id: true, nombre: true } })
       : null
 
-  // 4c. Fichaje por clase (gimnasios): los profes eligen la clase que dan.
-  // Los empleados con turno fijo (sin ninguna clase asignada) siguen fichando su jornada como siempre.
-  const modoClase = punto.empresa.fichaje_por_clase
+  // 4c. Fichaje por clase (gimnasios): los profes (es_profe) eligen la clase que dan.
+  // El resto del personal ficha entrada y salida de su turno como siempre.
+  const modoClase = punto.empresa.fichaje_por_clase && colaborador.es_profe
   const abiertoAca = turnoAbierto !== null && turnoAbierto.punto_fichaje_id === punto.id
   const claseAbierta = modoClase && abiertoAca && turnoAbierto?.jornada_id
     ? await prisma.jornada.findFirst({
@@ -178,8 +178,7 @@ export async function POST(req: Request) {
 
   // 4d. Modo solo identificar: devolver colaborador + qué puede fichar
   if (solo_identificar) {
-    const esEmpleadoConTurno = jornadasActivas.length > 0 && jornadasActivas.every((j) => !j.jornada.es_clase)
-    const clasesHoy = modoClase && !esEmpleadoConTurno
+    const clasesHoy = modoClase
       ? await clasesDelDia(punto.empresa_id, hoyARG(), ahora, { puntoId: punto.id })
       : []
     return NextResponse.json({
@@ -208,7 +207,7 @@ export async function POST(req: Request) {
   let reemplazoDe: { id: string; nombre: string } | null = null
   if (clase_id && tipoFichada === "ENTRADA") {
     if (!modoClase) {
-      return NextResponse.json({ error: "Esta empresa no ficha por clase" }, { status: 400 })
+      return NextResponse.json({ error: "Solo los profes fichan por clase" }, { status: 400 })
     }
     const claseDb = await prisma.jornada.findFirst({
       where: { id: clase_id, empresa_id: punto.empresa_id, punto_fichaje_id: punto.id, es_clase: true, activo: true },
