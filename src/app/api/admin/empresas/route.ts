@@ -68,6 +68,7 @@ const patchSchema = z.object({
   modulo_operaciones: z.boolean().optional(),
   fichaje_libre: z.boolean().optional(),
   recordatorios_wa: z.boolean().optional(),
+  fichaje_por_clase: z.boolean().optional(),
   activa: z.boolean().optional(),
 })
 

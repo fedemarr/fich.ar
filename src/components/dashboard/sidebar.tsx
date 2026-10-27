@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   Coffee,
   ClipboardCheck,
+  Dumbbell,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 
@@ -29,11 +30,13 @@ interface SidebarProps {
   puedeGestionarPuntos?: boolean
   moduloOperaciones?: boolean
   descansosHabilitados?: boolean
+  clasesHabilitadas?: boolean
 }
 
 const navAdmin = [
   { href: "resumen",        label: "Resumen",         icon: LayoutDashboard },
   { href: "listado",        label: "Listado del día",  icon: ClipboardList },
+  { href: "clases",         label: "Clases",           icon: Dumbbell },
   { href: "colaboradores",  label: "Colaboradores",    icon: Users },
   { href: "puntos",         label: "Puntos QR",        icon: MapPin },
   { href: "proyeccion",     label: "Proyección",       icon: BarChart2 },
@@ -48,6 +51,7 @@ const navSupervisor = [
   { href: "resumen",        label: "Resumen",          icon: LayoutDashboard },
   { href: "equipo",         label: "Mi equipo",        icon: UsersRound },
   { href: "listado",        label: "Listado del día",  icon: ClipboardList },
+  { href: "clases",         label: "Clases",           icon: Dumbbell },
   { href: "operaciones",    label: "Operaciones",      icon: ClipboardCheck },
   { href: "novedades",      label: "Novedades",        icon: Calendar },
   { href: "descansos",      label: "Descansos",        icon: Coffee },
@@ -86,9 +90,11 @@ function NavLink({ href, label, icon: Icon, slug, badge }: { href: string; label
   )
 }
 
-export function Sidebar({ slug, rol, puedeGestionarPuntos, moduloOperaciones, descansosHabilitados = true }: SidebarProps) {
+export function Sidebar({ slug, rol, puedeGestionarPuntos, moduloOperaciones, descansosHabilitados = true, clasesHabilitadas = false }: SidebarProps) {
   const visible = (href: string) =>
-    (href !== "operaciones" || moduloOperaciones) && (href !== "descansos" || descansosHabilitados)
+    (href !== "operaciones" || moduloOperaciones) &&
+    (href !== "descansos" || descansosHabilitados) &&
+    (href !== "clases" || clasesHabilitadas)
   const pathname = usePathname()
   const [logoUrl, setLogoUrl] = useState<string | null>(null)
   const [logoError, setLogoError] = useState(false)

@@ -26,7 +26,7 @@ export default async function DashboardLayout({ children, params }: DashboardLay
     ),
     prisma.empresa.findUnique({
       where: { id: session.user.empresaId },
-      select: { modulo_operaciones: true, descanso_wa: true },
+      select: { modulo_operaciones: true, descanso_wa: true, fichaje_por_clase: true },
     }),
   ])
 
@@ -43,6 +43,7 @@ export default async function DashboardLayout({ children, params }: DashboardLay
           puedeGestionarPuntos={session.user.puedeGestionarPuntos}
           moduloOperaciones={moduloOperaciones}
           descansosHabilitados={empresa?.descanso_wa ?? true}
+          clasesHabilitadas={empresa?.fichaje_por_clase ?? false}
         />
       </div>
 

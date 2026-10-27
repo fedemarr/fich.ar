@@ -35,9 +35,10 @@ interface PuntosClienteProps {
   empresaNombre: string
   empresaLogoUrl: string | null
   descansosHabilitados: boolean
+  modoClases?: boolean
 }
 
-export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre, empresaLogoUrl, descansosHabilitados }: PuntosClienteProps) {
+export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre, empresaLogoUrl, descansosHabilitados, modoClases = false }: PuntosClienteProps) {
   const router = useRouter()
   const [dialogoAbierto, setDialogoAbierto] = useState(false)
   const [importarAbierto, setImportarAbierto] = useState(false)
@@ -351,6 +352,7 @@ export function PuntosCliente({ puntos, colaboradores, empresaId, empresaNombre,
             punto={puntoActivo}
             colaboradores={colaboradores}
             colabsConJornada={colabsConJornada}
+            modoClases={modoClases}
             onClose={() => setVerJornadasId(null)}
             onSuccess={() => router.refresh()}
           />

@@ -80,6 +80,8 @@ model Empresa {
   stats_token          String    @unique @default(uuid())
   recordatorios_wa     Boolean   @default(true)
   descanso_wa          Boolean   @default(true)
+  // Gimnasios: los profes eligen la clase al fichar (SportClub)
+  fichaje_por_clase    Boolean   @default(false)
   created_at           DateTime  @default(now())
   updated_at DateTime  @updatedAt
   deleted_at DateTime?
@@ -230,6 +232,8 @@ model Jornada {
   hora_inicio      String
   hora_fin         String
   tolerancia_min   Int     @default(15)
+  // Clase de gimnasio (fichaje_por_clase): el profe la elige al fichar
+  es_clase         Boolean @default(false)
 
   lunes_presencial     Boolean @default(false)
   martes_presencial    Boolean @default(false)
@@ -254,6 +258,7 @@ model Jornada {
   empresa       Empresa              @relation(fields: [empresa_id], references: [id])
   punto_fichaje PuntoFichaje         @relation(fields: [punto_fichaje_id], references: [id])
   colaboradores ColaboradorJornada[]
+  fichadas      Fichada[]
 
   @@index([empresa_id])
   @@index([punto_fichaje_id])
@@ -291,6 +296,9 @@ model Fichada {
   analisis          AnalisisFichada?
   es_valida         Boolean          @default(true)
   es_cobertura      Boolean          @default(false)
+  // Fichaje por clase: clase dictada y, si la dio otro profe, el titular reemplazado
+  jornada_id        String?
+  reemplazo_de_id   String?
   nota_manual       String?
   usuario_manual_id String?
 
@@ -298,10 +306,12 @@ model Fichada {
   empresa        Empresa       @relation(fields: [empresa_id], references: [id])
   colaborador    Colaborador   @relation(fields: [colaborador_id], references: [id])
   punto_fichaje  PuntoFichaje? @relation(fields: [punto_fichaje_id], references: [id])
+  jornada        Jornada?      @relation(fields: [jornada_id], references: [id])
 
   created_at DateTime @default(now())
 
   @@index([empresa_id])
+  @@index([jornada_id])
   @@index([colaborador_id])
   @@index([empresa_id, timestamp])
   @@index([colaborador_id, timestamp])

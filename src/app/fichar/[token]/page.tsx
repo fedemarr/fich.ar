@@ -29,6 +29,19 @@ interface FichadaOk {
   hora: string
   analisis: string
   es_cobertura?: boolean
+  clase?: string | null
+  reemplazo_de?: string | null
+}
+
+// Fichaje por clase (gimnasios): clases de hoy en este punto
+interface ClaseHoy {
+  id: string
+  nombre: string
+  hora_inicio: string
+  hora_fin: string
+  titular: string | null
+  es_mia: boolean
+  dictada_por: string | null
 }
 
 interface ColaboradorInfo {
@@ -88,6 +101,48 @@ function FallbackWhatsApp({ qrToken }: { qrToken: string }) {
   )
 }
 
+function ListaClases({ clases, onElegir }: { clases: ClaseHoy[]; onElegir: (id: string) => void }) {
+  return (
+    <div className="space-y-2">
+      {clases.map((c) => {
+        const dada = c.dictada_por !== null
+        return (
+          <button
+            key={c.id}
+            disabled={dada}
+            onClick={() => onElegir(c.id)}
+            className={`w-full text-left rounded-2xl p-4 border flex items-center gap-3 transition-colors ${
+              dada
+                ? "bg-gray-50 border-gray-100 opacity-60"
+                : c.es_mia
+                  ? "bg-green-50 border-green-300 hover:bg-green-100 active:bg-green-200"
+                  : "bg-white border-gray-200 hover:border-green-300 active:bg-green-50"
+            }`}
+          >
+            <div className="w-14 shrink-0 text-center">
+              <p className="text-lg font-bold text-gray-900 leading-none">{c.hora_inicio}</p>
+              <p className="text-[11px] text-gray-400 mt-1">{c.hora_fin}</p>
+            </div>
+            <div className="flex-1 min-w-0">
+              <p className="font-semibold text-gray-900 truncate">{c.nombre}</p>
+              <p className="text-xs text-gray-500 truncate">
+                {dada
+                  ? `Ya la fichó ${c.dictada_por}`
+                  : c.es_mia
+                    ? "Tu clase"
+                    : c.titular
+                      ? `Reemplazo de ${c.titular}`
+                      : "Sin profe asignado"}
+              </p>
+            </div>
+            {!dada && <LogIn size={20} className={c.es_mia ? "text-green-600" : "text-gray-400"} />}
+          </button>
+        )
+      })}
+    </div>
+  )
+}
+
 const STORAGE_ID = "fichar_colaborador_id"
 const STORAGE_NOMBRE = "fichar_colaborador_nombre"
 const STORAGE_APELLIDO = "fichar_colaborador_apellido"
@@ -134,6 +189,8 @@ export default function FicharPage() {
   const [colaborador, setColaborador] = useState<ColaboradorInfo | null>(null)
   const [nextTipo, setNextTipo] = useState<"ENTRADA" | "SALIDA" | null>(null)
   const [turnoAbiertoEn, setTurnoAbiertoEn] = useState<string | null>(null)
+  const [clases, setClases] = useState<ClaseHoy[]>([])
+  const [claseAbierta, setClaseAbierta] = useState<string | null>(null)
   const [coords, setCoords] = useState<{ lat: number; lon: number } | null>(null)
   const [gpsAccuracy, setGpsAccuracy] = useState<number | null>(null)
   const [gpsStatus, setGpsStatus] = useState("")
@@ -279,6 +336,8 @@ export default function FicharPage() {
           error?: string
           next_tipo?: "ENTRADA" | "SALIDA" | null
           turno_abierto_en?: string | null
+          clases?: ClaseHoy[]
+          clase_abierta?: string | null
           es_supervisor?: boolean
           supervisor_id?: string
           supervisor_nombre?: string
@@ -320,6 +379,8 @@ export default function FicharPage() {
         }
         setNextTipo(data.next_tipo ?? null)
         setTurnoAbiertoEn(data.turno_abierto_en ?? null)
+        setClases(data.clases ?? [])
+        setClaseAbierta(data.clase_abierta ?? null)
         setEstado("eligiendo")
         // Cargar estado de descanso si ya tiene entrada (nextTipo es SALIDA o null)
         if (data.next_tipo === "SALIDA" || data.next_tipo === null) {
@@ -427,6 +488,8 @@ export default function FicharPage() {
       colaborador?: ColaboradorInfo
       next_tipo?: "ENTRADA" | "SALIDA" | null
       turno_abierto_en?: string | null
+      clases?: ClaseHoy[]
+      clase_abierta?: string | null
       es_supervisor?: boolean
       supervisor_id?: string
       supervisor_nombre?: string
@@ -457,6 +520,8 @@ export default function FicharPage() {
       setColaborador(data.colaborador)
       setNextTipo(data.next_tipo ?? null)
       setTurnoAbiertoEn(data.turno_abierto_en ?? null)
+      setClases(data.clases ?? [])
+      setClaseAbierta(data.clase_abierta ?? null)
       setEstado("eligiendo")
       if (data.next_tipo === "SALIDA" || data.next_tipo === null) {
         void cargarDescanso(data.colaborador.id, punto!.empresa_id)
@@ -534,7 +599,7 @@ export default function FicharPage() {
     }
   }
 
-  async function registrarFichada(tipo: "ENTRADA" | "SALIDA") {
+  async function registrarFichada(tipo: "ENTRADA" | "SALIDA", claseId?: string) {
     detenerGPS()
     setEstado("fichando")
 
@@ -554,6 +619,7 @@ export default function FicharPage() {
         tipo,
         latitud: c.lat,
         longitud: c.lon,
+        clase_id: claseId,
       }),
     })
     const data = await res.json() as {
@@ -827,6 +893,22 @@ export default function FicharPage() {
                   <p className="text-gray-800 font-semibold text-lg">Jornada completa</p>
                   <p className="text-gray-400 text-sm">Ya completaste todos tus turnos de hoy.</p>
                 </div>
+              ) : nextTipo === "ENTRADA" && clases.length > 0 ? (
+                <div className="space-y-3">
+                  <p className="text-sm font-semibold text-gray-700 px-1">¿Qué clase vas a dar?</p>
+                  {turnoAbiertoEn && (
+                    <p className="text-xs text-gray-500 px-1">
+                      Tu entrada en {turnoAbiertoEn} quedó sin salida: se cierra automáticamente
+                    </p>
+                  )}
+                  <ListaClases clases={clases} onElegir={(id) => void registrarFichada("ENTRADA", id)} />
+                  <button
+                    onClick={() => void registrarFichada("ENTRADA")}
+                    className="w-full text-xs text-gray-400 hover:text-gray-600 underline text-center"
+                  >
+                    No es una clase: registrar entrada común
+                  </button>
+                </div>
               ) : nextTipo === "ENTRADA" ? (
                 <button
                   onClick={() => void registrarFichada("ENTRADA")}
@@ -847,8 +929,21 @@ export default function FicharPage() {
                     className="w-full bg-red-500 hover:bg-red-600 active:bg-red-700 text-white rounded-2xl p-6 flex flex-col items-center gap-2 transition-colors shadow-sm"
                   >
                     <LogOut size={36} />
-                    <span className="font-bold text-xl">Registrar Salida</span>
+                    <span className="font-bold text-xl">
+                      {claseAbierta ? `Terminar ${claseAbierta}` : "Registrar Salida"}
+                    </span>
                   </button>
+
+                  {/* Profe que encadena clases: empieza la siguiente y la actual se cierra sola */}
+                  {claseAbierta && clases.some((c) => !c.dictada_por) && (
+                    <div className="space-y-2 pt-1">
+                      <p className="text-sm font-semibold text-gray-700 px-1">¿Empezás otra clase?</p>
+                      <ListaClases
+                        clases={clases.filter((c) => !c.dictada_por)}
+                        onElegir={(id) => void registrarFichada("ENTRADA", id)}
+                      />
+                    </div>
+                  )}
 
                   {/* Botones de descanso — solo si la empresa lo tiene habilitado */}
                   {(punto?.empresa.descanso_wa ?? true) && (
@@ -917,8 +1012,15 @@ export default function FicharPage() {
                   {colaborador.apellido} {colaborador.nombre}
                 </p>
                 <p className="text-gray-400 text-sm">{punto?.nombre}</p>
+                {fichada.clase && (
+                  <p className="text-gray-700 text-sm font-semibold">Clase: {fichada.clase}</p>
+                )}
               </div>
-              {fichada.es_cobertura && (
+              {fichada.reemplazo_de ? (
+                <div className="bg-purple-50 rounded-xl px-4 py-2.5 text-purple-700 text-sm font-medium">
+                  🔄 Reemplazo de {fichada.reemplazo_de}
+                </div>
+              ) : fichada.es_cobertura && (
                 <div className="bg-purple-50 rounded-xl px-4 py-2.5 text-purple-700 text-sm font-medium">
                   🔄 Registrada como cobertura / reemplazo
                 </div>

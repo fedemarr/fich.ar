@@ -42,6 +42,7 @@ interface JornadasDialogProps {
   punto: PuntoConJornadas
   colaboradores: ColabSimple[]
   colabsConJornada: Set<string>
+  modoClases?: boolean
   onClose: () => void
   onSuccess: () => void
 }
@@ -350,8 +351,9 @@ function FrancoSelector({
   )
 }
 
-export function JornadasDialog({ punto, colaboradores, colabsConJornada, onClose, onSuccess }: JornadasDialogProps) {
+export function JornadasDialog({ punto, colaboradores, colabsConJornada, modoClases = false, onClose, onSuccess }: JornadasDialogProps) {
   const [mostrarForm, setMostrarForm] = useState(false)
+  const [esClase, setEsClase] = useState(false)
   const [diasPresencial, setDiasPresencial] = useState<string[]>([])
   const [diasVirtual, setDiasVirtual] = useState<string[]>([])
   const [agregandoEnJornada, setAgregandoEnJornada] = useState<string | null>(null)
@@ -388,13 +390,15 @@ export function JornadasDialog({ punto, colaboradores, colabsConJornada, onClose
         hora_inicio: data.hora_inicio,
         hora_fin: data.hora_fin,
         tolerancia_min: data.tolerancia_min,
+        es_clase: modoClases && esClase,
         ...diasData,
       }),
     })
 
     if (!res.ok) { toast.error("Error al crear turno"); return }
-    toast.success("Turno creado")
+    toast.success(modoClases && esClase ? "Clase creada" : "Turno creado")
     reset()
+    setEsClase(false)
     setDiasPresencial([])
     setDiasVirtual([])
     setMostrarForm(false)
@@ -444,7 +448,14 @@ export function JornadasDialog({ punto, colaboradores, colabsConJornada, onClose
                 {/* Cabecera del turno */}
                 <div className="flex items-start justify-between">
                   <div>
-                    <p className="font-semibold text-sm text-gray-900">{j.nombre}</p>
+                    <p className="font-semibold text-sm text-gray-900">
+                      {j.nombre}
+                      {j.es_clase && (
+                        <span className="ml-2 align-middle text-[10px] font-semibold uppercase tracking-wide text-[#2563EB] bg-[#EFF6FF] px-1.5 py-0.5 rounded">
+                          Clase
+                        </span>
+                      )}
+                    </p>
                     <p className="text-xs text-gray-500 mt-0.5">
                       {j.hora_inicio} — {j.hora_fin}
                       {diasLabel && <span className="ml-2 text-gray-400">· {diasLabel}</span>}
@@ -548,10 +559,24 @@ export function JornadasDialog({ punto, colaboradores, colabsConJornada, onClose
             </Button>
           ) : (
             <form onSubmit={handleSubmit(onSubmit)} className="border border-gray-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-semibold text-gray-800">Nuevo turno</p>
+              <p className="text-sm font-semibold text-gray-800">{esClase ? "Nueva clase" : "Nuevo turno"}</p>
+              {modoClases && (
+                <label className="flex items-start gap-2 p-2.5 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="mt-0.5 accent-[#2563EB]"
+                    checked={esClase}
+                    onChange={(e) => setEsClase(e.target.checked)}
+                  />
+                  <span className="text-xs text-gray-700">
+                    <span className="font-semibold">Es una clase</span> (profes): al fichar la eligen de la lista
+                    y queda registrado quién la dio. Dejalo sin marcar para turnos de empleados.
+                  </span>
+                </label>
+              )}
               <div className="space-y-1.5">
-                <Label className="text-xs">Nombre del turno</Label>
-                <Input className="h-8 text-sm" placeholder="Ej: L-V 9 a 17" {...register("nombre")} />
+                <Label className="text-xs">{esClase ? "Actividad" : "Nombre del turno"}</Label>
+                <Input className="h-8 text-sm" placeholder={esClase ? "Ej: Spinning" : "Ej: L-V 9 a 17"} {...register("nombre")} />
                 {errors.nombre && <p className="text-xs text-red-500">{errors.nombre.message}</p>}
               </div>
               <div className="grid grid-cols-3 gap-2">
@@ -587,7 +612,7 @@ export function JornadasDialog({ punto, colaboradores, colabsConJornada, onClose
               <div className="flex gap-2">
                 <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setMostrarForm(false)}>Cancelar</Button>
                 <Button type="submit" size="sm" className="flex-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={isSubmitting}>
-                  {isSubmitting ? "Creando..." : "Crear turno"}
+                  {isSubmitting ? "Creando..." : esClase ? "Crear clase" : "Crear turno"}
                 </Button>
               </div>
             </form>

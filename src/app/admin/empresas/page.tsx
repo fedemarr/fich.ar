@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState, useCallback } from "react"
-import { Building2, Plus, Users, UserCheck, CheckCircle, XCircle, RefreshCw, ExternalLink, Trash2, ClipboardCheck, Repeat2, BellOff } from "lucide-react"
+import { Building2, Plus, Users, UserCheck, CheckCircle, XCircle, RefreshCw, ExternalLink, Trash2, ClipboardCheck, Repeat2, BellOff, Dumbbell } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -17,6 +17,7 @@ interface Empresa {
   modulo_operaciones: boolean
   fichaje_libre: boolean
   recordatorios_wa: boolean
+  fichaje_por_clase: boolean
   created_at: string
   _count: { colaboradores: number; usuarios: number }
 }
@@ -65,7 +66,7 @@ export default function EmpresasPage() {
     )
   }, [nombre])
 
-  async function toggleModulo(id: string, campo: "modulo_operaciones" | "fichaje_libre" | "recordatorios_wa", valor: boolean) {
+  async function toggleModulo(id: string, campo: "modulo_operaciones" | "fichaje_libre" | "recordatorios_wa" | "fichaje_por_clase", valor: boolean) {
     setToggling(id + campo)
     try {
       await fetch(`/api/admin/empresas?id=${id}`, {
@@ -230,6 +231,18 @@ export default function EmpresasPage() {
                     checked={e.recordatorios_wa}
                     disabled={toggling === e.id + "recordatorios_wa"}
                     onCheckedChange={(v) => toggleModulo(e.id, "recordatorios_wa", v)}
+                  />
+                </div>
+                <div className="flex items-center gap-3 p-3 bg-[#F9FAFB] rounded-lg">
+                  <Dumbbell className="w-4 h-4 text-[#6B7280] shrink-0" />
+                  <div className="flex-1">
+                    <p className="text-xs font-medium text-[#111827]">Fichaje por clase (gimnasios)</p>
+                    <p className="text-[10px] text-[#6B7280]">Los profes eligen la clase al fichar; reemplazos y liquidación por clase</p>
+                  </div>
+                  <Switch
+                    checked={e.fichaje_por_clase}
+                    disabled={toggling === e.id + "fichaje_por_clase"}
+                    onCheckedChange={(v) => toggleModulo(e.id, "fichaje_por_clase", v)}
                   />
                 </div>
               </div>

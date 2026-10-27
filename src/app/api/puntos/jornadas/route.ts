@@ -10,6 +10,7 @@ const schema = z.object({
   hora_inicio: z.string().regex(/^\d{2}:\d{2}$/),
   hora_fin: z.string().regex(/^\d{2}:\d{2}$/),
   tolerancia_min: z.number().min(0).max(60),
+  es_clase: z.boolean().optional().default(false),
   lunes_presencial: z.boolean().optional().default(false),
   martes_presencial: z.boolean().optional().default(false),
   miercoles_presencial: z.boolean().optional().default(false),
@@ -37,8 +38,13 @@ export async function POST(req: Request) {
   // Verify the punto belongs to this empresa
   const punto = await prisma.puntoFichaje.findFirst({
     where: { id: parsed.data.punto_fichaje_id, empresa_id: session.user.empresaId },
+    include: { empresa: { select: { fichaje_por_clase: true } } },
   })
   if (!punto) return NextResponse.json({ error: "Punto no encontrado" }, { status: 404 })
+  // Las clases solo existen en empresas con fichaje por clase
+  if (parsed.data.es_clase && !punto.empresa.fichaje_por_clase) {
+    return NextResponse.json({ error: "Esta empresa no ficha por clase" }, { status: 400 })
+  }
 
   const { punto_fichaje_id, ...jornadaData } = parsed.data
   const jornada = await prisma.jornada.create({

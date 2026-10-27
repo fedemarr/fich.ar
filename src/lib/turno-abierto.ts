@@ -8,6 +8,7 @@ export interface TurnoAbierto {
   id: string
   punto_fichaje_id: string | null
   timestamp: Date
+  jornada_id: string | null
 }
 
 // Devuelve la última ENTRADA si todavía no tiene su SALIDA; null si el colaborador no está trabajando
@@ -20,8 +21,8 @@ export async function buscarTurnoAbierto(
   const ultima = await prisma.fichada.findFirst({
     where: { colaborador_id: colaboradorId, empresa_id: empresaId, es_valida: true, timestamp: { gte: desde } },
     orderBy: { timestamp: "desc" },
-    select: { id: true, tipo: true, punto_fichaje_id: true, timestamp: true },
+    select: { id: true, tipo: true, punto_fichaje_id: true, timestamp: true, jornada_id: true },
   })
   if (!ultima || ultima.tipo !== "ENTRADA") return null
-  return { id: ultima.id, punto_fichaje_id: ultima.punto_fichaje_id, timestamp: ultima.timestamp }
+  return { id: ultima.id, punto_fichaje_id: ultima.punto_fichaje_id, timestamp: ultima.timestamp, jornada_id: ultima.jornada_id }
 }
