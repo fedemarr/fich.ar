@@ -39,10 +39,12 @@ export async function POST(req: Request, { params }: Params) {
   if (yaEnEstaJornada) return NextResponse.json({ error: "El colaborador ya está en este turno" }, { status: 409 })
 
   // Obtener todas sus jornadas activas en CUALQUIER punto para validar solapamiento
+  // (los turnos eliminados no cuentan aunque la asignación haya quedado abierta)
   const asignacionesActivas = await prisma.colaboradorJornada.findMany({
     where: {
       colaborador_id,
       jornada_id: { not: jornadaId },
+      jornada: { activo: true },
       OR: [{ fecha_hasta: null }, { fecha_hasta: { gte: new Date() } }],
     },
     include: {

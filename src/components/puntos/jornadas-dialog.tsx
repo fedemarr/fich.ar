@@ -5,7 +5,7 @@ import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { z } from "zod"
 import { toast } from "sonner"
-import { Plus, X, UserPlus, Search, Check, AlertTriangle } from "lucide-react"
+import { Plus, X, UserPlus, Search, Check, AlertTriangle, Pencil } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -353,6 +353,8 @@ function FrancoSelector({
 
 export function JornadasDialog({ punto, colaboradores, colabsConJornada, modoClases = false, onClose, onSuccess }: JornadasDialogProps) {
   const [mostrarForm, setMostrarForm] = useState(false)
+  // id del turno que se está editando (null = creando uno nuevo)
+  const [editandoId, setEditandoId] = useState<string | null>(null)
   const [esClase, setEsClase] = useState(false)
   const [diasPresencial, setDiasPresencial] = useState<string[]>([])
   const [diasVirtual, setDiasVirtual] = useState<string[]>([])
@@ -381,11 +383,11 @@ export function JornadasDialog({ punto, colaboradores, colabsConJornada, modoCla
       diasData[`${d}_virtual`] = diasVirtual.includes(d)
     })
 
-    const res = await fetch("/api/puntos/jornadas", {
-      method: "POST",
+    const res = await fetch(editandoId ? `/api/puntos/jornadas/${editandoId}` : "/api/puntos/jornadas", {
+      method: editandoId ? "PATCH" : "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        punto_fichaje_id: punto.id,
+        ...(editandoId ? {} : { punto_fichaje_id: punto.id }),
         nombre: data.nombre,
         hora_inicio: data.hora_inicio,
         hora_fin: data.hora_fin,
@@ -395,14 +397,43 @@ export function JornadasDialog({ punto, colaboradores, colabsConJornada, modoCla
       }),
     })
 
-    if (!res.ok) { toast.error("Error al crear turno"); return }
-    toast.success(modoClases && esClase ? "Clase creada" : "Turno creado")
-    reset()
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({})) as { error?: string }
+      toast.error(err.error ?? (editandoId ? "Error al guardar el turno" : "Error al crear turno"), { duration: 6000 })
+      return
+    }
+    const etiqueta = modoClases && esClase ? "Clase" : "Turno"
+    toast.success(editandoId ? `${etiqueta} actualizado` : `${etiqueta} creado`)
+    cerrarForm()
+    onSuccess()
+  }
+
+  function cerrarForm() {
+    reset({ nombre: "", hora_inicio: "", hora_fin: "", tolerancia_min: 15, dias_presencial: [], dias_virtual: [] })
     setEsClase(false)
     setDiasPresencial([])
     setDiasVirtual([])
+    setEditandoId(null)
     setMostrarForm(false)
-    onSuccess()
+  }
+
+  function editarJornada(j: Jornada) {
+    const fields = j as unknown as Record<string, unknown>
+    reset({
+      nombre: j.nombre,
+      hora_inicio: j.hora_inicio,
+      hora_fin: j.hora_fin,
+      tolerancia_min: j.tolerancia_min,
+      dias_presencial: [],
+      dias_virtual: [],
+    })
+    setDiasPresencial(DIAS.filter((d) => fields[`${d}_presencial`]))
+    setDiasVirtual(DIAS.filter((d) => fields[`${d}_virtual`]))
+    setEsClase(j.es_clase)
+    setEditandoId(j.id)
+    setMostrarForm(true)
+    // El formulario está al final de la lista: llevarlo a la vista
+    setTimeout(() => document.getElementById("form-turno")?.scrollIntoView({ behavior: "smooth", block: "center" }), 50)
   }
 
   async function eliminarJornada(jornadaId: string) {
@@ -462,13 +493,22 @@ export function JornadasDialog({ punto, colaboradores, colabsConJornada, modoCla
                       <span className="ml-2 text-gray-400">· {j.tolerancia_min}min tolerancia</span>
                     </p>
                   </div>
-                  <button
-                    onClick={() => eliminarJornada(j.id)}
-                    className="text-gray-300 hover:text-red-400 transition-colors shrink-0 mt-0.5"
-                    title="Eliminar turno"
-                  >
-                    <X size={15} />
-                  </button>
+                  <div className="flex items-center gap-2 shrink-0 mt-0.5">
+                    <button
+                      onClick={() => editarJornada(j)}
+                      className="text-gray-300 hover:text-[#2563EB] transition-colors"
+                      title="Editar turno"
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={() => eliminarJornada(j.id)}
+                      className="text-gray-300 hover:text-red-400 transition-colors"
+                      title="Eliminar turno"
+                    >
+                      <X size={15} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Lista de colaboradores */}
@@ -558,8 +598,12 @@ export function JornadasDialog({ punto, colaboradores, colabsConJornada, modoCla
               Agregar turno
             </Button>
           ) : (
-            <form onSubmit={handleSubmit(onSubmit)} className="border border-gray-200 rounded-xl p-4 space-y-3">
-              <p className="text-sm font-semibold text-gray-800">{esClase ? "Nueva clase" : "Nuevo turno"}</p>
+            <form id="form-turno" onSubmit={handleSubmit(onSubmit)} className="border border-gray-200 rounded-xl p-4 space-y-3">
+              <p className="text-sm font-semibold text-gray-800">
+                {editandoId
+                  ? (esClase ? "Editar clase" : "Editar turno")
+                  : (esClase ? "Nueva clase" : "Nuevo turno")}
+              </p>
               {modoClases && (
                 <label className="flex items-start gap-2 p-2.5 rounded-lg bg-[#EFF6FF] border border-[#BFDBFE] cursor-pointer">
                   <input
@@ -610,9 +654,11 @@ export function JornadasDialog({ punto, colaboradores, colabsConJornada, modoCla
                 </div>
               </div>
               <div className="flex gap-2">
-                <Button type="button" variant="outline" size="sm" className="flex-1" onClick={() => setMostrarForm(false)}>Cancelar</Button>
+                <Button type="button" variant="outline" size="sm" className="flex-1" onClick={cerrarForm}>Cancelar</Button>
                 <Button type="submit" size="sm" className="flex-1 bg-[#2563EB] hover:bg-[#1D4ED8] text-white" disabled={isSubmitting}>
-                  {isSubmitting ? "Creando..." : esClase ? "Crear clase" : "Crear turno"}
+                  {isSubmitting
+                    ? (editandoId ? "Guardando..." : "Creando...")
+                    : editandoId ? "Guardar cambios" : esClase ? "Crear clase" : "Crear turno"}
                 </Button>
               </div>
             </form>
