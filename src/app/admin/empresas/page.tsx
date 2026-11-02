@@ -250,7 +250,7 @@ export default function EmpresasPage() {
                   <Moon className="w-4 h-4 text-[#6B7280] shrink-0" />
                   <div className="flex-1">
                     <p className="text-xs font-medium text-[#111827]">Ausencias al final del día</p>
-                    <p className="text-[10px] text-[#6B7280]">Marca ausentes a las 23:30 en vez de a las 10:00 (servicios a la tarde)</p>
+                    <p className="text-[10px] text-[#6B7280]">Marca ausentes a las 18:00 según el turno asignado, en vez de a las 10:00</p>
                   </div>
                   <Switch
                     checked={e.alertas_fin_dia}

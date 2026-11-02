@@ -82,7 +82,7 @@ model Empresa {
   descanso_wa          Boolean   @default(true)
   // Gimnasios: los profes eligen la clase al fichar (SportClub)
   fichaje_por_clase    Boolean   @default(false)
-  // Ausencias controladas a las 23:30 ARG en vez de a las 10:00 (servicios a la tarde, FourMaster)
+  // Ausencias controladas a las 18:00 ARG en vez de a las 10:00 (servicios a la tarde, FourMaster)
   alertas_fin_dia      Boolean   @default(false)
   created_at           DateTime  @default(now())
   updated_at DateTime  @updatedAt
