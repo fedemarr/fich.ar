@@ -12,6 +12,7 @@ import {
 } from "@/lib/whatsapp"
 import { calcularAnalisis, encontrarJornadaParaFichada } from "@/lib/jornadas"
 import { calcularDistanciaMetros } from "@/lib/geo"
+import { hoyARG } from "@/lib/utils"
 
 // GET — Meta webhook verification
 export async function GET(req: Request) {
@@ -216,7 +217,7 @@ async function manejarMensaje(from: string, msg: WAMessage) {
 
       if (reply === "WA_DESCANSO_INICIO") {
         // Iniciar descanso
-        const hoy = new Date().toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" }).split("/").reverse().join("-")
+        const hoy = hoyARG()
         const descansoExiste = await prisma.descanso.findFirst({
           where: {
             colaborador_id: estado.colaborador_id,
@@ -240,7 +241,7 @@ async function manejarMensaje(from: string, msg: WAMessage) {
 
       if (reply === "WA_DESCANSO_FIN") {
         // Terminar descanso activo
-        const hoy = new Date().toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" }).split("/").reverse().join("-")
+        const hoy = hoyARG()
         const descanso = await prisma.descanso.findFirst({
           where: {
             colaborador_id: estado.colaborador_id,
@@ -263,7 +264,7 @@ async function manejarMensaje(from: string, msg: WAMessage) {
       }
 
       // Cualquier otro mensaje: mostrar menú de opciones
-      const hoy = new Date().toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" }).split("/").reverse().join("-")
+      const hoy = hoyARG()
       const [descansoHoy, empresaConfig] = await Promise.all([
         prisma.descanso.findFirst({
           where: {
@@ -472,7 +473,7 @@ async function procesarFichada(
 
   // Verificar si hay una entrada abierta hoy en cualquier punto (soporte multi-jornada)
   if (tipo === "ENTRADA") {
-    const hoyArg = ahora.toLocaleDateString("es-AR", { timeZone: "America/Argentina/Buenos_Aires" }).split("/").reverse().join("-")
+    const hoyArg = hoyARG()
     const ultimaFichadaHoy = await prisma.fichada.findFirst({
       where: {
         colaborador_id: colaboradorId,
