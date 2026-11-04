@@ -91,8 +91,48 @@ async function procesarWebhook(payload: WAPayload) {
         wa_message_id: waId,
       },
     })
-    await manejarMensaje(from, msg)
+    try {
+      await manejarMensaje(from, msg)
+    } catch (e) {
+      await avisarErrorBot(from, waId, e)
+    }
   }
+}
+
+// Un error del bot nunca puede quedar en silencio: se guarda en el mensaje, se le
+// contesta al empleado y se avisa a la empresa (así se detectó tarde la caída de nov 2026)
+async function avisarErrorBot(from: string, waId: string, e: unknown) {
+  const stack = e instanceof Error ? e.stack ?? e.message : String(e)
+  console.error("[WA_ERR]", stack.slice(0, 200))
+  try { await redis.set("wa:last_error", stack.slice(0, 800), { ex: 600 }) } catch { /* ignore */ }
+  try {
+    await prisma.webhookWA.update({ where: { wa_message_id: waId }, data: { error: stack.slice(0, 1000) } })
+  } catch { /* ignore */ }
+  // Sesión limpia: que el próximo intento empiece de cero y no quede trabado pidiendo ubicación
+  try { await delEstadoBot(from) } catch { /* ignore */ }
+  try {
+    await enviarTexto({
+      to: toEnvio(from),
+      body: "⚠️ No pudimos registrar tu fichada por un error del sistema. Probá de nuevo en unos minutos escaneando el QR; si sigue fallando, avisale a tu supervisor.",
+    })
+  } catch { /* ignore */ }
+  try {
+    const colaborador = await prisma.colaborador.findFirst({
+      where: { celular: "+" + from, deleted_at: null },
+      select: { id: true, nombre: true, apellido: true, empresa_id: true },
+    })
+    if (colaborador) {
+      await prisma.notificacion.create({
+        data: {
+          empresa_id: colaborador.empresa_id,
+          colaborador_id: colaborador.id,
+          tipo: "SISTEMA",
+          titulo: `Error del bot de WhatsApp — ${colaborador.apellido}, ${colaborador.nombre}`,
+          descripcion: "No se pudo registrar su fichada por WhatsApp. Revisá si hace falta cargarla manualmente.",
+        },
+      })
+    }
+  } catch { /* ignore */ }
 }
 
 // Argentina: usar el número exacto que WA envía (549XXXXXXXXXX) para el reply
