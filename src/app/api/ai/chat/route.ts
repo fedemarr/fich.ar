@@ -1,3 +1,4 @@
+import { hoyARG } from "@/lib/utils"
 import { NextResponse } from "next/server"
 import { auth } from "@/lib/auth"
 import { prisma } from "@/lib/prisma"
@@ -171,7 +172,7 @@ async function ejecutarTool(name: string, input: Record<string, string>, empresa
   }
 
   if (name === "get_resumen_dia") {
-    const fecha = input.fecha ?? new Date().toISOString().split("T")[0]
+    const fecha = input.fecha ?? hoyARG()
     const desde = new Date(fecha + "T00:00:00")
     const hasta = new Date(fecha + "T23:59:59")
 
@@ -192,7 +193,7 @@ async function ejecutarTool(name: string, input: Record<string, string>, empresa
   }
 
   if (name === "query_fichadas") {
-    const fecha = input.fecha ?? new Date().toISOString().split("T")[0]
+    const fecha = input.fecha ?? hoyARG()
     const desde = new Date(fecha + "T00:00:00")
     const hasta = new Date(fecha + "T23:59:59")
 

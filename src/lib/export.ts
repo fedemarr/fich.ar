@@ -1,3 +1,4 @@
+import { hoyARG } from "@/lib/utils"
 import * as XLSX from "xlsx"
 
 interface DiaReporteExport {
@@ -32,7 +33,7 @@ export function exportarHistorialOperacionesExcel(dias: DiaReporteExport[]) {
   ]
   const wb = XLSX.utils.book_new()
   XLSX.utils.book_append_sheet(wb, ws, "Historial")
-  XLSX.writeFile(wb, `operaciones-historial-${new Date().toISOString().slice(0, 10)}.xlsx`)
+  XLSX.writeFile(wb, `operaciones-historial-${hoyARG()}.xlsx`)
 }
 
 interface FilaExport {

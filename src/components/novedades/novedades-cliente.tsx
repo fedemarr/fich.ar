@@ -1,5 +1,6 @@
 "use client"
 
+import { hoyARG } from "@/lib/utils"
 import { useState } from "react"
 import { useRouter, usePathname } from "next/navigation"
 import { Calendar, AlertCircle, FileText, Plus, CheckCircle2, Trash2, Zap, CalendarCheck } from "lucide-react"
@@ -453,7 +454,7 @@ export function NovedadesCliente({
         novedad={novedadEditando}
         colaboradores={colaboradores}
         colaboradorPreseleccionado={colaboradorDialog}
-        fechaDefault={fechaDialog || new Date().toISOString().split("T")[0]}
+        fechaDefault={fechaDialog || hoyARG()}
         onClose={() => {
           setDialogoAbierto(false)
           setNovedadEditando(null)

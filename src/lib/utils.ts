@@ -18,14 +18,26 @@ export function normalizarCelular(raw: string): string {
 // Argentina siempre UTC-3, sin horario de verano
 const TZ = "America/Argentina/Buenos_Aires"
 
-// Hoy como YYYY-MM-DD en hora ARG
+// Hoy como YYYY-MM-DD en hora ARG.
+// Nunca usar new Date().toISOString().slice(0, 10) para "hoy": eso es la fecha UTC,
+// que entre las 21:00 y las 23:59 de Argentina ya es el día siguiente.
 export function hoyARG(): string {
-  return new Date().toLocaleDateString("en-CA", { timeZone: TZ })
+  return fechaARG(new Date())
 }
 
-// Convierte Date a YYYY-MM-DD en hora ARG
+// Convierte Date a YYYY-MM-DD en hora ARG (UTC-3 fijo, sin depender del locale del navegador)
 export function fechaARG(date: Date): string {
-  return date.toLocaleDateString("en-CA", { timeZone: TZ })
+  return new Date(date.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 10)
+}
+
+// "YYYY-MM-DDTHH:MM" en hora ARG, para inputs datetime-local
+export function fechaHoraLocalARG(date: Date): string {
+  return new Date(date.getTime() - 3 * 60 * 60 * 1000).toISOString().slice(0, 16)
+}
+
+// Interpreta "YYYY-MM-DDTHH:MM" como hora ARG, sin importar la zona horaria del dispositivo
+export function desdeFechaHoraARG(valor: string): Date {
+  return new Date(`${valor.slice(0, 16)}:00-03:00`)
 }
 
 // Hora numérica (0-23) en ARG a partir de un Date UTC

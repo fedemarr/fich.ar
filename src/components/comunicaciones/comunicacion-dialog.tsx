@@ -1,5 +1,6 @@
 "use client"
 
+import { hoyARG, fechaARG } from "@/lib/utils"
 import { useEffect } from "react"
 import { useForm, type Resolver } from "react-hook-form"
 import { zodResolver } from "@hookform/resolvers/zod"
@@ -47,8 +48,8 @@ export function ComunicacionDialog({ open, comunicacion, onClose, onSuccess }: C
         activa: comunicacion.activa,
       })
     } else {
-      const hoy = new Date().toISOString().split("T")[0]
-      const en30 = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split("T")[0]
+      const hoy = hoyARG()
+      const en30 = fechaARG(new Date(Date.now() + 30 * 24 * 60 * 60 * 1000))
       reset({ texto: "", fecha_inicio: hoy, fecha_fin: en30, activa: true })
     }
   }, [comunicacion, reset])

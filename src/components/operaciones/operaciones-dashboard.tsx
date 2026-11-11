@@ -13,7 +13,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter,
 } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
-import { cn } from "@/lib/utils"
+import { cn, hoyARG } from "@/lib/utils"
 
 // ─── Historial ────────────────────────────────────────────────────────────────
 
@@ -106,7 +106,7 @@ function HistorialTab() {
         <div className="space-y-2">
           {[...dias].reverse().map((d) => {
             const label = format(parseISO(d.fecha), "EEE d MMM", { locale: es })
-            const esHoy = d.fecha === new Date().toISOString().slice(0, 10)
+            const esHoy = d.fecha === hoyARG()
             const sinDatos = d.total === 0
 
             return (

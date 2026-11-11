@@ -16,6 +16,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import type { Colaborador } from "@/generated/prisma/client"
+import { fechaHoraLocalARG, desdeFechaHoraARG } from "@/lib/utils"
 
 const schema = z.object({
   colaborador_id: z.string().min(1, "Seleccioná un colaborador"),
@@ -42,8 +43,8 @@ export function FichadaManualDialog({
 }: FichadaManualDialogProps) {
   const [loading, setLoading] = useState(false)
 
-  const now = new Date()
-  const defaultTimestamp = `${now.toISOString().split("T")[0]}T${now.toTimeString().slice(0, 5)}`
+  // Fecha y hora de Argentina (con toISOString, después de las 21:00 quedaba el día siguiente)
+  const defaultTimestamp = fechaHoraLocalARG(new Date())
 
   const { register, handleSubmit, setValue, reset, formState: { errors } } = useForm<FormData>({
     resolver: zodResolver(schema),
@@ -59,7 +60,7 @@ export function FichadaManualDialog({
         body: JSON.stringify({
           colaborador_id: data.colaborador_id,
           tipo: data.tipo,
-          timestamp: new Date(data.timestamp).toISOString(),
+          timestamp: desdeFechaHoraARG(data.timestamp).toISOString(),
           nota_manual: data.nota,
           metodo: "MANUAL",
         }),
