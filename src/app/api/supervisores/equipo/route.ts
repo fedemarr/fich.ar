@@ -56,6 +56,7 @@ export async function GET() {
       empresa_id: empresaId,
       colaborador_id: { in: colaboradores.map((c) => c.id) },
       timestamp: { gte: hoyInicio, lte: hoyFin },
+      es_valida: true,
     },
     orderBy: { timestamp: "asc" },
   })

@@ -61,6 +61,7 @@ export default async function ListadoPage({ params, searchParams }: ListadoPageP
       where: {
         empresa_id: empresaId,
         timestamp: { gte: fechaDesde, lte: fechaHasta },
+        es_valida: true, // las fichadas anuladas no cuentan (como en Resumen y Movimientos)
         ...(puntosIds ? { punto_fichaje_id: { in: puntosIds } } : {}),
       },
       include: {
